@@ -11,6 +11,21 @@ namespace
     TaughtSpellMap g_taughtSpells;
     std::mutex g_taughtSpellsLock;
 
+    struct LevelOverride
+    {
+        RE::FormID baseFormID = 0;
+        std::uint16_t originalMax = 0;
+    };
+    using LevelOverrideMap = std::unordered_map<RE::FormID, LevelOverride>;
+    LevelOverrideMap g_levelOverrides;
+    std::mutex g_levelOverridesLock;
+
+    struct LevelScalingConfig
+    {
+        std::uint16_t maxLevel = 300;
+    };
+    LevelScalingConfig g_levelScaling;
+
     constexpr std::uint32_t FourCC(char a, char b, char c, char d)
     {
         return static_cast<std::uint32_t>(a) |
@@ -21,6 +36,7 @@ namespace
 
     constexpr std::uint32_t kSerializationID = FourCC('F', 'S', 'B', 'M');
     constexpr std::uint32_t kRecordType = FourCC('S', 'P', 'L', 'S');
+    constexpr std::uint32_t kLevelRecordType = FourCC('L', 'V', 'L', 'S');
     constexpr std::uint32_t kRecordVersion = 1;
     constexpr std::uint32_t kMaxFollowersPerSave = 2048;
     constexpr std::uint32_t kMaxSpellsPerFollower = 1024;
@@ -134,6 +150,49 @@ namespace
         return hotkey;
     }
 
+    [[nodiscard]] LevelScalingConfig LoadLevelScalingConfig()
+    {
+        LevelScalingConfig config;
+        try {
+            const auto modulePath = REL::Module::get().filePath();
+            const auto configPath = std::filesystem::path(modulePath.data()).parent_path() / "Data" / "SKSE" / "Plugins" / "FollowerSpellbookManager.ini";
+            std::ifstream configFile(configPath);
+            if (!configFile) return config;
+
+            bool inLevelSection = false;
+            std::string line;
+            while (std::getline(configFile, line)) {
+                if (const auto comment = line.find_first_of(";#"); comment != std::string::npos) line.erase(comment);
+                const auto normalizedLine = NormalizeKeyName(line);
+                if (normalizedLine.empty()) continue;
+                if (normalizedLine.front() == '[' && normalizedLine.back() == ']') {
+                    inLevelSection = normalizedLine == "[LEVELSCALING]";
+                    continue;
+                }
+                if (!inLevelSection) continue;
+
+                const auto separator = line.find('=');
+                if (separator == std::string::npos) continue;
+                const auto setting = NormalizeKeyName(line.substr(0, separator));
+                const auto value = NormalizeKeyName(line.substr(separator + 1));
+                if (setting != "MAXLEVEL") continue;
+                try {
+                    const auto parsed = std::stoul(value);
+                    if (parsed >= 1 && parsed <= 1000) config.maxLevel = static_cast<std::uint16_t>(parsed);
+                    else logger::warn("LevelScaling.MaxLevel must be between 1 and 1000; using 300.");
+                }
+                catch (const std::exception&) {
+                    logger::warn("Invalid LevelScaling.MaxLevel '{}'; using 300.", value);
+                }
+            }
+        }
+        catch (const std::exception& error) {
+            logger::warn("Could not read level scaling configuration; using max level 300. {}", error.what());
+        }
+        logger::info("Follower level scaling target: {}.", config.maxLevel);
+        return config;
+    }
+
     [[nodiscard]] std::string SchoolName(RE::ActorValue a_skill)
     {
         switch (a_skill) {
@@ -144,6 +203,98 @@ namespace
         case RE::ActorValue::kRestoration: return "Restoration";
         default: return "Other";
         }
+    }
+
+    [[nodiscard]] std::string SpellDescription(RE::SpellItem* a_spell)
+    {
+        if (!a_spell) return {};
+        RE::BSString description;
+        RE::MagicSystem::GetMagicItemDescription(description, a_spell, "", "");
+        return description.c_str() ? description.c_str() : "";
+    }
+
+    [[nodiscard]] std::string ActorClassName(RE::Actor* a_actor)
+    {
+        const auto actorBase = a_actor ? a_actor->GetActorBase() : nullptr;
+        const auto actorClass = actorBase ? actorBase->npcClass : nullptr;
+        const auto name = actorClass ? actorClass->GetFullName() : nullptr;
+        return name && name[0] != '\0' ? name : "Unclassified";
+    }
+
+    [[nodiscard]] json ActorResource(RE::Actor* a_actor, RE::ActorValue a_value)
+    {
+        const auto owner = a_actor ? a_actor->AsActorValueOwner() : nullptr;
+        if (!owner) return { { "current", 0 }, { "max", 0 } };
+
+        const auto currentValue = (std::max)(0.0f, owner->GetActorValue(a_value));
+        const auto damageModifier = a_actor->GetActorValueModifier(RE::ACTOR_VALUE_MODIFIERS::kDamage, a_value);
+        const auto maximumValue = (std::max)(currentValue, currentValue - damageModifier);
+        return {
+            { "current", static_cast<int>(currentValue + 0.5f) },
+            { "max", static_cast<int>(maximumValue + 0.5f) }
+        };
+    }
+
+    [[nodiscard]] std::optional<LevelOverride> GetLevelOverride(RE::FormID a_actorID)
+    {
+        std::scoped_lock lock(g_levelOverridesLock);
+        const auto found = g_levelOverrides.find(a_actorID);
+        return found == g_levelOverrides.end() ? std::nullopt : std::optional<LevelOverride>(found->second);
+    }
+
+    void ApplyLevelOverride(RE::FormID a_actorID, const LevelOverride& a_override)
+    {
+        const auto actorBase = RE::TESForm::LookupByID<RE::TESNPC>(a_override.baseFormID);
+        if (!actorBase || !actorBase->HasPCLevelMult()) return;
+        actorBase->actorData.calcLevelMax = (std::max)(actorBase->actorData.calcLevelMax, (std::max)(a_override.originalMax, g_levelScaling.maxLevel));
+        if (const auto actor = RE::TESForm::LookupByID<RE::Actor>(a_actorID)) {
+            static_cast<void>(actor->GetCalcLevel(true));
+        }
+    }
+
+    void RestoreLevelOverride(const LevelOverride& a_override)
+    {
+        if (const auto actorBase = RE::TESForm::LookupByID<RE::TESNPC>(a_override.baseFormID)) {
+            actorBase->actorData.calcLevelMax = a_override.originalMax;
+        }
+    }
+
+    void ReapplyAllLevelOverrides()
+    {
+        LevelOverrideMap saved;
+        {
+            std::scoped_lock lock(g_levelOverridesLock);
+            saved = g_levelOverrides;
+        }
+        for (const auto& [actorID, levelOverride] : saved) ApplyLevelOverride(actorID, levelOverride);
+    }
+
+    [[nodiscard]] json ActorLevelScaling(RE::Actor* a_actor)
+    {
+        const auto actorBase = a_actor ? a_actor->GetActorBase() : nullptr;
+        if (!actorBase) {
+            return {
+                { "playerScaled", false }, { "multiplier", 0.0f }, { "currentMax", 0 },
+                { "originalMax", 0 }, { "targetMax", g_levelScaling.maxLevel },
+                { "enabled", false }, { "canToggle", false }
+            };
+        }
+
+        const auto levelOverride = GetLevelOverride(a_actor->GetFormID());
+        const auto playerScaled = actorBase->HasPCLevelMult();
+        const auto currentMax = actorBase->actorData.calcLevelMax;
+        const auto originalMax = levelOverride ? levelOverride->originalMax : currentMax;
+        const auto targetMax = (std::max)(originalMax, g_levelScaling.maxLevel);
+        const auto canToggle = levelOverride.has_value() || (playerScaled && currentMax != 0 && currentMax < g_levelScaling.maxLevel);
+        return {
+            { "playerScaled", playerScaled },
+            { "multiplier", playerScaled ? static_cast<float>(actorBase->actorData.level) / 1000.0f : 0.0f },
+            { "currentMax", currentMax },
+            { "originalMax", originalMax },
+            { "targetMax", targetMax },
+            { "enabled", levelOverride.has_value() },
+            { "canToggle", canToggle }
+        };
     }
 
     class SpellCollector final : public RE::Actor::ForEachSpellVisitor
@@ -230,7 +381,7 @@ namespace
         }
     }
 
-    void SaveTaughtSpells(SKSE::SerializationInterface* a_serialization)
+    void SaveState(SKSE::SerializationInterface* a_serialization)
     {
         TaughtSpellMap saved;
         {
@@ -247,49 +398,108 @@ namespace
                 if (!a_serialization->WriteRecordData(spellID)) return;
             }
         }
+
+        LevelOverrideMap levelOverrides;
+        {
+            std::scoped_lock lock(g_levelOverridesLock);
+            levelOverrides = g_levelOverrides;
+        }
+        if (!a_serialization->OpenRecord(kLevelRecordType, kRecordVersion)) return;
+        const auto overrideCount = static_cast<std::uint32_t>(levelOverrides.size());
+        if (!a_serialization->WriteRecordData(overrideCount)) return;
+        for (const auto& [actorID, levelOverride] : levelOverrides) {
+            if (!a_serialization->WriteRecordData(actorID) ||
+                !a_serialization->WriteRecordData(levelOverride.baseFormID) ||
+                !a_serialization->WriteRecordData(levelOverride.originalMax)) return;
+        }
     }
 
-    void LoadTaughtSpells(SKSE::SerializationInterface* a_serialization)
+    void LoadState(SKSE::SerializationInterface* a_serialization)
     {
         TaughtSpellMap restored;
+        LevelOverrideMap restoredLevels;
         std::uint32_t type = 0;
         std::uint32_t version = 0;
         std::uint32_t length = 0;
         while (a_serialization->GetNextRecordInfo(type, version, length)) {
-            if (type != kRecordType || version != kRecordVersion) {
+            if (version != kRecordVersion) {
                 std::vector<std::byte> ignored(length);
                 a_serialization->ReadRecordData(ignored.data(), length);
                 continue;
             }
 
-            std::uint32_t followerCount = 0;
-            if (a_serialization->ReadRecordData(followerCount) != sizeof(followerCount) || followerCount > kMaxFollowersPerSave) break;
-            for (std::uint32_t i = 0; i < followerCount; ++i) {
-                RE::FormID oldActorID = 0;
-                std::uint32_t spellCount = 0;
-                if (a_serialization->ReadRecordData(oldActorID) != sizeof(oldActorID) ||
-                    a_serialization->ReadRecordData(spellCount) != sizeof(spellCount) ||
-                    spellCount > kMaxSpellsPerFollower) {
-                    break;
+            if (type == kRecordType) {
+                std::uint32_t followerCount = 0;
+                if (a_serialization->ReadRecordData(followerCount) != sizeof(followerCount) || followerCount > kMaxFollowersPerSave) break;
+                for (std::uint32_t i = 0; i < followerCount; ++i) {
+                    RE::FormID oldActorID = 0;
+                    std::uint32_t spellCount = 0;
+                    if (a_serialization->ReadRecordData(oldActorID) != sizeof(oldActorID) ||
+                        a_serialization->ReadRecordData(spellCount) != sizeof(spellCount) ||
+                        spellCount > kMaxSpellsPerFollower) {
+                        break;
+                    }
+                    RE::FormID actorID = 0;
+                    const bool actorResolved = a_serialization->ResolveFormID(oldActorID, actorID);
+                    for (std::uint32_t j = 0; j < spellCount; ++j) {
+                        RE::FormID oldSpellID = 0;
+                        if (a_serialization->ReadRecordData(oldSpellID) != sizeof(oldSpellID)) break;
+                        RE::FormID spellID = 0;
+                        if (actorResolved && a_serialization->ResolveFormID(oldSpellID, spellID)) restored[actorID].insert(spellID);
+                    }
                 }
-                RE::FormID actorID = 0;
-                const bool actorResolved = a_serialization->ResolveFormID(oldActorID, actorID);
-                for (std::uint32_t j = 0; j < spellCount; ++j) {
-                    RE::FormID oldSpellID = 0;
-                    if (a_serialization->ReadRecordData(oldSpellID) != sizeof(oldSpellID)) break;
-                    RE::FormID spellID = 0;
-                    if (actorResolved && a_serialization->ResolveFormID(oldSpellID, spellID)) restored[actorID].insert(spellID);
-                }
+                continue;
             }
+
+            if (type == kLevelRecordType) {
+                std::uint32_t overrideCount = 0;
+                if (a_serialization->ReadRecordData(overrideCount) != sizeof(overrideCount) || overrideCount > kMaxFollowersPerSave) break;
+                for (std::uint32_t i = 0; i < overrideCount; ++i) {
+                    RE::FormID oldActorID = 0;
+                    RE::FormID oldBaseID = 0;
+                    std::uint16_t originalMax = 0;
+                    if (a_serialization->ReadRecordData(oldActorID) != sizeof(oldActorID) ||
+                        a_serialization->ReadRecordData(oldBaseID) != sizeof(oldBaseID) ||
+                        a_serialization->ReadRecordData(originalMax) != sizeof(originalMax)) break;
+                    RE::FormID actorID = 0;
+                    RE::FormID baseID = 0;
+                    if (a_serialization->ResolveFormID(oldActorID, actorID) &&
+                        a_serialization->ResolveFormID(oldBaseID, baseID)) {
+                        restoredLevels[actorID] = { baseID, originalMax };
+                    }
+                }
+                continue;
+            }
+
+            std::vector<std::byte> ignored(length);
+            a_serialization->ReadRecordData(ignored.data(), length);
         }
-        std::scoped_lock lock(g_taughtSpellsLock);
-        g_taughtSpells = std::move(restored);
+        {
+            std::scoped_lock lock(g_taughtSpellsLock);
+            g_taughtSpells = std::move(restored);
+        }
+        {
+            std::scoped_lock lock(g_levelOverridesLock);
+            g_levelOverrides = std::move(restoredLevels);
+        }
     }
 
-    void RevertTaughtSpells(SKSE::SerializationInterface*)
+    void RevertState(SKSE::SerializationInterface*)
     {
-        std::scoped_lock lock(g_taughtSpellsLock);
-        g_taughtSpells.clear();
+        {
+            std::scoped_lock lock(g_taughtSpellsLock);
+            g_taughtSpells.clear();
+        }
+        LevelOverrideMap levelOverrides;
+        {
+            std::scoped_lock lock(g_levelOverridesLock);
+            levelOverrides = std::move(g_levelOverrides);
+            g_levelOverrides.clear();
+        }
+        for (const auto& [actorID, levelOverride] : levelOverrides) {
+            static_cast<void>(actorID);
+            RestoreLevelOverride(levelOverride);
+        }
     }
 
     [[nodiscard]] json CollectFollowers()
@@ -304,13 +514,27 @@ namespace
             if (!a_actor || a_actor == player || !a_actor->IsPlayerTeammate() || !seen.insert(a_actor->GetFormID()).second) {
                 return RE::BSContainer::ForEachResult::kContinue;
             }
+            if (const auto levelOverride = GetLevelOverride(a_actor->GetFormID())) {
+                ApplyLevelOverride(a_actor->GetFormID(), *levelOverride);
+            }
             ReapplyTrackedSpells(a_actor);
             SpellCollector spells(a_actor);
             a_actor->VisitSpells(spells);
+            const auto health = ActorResource(a_actor, RE::ActorValue::kHealth);
+            const auto magicka = ActorResource(a_actor, RE::ActorValue::kMagicka);
+            const auto stamina = ActorResource(a_actor, RE::ActorValue::kStamina);
             followers.push_back({
                 { "id", a_actor->GetFormID() },
                 { "name", a_actor->GetDisplayFullName() ? a_actor->GetDisplayFullName() : "Unnamed follower" },
-                { "maxMagicka", (std::max)(0, static_cast<int>(a_actor->AsActorValueOwner()->GetPermanentActorValue(RE::ActorValue::kMagicka))) },
+                { "className", ActorClassName(a_actor) },
+                { "level", a_actor->GetLevel() },
+                { "levelScaling", ActorLevelScaling(a_actor) },
+                { "maxMagicka", magicka["max"] },
+                { "resources", {
+                    { "health", health },
+                    { "magicka", magicka },
+                    { "stamina", stamina }
+                } },
                 { "spells", spells.Spells() }
             });
             return RE::BSContainer::ForEachResult::kContinue;
@@ -336,7 +560,9 @@ namespace
                 { "spellName", spell->GetFullName() ? spell->GetFullName() : "Unnamed spell" },
                 { "school", SchoolName(spell->GetAssociatedSkill()) },
                 { "cost", static_cast<int>(spell->CalculateMagickaCost(player)) },
-                { "count", entry.first }
+                { "count", entry.first },
+                { "value", (std::max)(0, book->GetGoldValue()) },
+                { "description", SpellDescription(spell) }
             });
         }
         return tomes;
@@ -402,12 +628,70 @@ namespace
         SendState(std::string(actor->GetDisplayFullName()) + " learned " + spell->GetFullName() + ".");
     }
 
+    void SetLevelCap(const json& a_request)
+    {
+        const auto actorID = a_request.value("actorId", 0u);
+        const auto enabled = a_request.value("enabled", false);
+        const auto actor = RE::TESForm::LookupByID<RE::Actor>(actorID);
+        const auto actorBase = actor ? actor->GetActorBase() : nullptr;
+        if (!actor || !actorBase || !actor->IsPlayerTeammate()) {
+            SendState("The selected follower is no longer available.");
+            return;
+        }
+
+        if (enabled) {
+            if (!actorBase->HasPCLevelMult()) {
+                SendState("This follower has a fixed level. Player scaling was not changed.");
+                return;
+            }
+            if (actorBase->actorData.calcLevelMax == 0) {
+                SendState("This follower already has no calculated maximum level.");
+                return;
+            }
+            if (actorBase->actorData.calcLevelMax >= g_levelScaling.maxLevel) {
+                SendState("This follower already has an equal or higher level cap.");
+                return;
+            }
+
+            LevelOverride levelOverride;
+            {
+                std::scoped_lock lock(g_levelOverridesLock);
+                const auto [entry, inserted] = g_levelOverrides.try_emplace(actorID, LevelOverride{
+                    actorBase->GetFormID(), actorBase->actorData.calcLevelMax
+                });
+                static_cast<void>(inserted);
+                levelOverride = entry->second;
+            }
+            ApplyLevelOverride(actorID, levelOverride);
+            SendState(std::string(actor->GetDisplayFullName()) + " can now scale up to level " + std::to_string(g_levelScaling.maxLevel) + ". Reloading the area may be required to recalculate the current level.");
+            return;
+        }
+
+        std::optional<LevelOverride> removed;
+        {
+            std::scoped_lock lock(g_levelOverridesLock);
+            const auto found = g_levelOverrides.find(actorID);
+            if (found != g_levelOverrides.end()) {
+                removed = found->second;
+                g_levelOverrides.erase(found);
+            }
+        }
+        if (!removed) {
+            SendState("Follower level scaling was already using its original limit.");
+            return;
+        }
+        RestoreLevelOverride(*removed);
+        static_cast<void>(actor->GetCalcLevel(true));
+        SendState(std::string(actor->GetDisplayFullName()) + " was restored to the original level cap of " + std::to_string(removed->originalMax) + ". Reloading the area may be required.");
+    }
+
     void HandleUIAction(const char* a_data)
     {
         try {
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
             if (type == "learn") LearnTome(request);
+            else if (type == "levelCap") SetLevelCap(request);
             else if (type == "close") {
                 g_prisma->Unfocus(g_view);
                 g_prisma->Hide(g_view);
@@ -444,11 +728,15 @@ namespace
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
-            if (const auto tasks = SKSE::GetTaskInterface()) tasks->AddTask(ReapplyAllTrackedSpells);
+            if (const auto tasks = SKSE::GetTaskInterface()) tasks->AddTask([] {
+                ReapplyAllTrackedSpells();
+                ReapplyAllLevelOverrides();
+            });
             return;
         }
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
 
+        g_levelScaling = LoadLevelScalingConfig();
         g_prisma = PRISMA_UI_API::RequestPluginAPI();
         if (!g_prisma) {
             logger::critical("Prisma UI v1 is unavailable; Follower Spellbook Manager will remain disabled.");
@@ -477,9 +765,9 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
     SKSE::Init(a_skse);
     if (const auto serialization = SKSE::GetSerializationInterface()) {
         serialization->SetUniqueID(kSerializationID);
-        serialization->SetSaveCallback(SaveTaughtSpells);
-        serialization->SetLoadCallback(LoadTaughtSpells);
-        serialization->SetRevertCallback(RevertTaughtSpells);
+        serialization->SetSaveCallback(SaveState);
+        serialization->SetLoadCallback(LoadState);
+        serialization->SetRevertCallback(RevertState);
     }
     messaging->RegisterListener("SKSE", OnSKSEMessage);
     return true;
