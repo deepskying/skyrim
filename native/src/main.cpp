@@ -39,7 +39,11 @@ namespace
     [[nodiscard]] std::optional<std::uint32_t> ParseKeyCode(const std::string& a_value)
     {
         const auto key = NormalizeKeyName(a_value);
-        if (key.size() == 1 && key[0] >= 'A' && key[0] <= 'Z') return 0x1E + (key[0] - 'A');
+        static constexpr std::array<std::uint32_t, 26> letterScanCodes{
+            0x1E, 0x30, 0x2E, 0x20, 0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26, 0x32,
+            0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14, 0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C
+        };
+        if (key.size() == 1 && key[0] >= 'A' && key[0] <= 'Z') return letterScanCodes[key[0] - 'A'];
         if (key.size() == 1 && key[0] >= '1' && key[0] <= '9') return 0x02 + (key[0] - '1');
         if (key == "0") return 0x0B;
         if (key == "ESC" || key == "ESCAPE") return 0x01;
@@ -59,6 +63,14 @@ namespace
         return std::nullopt;
     }
 
+    [[nodiscard]] bool ParseConfigBool(const std::string& a_value, bool a_fallback)
+    {
+        const auto value = NormalizeKeyName(a_value);
+        if (value == "TRUE" || value == "YES" || value == "ON" || value == "1") return true;
+        if (value == "FALSE" || value == "NO" || value == "OFF" || value == "0") return false;
+        return a_fallback;
+    }
+
     [[nodiscard]] std::string DescribeHotkey(const HotkeyConfig& a_hotkey)
     {
         std::string description;
@@ -76,18 +88,45 @@ namespace
     {
         HotkeyConfig hotkey;
         try {
-            const auto configPath = (std::filesystem::current_path() / "Data" / "SKSE" / "Plugins" / "FollowerSpellbookManager.ini").string();
-            std::array<char, 32> keyName{};
-            GetPrivateProfileStringA("Hotkey", "Key", "S", keyName.data(), static_cast<DWORD>(keyName.size()), configPath.c_str());
-            if (const auto parsed = ParseKeyCode(keyName.data())) {
-                hotkey.keyCode = *parsed;
-            } else {
-                logger::warn("Invalid Hotkey.Key '{}' in {}; using Shift+S.", keyName.data(), configPath);
+            const auto modulePath = REL::Module::get().filePath();
+            const auto configPath = std::filesystem::path(modulePath.data()).parent_path() / "Data" / "SKSE" / "Plugins" / "FollowerSpellbookManager.ini";
+            std::ifstream configFile(configPath);
+            if (!configFile) {
+                logger::warn("Hotkey configuration was not found at {}; using Shift+S.", configPath.string());
+                return hotkey;
             }
-            hotkey.requireShift = GetPrivateProfileIntA("Hotkey", "Shift", 1, configPath.c_str()) != 0;
-            hotkey.requireCtrl = GetPrivateProfileIntA("Hotkey", "Ctrl", 0, configPath.c_str()) != 0;
-            hotkey.requireAlt = GetPrivateProfileIntA("Hotkey", "Alt", 0, configPath.c_str()) != 0;
-            logger::info("Follower Spellbook Manager hotkey: {}.", DescribeHotkey(hotkey));
+
+            bool inHotkeySection = false;
+            std::string line;
+            while (std::getline(configFile, line)) {
+                if (const auto comment = line.find_first_of(";#"); comment != std::string::npos) line.erase(comment);
+                const auto normalizedLine = NormalizeKeyName(line);
+                if (normalizedLine.empty()) continue;
+                if (normalizedLine.front() == '[' && normalizedLine.back() == ']') {
+                    inHotkeySection = normalizedLine == "[HOTKEY]";
+                    continue;
+                }
+                if (!inHotkeySection) continue;
+
+                const auto separator = line.find('=');
+                if (separator == std::string::npos) continue;
+                const auto setting = NormalizeKeyName(line.substr(0, separator));
+                const auto value = line.substr(separator + 1);
+                if (setting == "KEY") {
+                    if (const auto parsed = ParseKeyCode(value)) {
+                        hotkey.keyCode = *parsed;
+                    } else {
+                        logger::warn("Invalid Hotkey.Key '{}' in {}; using S.", value, configPath.string());
+                    }
+                } else if (setting == "SHIFT") {
+                    hotkey.requireShift = ParseConfigBool(value, hotkey.requireShift);
+                } else if (setting == "CTRL") {
+                    hotkey.requireCtrl = ParseConfigBool(value, hotkey.requireCtrl);
+                } else if (setting == "ALT") {
+                    hotkey.requireAlt = ParseConfigBool(value, hotkey.requireAlt);
+                }
+            }
+            logger::info("Follower Spellbook Manager hotkey: {} (read from {}).", DescribeHotkey(hotkey), configPath.string());
         }
         catch (const std::exception& error) {
             logger::warn("Could not read FollowerSpellbookManager.ini; using Shift+S. {}", error.what());
