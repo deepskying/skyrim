@@ -8,8 +8,14 @@
 #pragma warning(pop)
 
 #include <algorithm>
+#include <array>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

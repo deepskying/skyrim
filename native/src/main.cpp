@@ -25,6 +25,76 @@ namespace
     constexpr std::uint32_t kMaxFollowersPerSave = 2048;
     constexpr std::uint32_t kMaxSpellsPerFollower = 1024;
 
+    [[nodiscard]] std::string NormalizeKeyName(std::string a_value)
+    {
+        a_value.erase(std::remove_if(a_value.begin(), a_value.end(), [](unsigned char a_character) {
+            return std::isspace(a_character) != 0;
+        }), a_value.end());
+        std::transform(a_value.begin(), a_value.end(), a_value.begin(), [](unsigned char a_character) {
+            return static_cast<char>(std::toupper(a_character));
+        });
+        return a_value;
+    }
+
+    [[nodiscard]] std::optional<std::uint32_t> ParseKeyCode(const std::string& a_value)
+    {
+        const auto key = NormalizeKeyName(a_value);
+        if (key.size() == 1 && key[0] >= 'A' && key[0] <= 'Z') return 0x1E + (key[0] - 'A');
+        if (key.size() == 1 && key[0] >= '1' && key[0] <= '9') return 0x02 + (key[0] - '1');
+        if (key == "0") return 0x0B;
+        if (key == "ESC" || key == "ESCAPE") return 0x01;
+        if (key == "SPACE") return 0x39;
+        if (key == "TAB") return 0x0F;
+        if (key == "ENTER") return 0x1C;
+        if (key == "F11") return 0x57;
+        if (key == "F12") return 0x58;
+        if (key.size() == 2 && key[0] == 'F' && key[1] >= '1' && key[1] <= '9') return 0x3A + (key[1] - '0');
+        if (key.size() == 3 && key == "F10") return 0x44;
+        try {
+            std::size_t charactersRead = 0;
+            const auto code = std::stoul(key, &charactersRead, 0);
+            if (charactersRead == key.size() && code <= 0xFF) return static_cast<std::uint32_t>(code);
+        }
+        catch (const std::exception&) {}
+        return std::nullopt;
+    }
+
+    [[nodiscard]] std::string DescribeHotkey(const HotkeyConfig& a_hotkey)
+    {
+        std::string description;
+        if (a_hotkey.requireCtrl) description += "Ctrl+";
+        if (a_hotkey.requireAlt) description += "Alt+";
+        if (a_hotkey.requireShift) description += "Shift+";
+        description += "scan code 0x";
+        char buffer[3]{};
+        std::snprintf(buffer, sizeof(buffer), "%02X", a_hotkey.keyCode);
+        description += buffer;
+        return description;
+    }
+
+    [[nodiscard]] HotkeyConfig LoadHotkeyConfig()
+    {
+        HotkeyConfig hotkey;
+        try {
+            const auto configPath = (std::filesystem::current_path() / "Data" / "SKSE" / "Plugins" / "FollowerSpellbookManager.ini").string();
+            std::array<char, 32> keyName{};
+            GetPrivateProfileStringA("Hotkey", "Key", "S", keyName.data(), static_cast<DWORD>(keyName.size()), configPath.c_str());
+            if (const auto parsed = ParseKeyCode(keyName.data())) {
+                hotkey.keyCode = *parsed;
+            } else {
+                logger::warn("Invalid Hotkey.Key '{}' in {}; using Shift+S.", keyName.data(), configPath);
+            }
+            hotkey.requireShift = GetPrivateProfileIntA("Hotkey", "Shift", 1, configPath.c_str()) != 0;
+            hotkey.requireCtrl = GetPrivateProfileIntA("Hotkey", "Ctrl", 0, configPath.c_str()) != 0;
+            hotkey.requireAlt = GetPrivateProfileIntA("Hotkey", "Alt", 0, configPath.c_str()) != 0;
+            logger::info("Follower Spellbook Manager hotkey: {}.", DescribeHotkey(hotkey));
+        }
+        catch (const std::exception& error) {
+            logger::warn("Could not read FollowerSpellbookManager.ini; using Shift+S. {}", error.what());
+        }
+        return hotkey;
+    }
+
     [[nodiscard]] std::string SchoolName(RE::ActorValue a_skill)
     {
         switch (a_skill) {
@@ -324,11 +394,12 @@ namespace
         SendState();
     }
 
-    void ClosePanel()
+    bool ClosePanel()
     {
-        if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return;
+        if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
         g_prisma->Unfocus(g_view);
         g_prisma->Hide(g_view);
+        return true;
     }
 
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
@@ -349,10 +420,11 @@ namespace
         g_prisma->Hide(g_view);
 
         auto input = InputHandler::GetSingleton();
-        input->SetF10Callback(TogglePanel);
+        input->SetHotkey(LoadHotkeyConfig());
+        input->SetToggleCallback(TogglePanel);
         input->SetEscapeCallback(ClosePanel);
         input->RegisterSink();
-        logger::info("Follower Spellbook Manager loaded. Press F10 to open the panel.");
+        logger::info("Follower Spellbook Manager loaded.");
     }
 }
 

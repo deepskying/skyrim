@@ -4,7 +4,7 @@ An SKSE + Prisma UI mod for Skyrim Special Edition 1.5.97. It lets the player in
 
 ## Current behavior
 
-- Press **F10** to open or close the panel.
+- Press **Shift+S** to open or close the panel. The hotkey is configurable through `SKSE/Plugins/FollowerSpellbookManager.ini`.
 - Click the close button or press **Esc** to close the panel from any page.
 - Open to a grid of loaded player teammates, then open one follower's detail page.
 - The responsive panel uses 90% of the available viewport and a translucent blue-green theme.
@@ -22,6 +22,20 @@ An SKSE + Prisma UI mod for Skyrim Special Edition 1.5.97. It lets the player in
 - Prisma UI
 
 The current MO2 profile already contains these requirements. The mod is deliberately not copied into MO2 until its native DLL has compiled and been tested.
+
+## Hotkey configuration
+
+After installing the mod, edit `SKSE/Plugins/FollowerSpellbookManager.ini` in its MO2 mod folder, then restart the game. The default is Shift+S:
+
+```ini
+[Hotkey]
+Key=S
+Shift=true
+Ctrl=false
+Alt=false
+```
+
+`Key` accepts A–Z, 0–9, F1–F12, Esc, Tab, Enter, Space, or a DirectInput scan code such as `0x1F`. Set a modifier to `true` when it must be held. For example, Ctrl+Alt+M is `Key=M`, `Ctrl=true`, `Alt=true`, `Shift=false`.
 
 ## Build
 
