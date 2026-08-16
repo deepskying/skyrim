@@ -1,0 +1,11 @@
+reference/
+web/node_modules/
+web/dist/
+web/.xmake/
+native/.xmake/
+native/build/
+native/vsxmake*/
+native/xmake-build*.log
+packaging/FollowerSpellbookManager/
+packaging/FollowerSpellbookManager-*/
+packaging/*.zip
