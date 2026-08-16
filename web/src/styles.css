@@ -99,8 +99,7 @@ h2 { margin-bottom: 0; color: #e9f9f7; font-size: 24px; font-weight: 600; }
 .follower-card strong { overflow: hidden; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
 .follower-card small, .tome small { color: #a8c4c4; font-family: Arial, sans-serif; font-size: 12px; }
 .follower-card-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.level-badge { display: flex; min-width: 48px; padding: 6px 8px; border: 1px solid rgba(84, 196, 190, .38); background: rgba(16, 83, 91, .4); color: #dcf8f4; font-family: Arial, sans-serif; font-size: 17px; text-align: right; flex-direction: column; align-items: flex-end; }
-.level-badge small { color: #70beb9; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.level-badge { min-width: 66px; padding: 7px 10px; border: 1px solid rgba(84, 196, 190, .45); background: rgba(16, 83, 91, .45); color: #e4fffb; font-family: Arial, sans-serif; font-size: 20px; font-weight: 700; line-height: 1; text-align: center; white-space: nowrap; }
 .scaling-badge { align-self: flex-start; padding: 4px 7px; border: 1px solid rgba(74, 151, 158, .35); background: rgba(9, 49, 59, .44); color: #92b8ba; font-family: Arial, sans-serif; font-size: 9px; letter-spacing: .03em; }
 .scaling-badge.raised { border-color: rgba(91, 220, 204, .55); background: rgba(20, 104, 104, .42); color: #9af0e5; }
 .resource-bars { display: flex; width: 100%; flex-direction: column; gap: 8px; }

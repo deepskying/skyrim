@@ -113,7 +113,7 @@ function FollowerCard({ follower, onOpen }: { follower: Follower; onOpen: () => 
           <strong>{follower.name}</strong>
           <small>{follower.className || 'Unclassified'} · {follower.spells.length} known spells</small>
         </span>
-        <span className="level-badge"><small>Level</small>{follower.level}</span>
+        <span className="level-badge">Lv.{follower.level}</span>
       </span>
       <span className={`scaling-badge ${scaling.enabled ? 'raised' : ''}`}>{scalingText}</span>
       <span className="resource-bars">
@@ -222,8 +222,8 @@ export function App() {
                   <strong>{selectedFollower.levelScaling.playerScaled ? `Player scaling ×${selectedFollower.levelScaling.multiplier.toFixed(2)}` : 'Fixed-level follower'}</strong>
                   <span>
                     {selectedFollower.levelScaling.playerScaled
-                      ? `Level ${selectedFollower.level} · original cap ${selectedFollower.levelScaling.originalMax || 'none'} · target ${selectedFollower.levelScaling.targetMax}`
-                      : `Level ${selectedFollower.level} · this follower’s authored scaling will not be changed.`}
+                      ? `Lv.${selectedFollower.level} · original cap ${selectedFollower.levelScaling.originalMax || 'none'} · target ${selectedFollower.levelScaling.targetMax}`
+                      : `Lv.${selectedFollower.level} · this follower’s authored scaling will not be changed.`}
                   </span>
                 </div>
                 <div className="level-panel-action">

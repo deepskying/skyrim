@@ -3,7 +3,7 @@ set_xmakever("2.8.2")
 includes("../reference/example-skse-plugin/lib/commonlibsse-ng")
 
 set_project("FollowerSpellbookManager")
-set_version("0.8.0")
+set_version("0.8.1")
 set_languages("c++23")
 set_warnings("allextra")
 set_policy("package.requires_lock", true)
