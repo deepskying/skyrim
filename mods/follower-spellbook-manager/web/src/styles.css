@@ -104,8 +104,8 @@ h2 { margin-bottom: 0; color: #e9f9f7; font-size: 24px; font-weight: 600; }
 .scaling-badge.raised { border-color: rgba(91, 220, 204, .55); background: rgba(20, 104, 104, .42); color: #9af0e5; }
 .resource-bars { display: flex; width: 100%; flex-direction: column; gap: 8px; }
 .resource-row { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
-.resource-caption { display: flex; color: #bcd5d3; font-family: Arial, sans-serif; font-size: 10px; justify-content: space-between; gap: 8px; }
-.resource-caption small { color: #8eaeaf; font-size: 9px; }
+.resource-caption { display: flex; color: #d2e9e7; font-family: Arial, sans-serif; font-size: 12px; line-height: 1.2; justify-content: space-between; gap: 8px; }
+.resource-caption small { color: #c1dddd; font-size: 14px; font-weight: 700; line-height: 1; }
 .resource-track { display: block; height: 5px; overflow: hidden; background: rgba(172, 220, 217, .12); }
 .resource-track > span { display: block; height: 100%; transition: width .18s ease; }
 .resource-track .health { background: linear-gradient(90deg, #a94559, #e66d75); }
@@ -158,8 +158,16 @@ h2 { margin-bottom: 0; color: #e9f9f7; font-size: 24px; font-weight: 600; }
 .spell-list { display: grid; padding: 5px 3px 3px; flex: 1; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); gap: 10px; align-content: start; }
 .spell-card { display: flex; min-height: 128px; padding: 14px; border: 1px solid rgba(55, 142, 146, .55); background: rgba(3, 14, 20, .59); flex-direction: column; justify-content: space-between; gap: 9px; }
 .spell-card:hover { border-color: #55d8ce; background: rgba(14, 82, 88, .43); }
+.spell-card.disabled { border-color: rgba(117, 139, 145, .42); background: rgba(12, 18, 23, .7); }
+.spell-card.disabled .magicka-readout, .spell-card.disabled .magicka-track, .spell-card.disabled > small, .spell-card.disabled .school { opacity: .48; }
 .spell-card-heading { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
-.spell-card-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+.spell-card-title-row { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.spell-card-heading strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; flex: 1; }
+.spell-state-control { display: flex; color: #a9c5c5; font-family: Arial, sans-serif; font-size: 9px; align-items: center; gap: 5px; flex: none; }
+.spell-toggle { position: relative; width: 36px; height: 20px; padding: 0; border: 1px solid #53666a; border-radius: 10px; background: rgba(35, 47, 52, .9); }
+.spell-toggle > span { position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: #8a9b9e; transition: left .16s ease, background .16s ease; }
+.spell-toggle.enabled { border-color: #54d7ca; background: rgba(24, 115, 113, .8); }
+.spell-toggle.enabled > span { left: 19px; background: #e1fffb; }
 .magicka-readout { display: flex; color: #c5e3e0; font-family: Arial, sans-serif; font-size: 12px; justify-content: space-between; gap: 8px; }
 .magicka-track { height: 5px; overflow: hidden; background: rgba(135, 235, 225, .17); }
 .magicka-track span { display: block; height: 100%; background: #48d4c7; }
@@ -209,8 +217,8 @@ h2 { margin-bottom: 0; color: #e9f9f7; font-size: 24px; font-weight: 600; }
 .preview-heading p { margin: 0; color: #8dcfc9; font-family: Arial, sans-serif; font-size: 10px; text-transform: uppercase; }
 .preview-heading > span { color: #75bdb8; font-family: Arial, sans-serif; font-size: 10px; }
 .tome-preview > strong { display: block; margin-bottom: 7px; overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
-.description { display: -webkit-box; overflow: hidden; color: #b9d5d3; font-size: 13px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.description.muted { color: #78999a; }
+.description { display: -webkit-box; overflow: hidden; color: #d7ecea; font-size: 17px; line-height: 1.6; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.description.muted { color: #91b1b2; }
 
 .teach-button { min-height: 49px; border: 1px solid #4bc9c0; background: linear-gradient(105deg, #176c73, #114a64); color: #e6fffb; font-size: 16px; font-weight: bold; flex: none; }
 .teach-button:hover:not(:disabled) { background: linear-gradient(105deg, #238e90, #1a6689); }

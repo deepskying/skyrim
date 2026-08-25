@@ -10,6 +10,9 @@ namespace
     using TaughtSpellMap = std::unordered_map<RE::FormID, std::unordered_set<RE::FormID>>;
     TaughtSpellMap g_taughtSpells;
     std::mutex g_taughtSpellsLock;
+    using DisabledSpellMap = std::unordered_map<RE::FormID, std::unordered_set<RE::FormID>>;
+    DisabledSpellMap g_disabledSpells;
+    std::mutex g_disabledSpellsLock;
 
     struct LevelOverride
     {
@@ -36,6 +39,7 @@ namespace
 
     constexpr std::uint32_t kSerializationID = FourCC('F', 'S', 'B', 'M');
     constexpr std::uint32_t kRecordType = FourCC('S', 'P', 'L', 'S');
+    constexpr std::uint32_t kDisabledRecordType = FourCC('D', 'S', 'P', 'L');
     constexpr std::uint32_t kLevelRecordType = FourCC('L', 'V', 'L', 'S');
     constexpr std::uint32_t kRecordVersion = 1;
     constexpr std::uint32_t kMaxFollowersPerSave = 2048;
@@ -300,26 +304,47 @@ namespace
     class SpellCollector final : public RE::Actor::ForEachSpellVisitor
     {
     public:
-        explicit SpellCollector(RE::Actor* a_actor) : _actor(a_actor) {}
+        SpellCollector(RE::Actor* a_actor, const std::unordered_set<RE::FormID>& a_disabled) :
+            _actor(a_actor), _disabled(a_disabled) {}
 
         RE::BSContainer::ForEachResult Visit(RE::SpellItem* a_spell) override
         {
             if (!a_spell || a_spell->GetSpellType() != RE::MagicSystem::SpellType::kSpell) {
                 return RE::BSContainer::ForEachResult::kContinue;
             }
+            if (!_seen.insert(a_spell->GetFormID()).second) return RE::BSContainer::ForEachResult::kContinue;
             _spells.push_back({
                 { "id", a_spell->GetFormID() },
                 { "name", a_spell->GetFullName() ? a_spell->GetFullName() : "Unnamed spell" },
                 { "school", SchoolName(a_spell->GetAssociatedSkill()) },
-                { "cost", static_cast<int>(a_spell->CalculateMagickaCost(_actor)) }
+                { "cost", static_cast<int>(a_spell->CalculateMagickaCost(_actor)) },
+                { "enabled", !_disabled.contains(a_spell->GetFormID()) }
             });
             return RE::BSContainer::ForEachResult::kContinue;
+        }
+
+        void AddDisabledSpells()
+        {
+            for (const auto spellID : _disabled) {
+                if (!_seen.insert(spellID).second) continue;
+                const auto spell = RE::TESForm::LookupByID<RE::SpellItem>(spellID);
+                if (!spell || spell->GetSpellType() != RE::MagicSystem::SpellType::kSpell) continue;
+                _spells.push_back({
+                    { "id", spellID },
+                    { "name", spell->GetFullName() ? spell->GetFullName() : "Unnamed spell" },
+                    { "school", SchoolName(spell->GetAssociatedSkill()) },
+                    { "cost", static_cast<int>(spell->CalculateMagickaCost(_actor)) },
+                    { "enabled", false }
+                });
+            }
         }
 
         [[nodiscard]] const json& Spells() const { return _spells; }
 
     private:
         RE::Actor* _actor;
+        const std::unordered_set<RE::FormID>& _disabled;
+        std::unordered_set<RE::FormID> _seen;
         json _spells = json::array();
     };
 
@@ -345,6 +370,29 @@ namespace
         return finder.found;
     }
 
+    [[nodiscard]] std::unordered_set<RE::FormID> DisabledSpellsForActor(RE::FormID a_actorID)
+    {
+        std::scoped_lock lock(g_disabledSpellsLock);
+        const auto found = g_disabledSpells.find(a_actorID);
+        return found == g_disabledSpells.end() ? std::unordered_set<RE::FormID>{} : found->second;
+    }
+
+    [[nodiscard]] bool IsSpellDisabled(RE::FormID a_actorID, RE::FormID a_spellID)
+    {
+        std::scoped_lock lock(g_disabledSpellsLock);
+        const auto found = g_disabledSpells.find(a_actorID);
+        return found != g_disabledSpells.end() && found->second.contains(a_spellID);
+    }
+
+    void EnforceDisabledSpells(RE::Actor* a_actor, const std::unordered_set<RE::FormID>& a_spellIDs)
+    {
+        if (!a_actor) return;
+        for (const auto spellID : a_spellIDs) {
+            const auto spell = RE::TESForm::LookupByID<RE::SpellItem>(spellID);
+            if (spell && KnowsSpell(a_actor, spell)) a_actor->RemoveSpell(spell);
+        }
+    }
+
     void TrackTaughtSpell(RE::Actor* a_actor, RE::SpellItem* a_spell)
     {
         if (!a_actor || !a_spell) return;
@@ -364,7 +412,7 @@ namespace
         }
         for (const auto spellID : spellIDs) {
             const auto spell = RE::TESForm::LookupByID<RE::SpellItem>(spellID);
-            if (spell && !KnowsSpell(a_actor, spell)) a_actor->AddSpell(spell);
+            if (spell && !IsSpellDisabled(a_actor->GetFormID(), spellID) && !KnowsSpell(a_actor, spell)) a_actor->AddSpell(spell);
         }
     }
 
@@ -381,6 +429,19 @@ namespace
         }
     }
 
+    void ReapplyAllDisabledSpells()
+    {
+        DisabledSpellMap saved;
+        {
+            std::scoped_lock lock(g_disabledSpellsLock);
+            saved = g_disabledSpells;
+        }
+        for (const auto& [actorID, spellIDs] : saved) {
+            const auto actor = RE::TESForm::LookupByID<RE::Actor>(actorID);
+            if (actor && actor->IsPlayerTeammate()) EnforceDisabledSpells(actor, spellIDs);
+        }
+    }
+
     void SaveState(SKSE::SerializationInterface* a_serialization)
     {
         TaughtSpellMap saved;
@@ -392,6 +453,22 @@ namespace
         const auto followerCount = static_cast<std::uint32_t>(saved.size());
         if (!a_serialization->WriteRecordData(followerCount)) return;
         for (const auto& [actorID, spellIDs] : saved) {
+            const auto spellCount = static_cast<std::uint32_t>(spellIDs.size());
+            if (!a_serialization->WriteRecordData(actorID) || !a_serialization->WriteRecordData(spellCount)) return;
+            for (const auto spellID : spellIDs) {
+                if (!a_serialization->WriteRecordData(spellID)) return;
+            }
+        }
+
+        DisabledSpellMap disabled;
+        {
+            std::scoped_lock lock(g_disabledSpellsLock);
+            disabled = g_disabledSpells;
+        }
+        if (!a_serialization->OpenRecord(kDisabledRecordType, kRecordVersion)) return;
+        const auto disabledFollowerCount = static_cast<std::uint32_t>(disabled.size());
+        if (!a_serialization->WriteRecordData(disabledFollowerCount)) return;
+        for (const auto& [actorID, spellIDs] : disabled) {
             const auto spellCount = static_cast<std::uint32_t>(spellIDs.size());
             if (!a_serialization->WriteRecordData(actorID) || !a_serialization->WriteRecordData(spellCount)) return;
             for (const auto spellID : spellIDs) {
@@ -417,6 +494,7 @@ namespace
     void LoadState(SKSE::SerializationInterface* a_serialization)
     {
         TaughtSpellMap restored;
+        DisabledSpellMap restoredDisabled;
         LevelOverrideMap restoredLevels;
         std::uint32_t type = 0;
         std::uint32_t version = 0;
@@ -451,6 +529,27 @@ namespace
                 continue;
             }
 
+            if (type == kDisabledRecordType) {
+                std::uint32_t followerCount = 0;
+                if (a_serialization->ReadRecordData(followerCount) != sizeof(followerCount) || followerCount > kMaxFollowersPerSave) break;
+                for (std::uint32_t i = 0; i < followerCount; ++i) {
+                    RE::FormID oldActorID = 0;
+                    std::uint32_t spellCount = 0;
+                    if (a_serialization->ReadRecordData(oldActorID) != sizeof(oldActorID) ||
+                        a_serialization->ReadRecordData(spellCount) != sizeof(spellCount) ||
+                        spellCount > kMaxSpellsPerFollower) break;
+                    RE::FormID actorID = 0;
+                    const bool actorResolved = a_serialization->ResolveFormID(oldActorID, actorID);
+                    for (std::uint32_t j = 0; j < spellCount; ++j) {
+                        RE::FormID oldSpellID = 0;
+                        if (a_serialization->ReadRecordData(oldSpellID) != sizeof(oldSpellID)) break;
+                        RE::FormID spellID = 0;
+                        if (actorResolved && a_serialization->ResolveFormID(oldSpellID, spellID)) restoredDisabled[actorID].insert(spellID);
+                    }
+                }
+                continue;
+            }
+
             if (type == kLevelRecordType) {
                 std::uint32_t overrideCount = 0;
                 if (a_serialization->ReadRecordData(overrideCount) != sizeof(overrideCount) || overrideCount > kMaxFollowersPerSave) break;
@@ -479,6 +578,10 @@ namespace
             g_taughtSpells = std::move(restored);
         }
         {
+            std::scoped_lock lock(g_disabledSpellsLock);
+            g_disabledSpells = std::move(restoredDisabled);
+        }
+        {
             std::scoped_lock lock(g_levelOverridesLock);
             g_levelOverrides = std::move(restoredLevels);
         }
@@ -489,6 +592,10 @@ namespace
         {
             std::scoped_lock lock(g_taughtSpellsLock);
             g_taughtSpells.clear();
+        }
+        {
+            std::scoped_lock lock(g_disabledSpellsLock);
+            g_disabledSpells.clear();
         }
         LevelOverrideMap levelOverrides;
         {
@@ -518,8 +625,11 @@ namespace
                 ApplyLevelOverride(a_actor->GetFormID(), *levelOverride);
             }
             ReapplyTrackedSpells(a_actor);
-            SpellCollector spells(a_actor);
+            const auto disabledSpells = DisabledSpellsForActor(a_actor->GetFormID());
+            EnforceDisabledSpells(a_actor, disabledSpells);
+            SpellCollector spells(a_actor, disabledSpells);
             a_actor->VisitSpells(spells);
+            spells.AddDisabledSpells();
             const auto health = ActorResource(a_actor, RE::ActorValue::kHealth);
             const auto magicka = ActorResource(a_actor, RE::ActorValue::kMagicka);
             const auto stamina = ActorResource(a_actor, RE::ActorValue::kStamina);
@@ -628,6 +738,55 @@ namespace
         SendState(std::string(actor->GetDisplayFullName()) + " learned " + spell->GetFullName() + ".");
     }
 
+    void SetSpellEnabled(const json& a_request)
+    {
+        const auto actorID = a_request.value("actorId", 0u);
+        const auto spellID = a_request.value("spellId", 0u);
+        const auto enabled = a_request.value("enabled", true);
+        const auto actor = RE::TESForm::LookupByID<RE::Actor>(actorID);
+        const auto spell = RE::TESForm::LookupByID<RE::SpellItem>(spellID);
+        if (!actor || !spell || !actor->IsPlayerTeammate() || spell->GetSpellType() != RE::MagicSystem::SpellType::kSpell) {
+            SendState("The selected follower or spell is no longer available.");
+            return;
+        }
+
+        if (enabled) {
+            const auto wasDisabled = IsSpellDisabled(actorID, spellID);
+            if (!wasDisabled) {
+                SendState("That spell is already enabled.");
+                return;
+            }
+            if (!KnowsSpell(actor, spell) && !actor->AddSpell(spell)) {
+                SendState("The follower could not restore that spell.");
+                return;
+            }
+            {
+                std::scoped_lock lock(g_disabledSpellsLock);
+                const auto found = g_disabledSpells.find(actorID);
+                if (found != g_disabledSpells.end()) {
+                    found->second.erase(spellID);
+                    if (found->second.empty()) g_disabledSpells.erase(found);
+                }
+            }
+            SendState(std::string(actor->GetDisplayFullName()) + " enabled " + spell->GetFullName() + ".");
+            return;
+        }
+
+        if (IsSpellDisabled(actorID, spellID)) {
+            SendState("That spell is already disabled.");
+            return;
+        }
+        if (!KnowsSpell(actor, spell) || !actor->RemoveSpell(spell) || KnowsSpell(actor, spell)) {
+            SendState("That spell cannot be disabled safely.");
+            return;
+        }
+        {
+            std::scoped_lock lock(g_disabledSpellsLock);
+            g_disabledSpells[actorID].insert(spellID);
+        }
+        SendState(std::string(actor->GetDisplayFullName()) + " disabled " + spell->GetFullName() + ".");
+    }
+
     void SetLevelCap(const json& a_request)
     {
         const auto actorID = a_request.value("actorId", 0u);
@@ -691,6 +850,7 @@ namespace
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
             if (type == "learn") LearnTome(request);
+            else if (type == "spellState") SetSpellEnabled(request);
             else if (type == "levelCap") SetLevelCap(request);
             else if (type == "close") {
                 g_prisma->Unfocus(g_view);
@@ -730,6 +890,7 @@ namespace
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
             if (const auto tasks = SKSE::GetTaskInterface()) tasks->AddTask([] {
                 ReapplyAllTrackedSpells();
+                ReapplyAllDisabledSpells();
                 ReapplyAllLevelOverrides();
             });
             return;

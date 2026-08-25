@@ -6,6 +6,7 @@ type Spell = {
   name: string;
   school: string;
   cost: number;
+  enabled: boolean;
 };
 
 type Resource = {
@@ -38,7 +39,7 @@ type Follower = {
   spells: Spell[];
 };
 
-type Tome = Spell & {
+type Tome = Omit<Spell, 'enabled'> & {
   spellName: string;
   count: number;
   value: number;
@@ -64,8 +65,8 @@ declare global {
 
 const demo: State = {
   followers: [
-    { id: 'demo-lydia', name: 'Lydia', className: 'Combat Warrior', level: 34, levelScaling: { playerScaled: true, multiplier: 1, currentMax: 50, originalMax: 50, targetMax: 300, enabled: false, canToggle: true }, maxMagicka: 100, resources: { health: { current: 312, max: 360 }, magicka: { current: 72, max: 100 }, stamina: { current: 185, max: 240 } }, spells: [{ id: 'ice-spike', name: 'Ice Spike', school: 'Destruction', cost: 30 }] },
-    { id: 'demo-serana', name: 'Serana', className: 'Vampire Mystic', level: 48, levelScaling: { playerScaled: true, multiplier: 1, currentMax: 300, originalMax: 50, targetMax: 300, enabled: true, canToggle: true }, maxMagicka: 220, resources: { health: { current: 280, max: 280 }, magicka: { current: 146, max: 220 }, stamina: { current: 124, max: 170 } }, spells: [{ id: 'firebolt', name: 'Firebolt', school: 'Destruction', cost: 25 }] },
+    { id: 'demo-lydia', name: 'Lydia', className: 'Combat Warrior', level: 34, levelScaling: { playerScaled: true, multiplier: 1, currentMax: 50, originalMax: 50, targetMax: 300, enabled: false, canToggle: true }, maxMagicka: 100, resources: { health: { current: 312, max: 360 }, magicka: { current: 72, max: 100 }, stamina: { current: 185, max: 240 } }, spells: [{ id: 'ice-spike', name: 'Ice Spike', school: 'Destruction', cost: 30, enabled: true }] },
+    { id: 'demo-serana', name: 'Serana', className: 'Vampire Mystic', level: 48, levelScaling: { playerScaled: true, multiplier: 1, currentMax: 300, originalMax: 50, targetMax: 300, enabled: true, canToggle: true }, maxMagicka: 220, resources: { health: { current: 280, max: 280 }, magicka: { current: 146, max: 220 }, stamina: { current: 124, max: 170 } }, spells: [{ id: 'firebolt', name: 'Firebolt', school: 'Destruction', cost: 25, enabled: false }] },
   ],
   tomes: [
     { id: 'firebolt-tome', name: 'Spell Tome: Firebolt', spellName: 'Firebolt', school: 'Destruction', cost: 25, count: 1, value: 96, description: 'A blast of fire that does 25 points of damage.' },
@@ -182,6 +183,9 @@ export function App() {
   const setLevelCap = (enabled: boolean) => {
     if (selectedFollower) send('levelCap', { actorId: Number(selectedFollower.id), enabled });
   };
+  const setSpellEnabled = (spell: Spell, enabled: boolean) => {
+    if (selectedFollower) send('spellState', { actorId: Number(selectedFollower.id), spellId: Number(spell.id), enabled });
+  };
 
   return (
     <main className="shell">
@@ -256,8 +260,24 @@ export function App() {
                     const ratio = selectedFollower.maxMagicka > 0 ? (spell.cost / selectedFollower.maxMagicka) * 100 : 0;
                     const severity = ratio > 100 ? 'unaffordable' : ratio > 60 ? 'expensive' : ratio > 25 ? 'moderate' : 'light';
                     return (
-                      <div className="spell-card" key={spell.id}>
-                        <div className="spell-card-heading"><strong>{spell.name}</strong><SchoolPill school={spell.school} /></div>
+                      <div className={`spell-card ${spell.enabled ? '' : 'disabled'}`} key={spell.id}>
+                        <div className="spell-card-heading">
+                          <div className="spell-card-title-row">
+                            <strong>{spell.name}</strong>
+                            <span className="spell-state-control">
+                              <span>{spell.enabled ? 'Enabled' : 'Disabled'}</span>
+                              <button
+                                className={`spell-toggle ${spell.enabled ? 'enabled' : ''}`}
+                                aria-label={`${spell.enabled ? 'Disable' : 'Enable'} ${spell.name}`}
+                                aria-pressed={spell.enabled}
+                                onClick={() => setSpellEnabled(spell, !spell.enabled)}
+                                title={`${spell.enabled ? 'Disable' : 'Enable'} this spell`}
+                                type="button"
+                              ><span /></button>
+                            </span>
+                          </div>
+                          <SchoolPill school={spell.school} />
+                        </div>
                         <div className="magicka-readout"><span>{spell.cost} magicka</span><span>{selectedFollower.maxMagicka > 0 ? `${Math.round(ratio)}%` : '—'}</span></div>
                         <div className="magicka-track" aria-label={`${spell.cost} of ${selectedFollower.maxMagicka} magicka`}><span className={severity} style={{ width: `${Math.min(100, Math.max(0, ratio))}%` }} /></div>
                         <small>{selectedFollower.maxMagicka > 0 ? `${spell.cost} / ${selectedFollower.maxMagicka} max magicka` : 'Maximum magicka unavailable'}</small>

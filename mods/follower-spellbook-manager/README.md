@@ -1,15 +1,4 @@
-# Skyrim PrismaUI Mods
-
-This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preserving each mod as an independent build and install unit.
-
-## Modules
-
-- `mods/follower-spellbook-manager` — manage loaded followers, their spells, and spell tomes. Default panel hotkey: **Shift+S**.
-- `mods/inventory-manager` — lightweight inventory and magic list with configurable shortcuts. Default panel hotkey: **Shift+D**.
-
-Both mods can be installed together: they use separate DLLs, views, and INI files. Shared Iconfont source is under `shared/iconfont`; the external build dependencies stay in `reference/`.
-
-## Follower Spellbook Manager
+# Follower Spellbook Manager
 
 An SKSE + Prisma UI mod for Skyrim Special Edition 1.5.97. It lets the player inspect loaded followers' spells and teach them spell tomes from the player's inventory.
 
@@ -57,8 +46,8 @@ MaxLevel=300
 
 ## Build
 
-1. Ensure the repository-level `reference/` directory contains the Prisma UI example repositories and their submodules.
-2. In `mods/follower-spellbook-manager/web/`, run `npm install` followed by `npm run build`.
-3. In `mods/follower-spellbook-manager/native/`, run `xmake build -y`.
+1. Ensure the `reference/` directory contains the Prisma UI example repositories and their submodules.
+2. In `web/`, run `npm install` followed by `npm run build`.
+3. In `native/`, run `xmake build -y`.
 
-The web build produces the Prisma view. The native build produces the SKSE plugin DLL. A later packaging step combines them under the MO2 mod directory structure. See `mods/inventory-manager/README.md` for the inventory mod's own controls and packaging steps.
+The web build produces the Prisma view. The native build produces the SKSE plugin DLL. A later packaging step combines them under the MO2 mod directory structure.
