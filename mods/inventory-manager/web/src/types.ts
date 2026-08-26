@@ -1,6 +1,6 @@
 export type Page = 'inventory' | 'magic' | 'hotkeys';
 
-export type HotkeyAction = 'open' | 'favorite' | 'activate' | 'search';
+export type HotkeyAction = 'open' | 'favorite' | 'activate' | 'pageToggle' | 'search';
 
 export type HotkeyBinding = {
   action: HotkeyAction;

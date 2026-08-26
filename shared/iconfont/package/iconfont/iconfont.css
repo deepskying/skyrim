@@ -1,0 +1,291 @@
+@font-face {
+  font-family: "skyrim-inventory-icons"; /* Project id 5226886 */
+  src: url('iconfont.woff2?t=1787750330070') format('woff2'),
+       url('iconfont.woff?t=1787750330070') format('woff'),
+       url('iconfont.ttf?t=1787750330070') format('truetype');
+}
+
+.skyrim-inventory-icons {
+  font-family: "skyrim-inventory-icons" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.skim-dianhua:before {
+  content: "\e76c";
+}
+
+.skim-weight:before {
+  content: "\e612";
+}
+
+.skim-box2:before {
+  content: "\e678";
+}
+
+.skim-box:before {
+  content: "\e65f";
+}
+
+.skim-favorites-fill:before {
+  content: "\e839";
+}
+
+.skim-Arrow-RightSquare:before {
+  content: "\e743";
+}
+
+.skim-a-Arrow-LeftSquare:before {
+  content: "\e602";
+}
+
+.skim-task:before {
+  content: "\e651";
+}
+
+.skim-Search:before {
+  content: "\e753";
+}
+
+.skim-hammer2:before {
+  content: "\e7a7";
+}
+
+.skim-password:before {
+  content: "\ea32";
+}
+
+.skim-shield:before {
+  content: "\e83a";
+}
+
+.skim-book2:before {
+  content: "\e62d";
+}
+
+.skim-crossbow:before {
+  content: "\e8d9";
+}
+
+.skim-mace:before {
+  content: "\e8dd";
+}
+
+.skim-fire-fill:before {
+  content: "\e866";
+}
+
+.skim-Bath-Robe:before {
+  content: "\ec54";
+}
+
+.skim-health:before {
+  content: "\e633";
+}
+
+.skim-ring:before {
+  content: "\e636";
+}
+
+.skim-lucky_playdefuben:before {
+  content: "\e607";
+}
+
+.skim-staff:before {
+  content: "\e886";
+}
+
+.skim-scroll-paper:before {
+  content: "\e640";
+}
+
+.skim-hand:before {
+  content: "\e632";
+}
+
+.skim-tree:before {
+  content: "\e641";
+}
+
+.skim-great-sword:before {
+  content: "\e68e";
+}
+
+.skim-voice:before {
+  content: "\e67f";
+}
+
+.skim-entertainment_life-potion:before {
+  content: "\e8f6";
+}
+
+.skim-RacingHelmet:before {
+  content: "\e971";
+}
+
+.skim--armor:before {
+  content: "\e61d";
+}
+
+.skim-icon-056-gloves:before {
+  content: "\e6c3";
+}
+
+.skim-ArrowUpRight:before {
+  content: "\e615";
+}
+
+.skim-letter:before {
+  content: "\e6bc";
+}
+
+.skim-Bowandarrow:before {
+  content: "\e6b3";
+}
+
+.skim-circle:before {
+  content: "\e60c";
+}
+
+.skim-GZT-71:before {
+  content: "\e6b5";
+}
+
+.skim-hood-cloak:before {
+  content: "\ec07";
+}
+
+.skim-hammer:before {
+  content: "\ece0";
+}
+
+.skim-battle-axe:before {
+  content: "\e621";
+}
+
+.skim-diamond-necklace:before {
+  content: "\ea3f";
+}
+
+.skim-crossbow1:before {
+  content: "\e653";
+}
+
+.skim-Dollar-circle:before {
+  content: "\e608";
+}
+
+.skim-svg_shoes:before {
+  content: "\e69d";
+}
+
+.skim-gem-solid:before {
+  content: "\e667";
+}
+
+.skim-thrown-daggers:before {
+  content: "\e689";
+}
+
+.skim-hat-cowboy:before {
+  content: "\e60d";
+}
+
+.skim-circle-three:before {
+  content: "\ea5a";
+}
+
+.skim-shoes:before {
+  content: "\e66d";
+}
+
+.skim-Sword:before {
+  content: "\eba4";
+}
+
+.skim-fi-sr-mace:before {
+  content: "\e735";
+}
+
+.skim-blank-notepad--content-notes-book-notepad-notebook:before {
+  content: "\e7a3";
+}
+
+.skim-trending-content--lit-flame-torch-trending:before {
+  content: "\e7b8";
+}
+
+.skim-a-042-armor-3:before {
+  content: "\eb53";
+}
+
+.skim-axe:before {
+  content: "\e68a";
+}
+
+.skim-flask-round-potion:before {
+  content: "\e8ae";
+}
+
+.skim-pickaxe:before {
+  content: "\eabd";
+}
+
+.skim-secured:before {
+  content: "\e625";
+}
+
+.skim-mushroom-1-filled:before {
+  content: "\e643";
+}
+
+.skim-apple-filled:before {
+  content: "\eab6";
+}
+
+.skim-Clothing_maoshan_clothes-sweater_linear:before {
+  content: "\e891";
+}
+
+.skim-dream:before {
+  content: "\e706";
+}
+
+.skim-a-HealthFilledjiankangtianchong:before {
+  content: "\e922";
+}
+
+.skim-a-MeatEggsroudanlei:before {
+  content: "\e928";
+}
+
+.skim-bow-arrow:before {
+  content: "\e61b";
+}
+
+.skim-a-rongqi1:before {
+  content: "\e60e";
+}
+
+.skim-fumojiaoyi:before {
+  content: "\e898";
+}
+
+.skim-guanbi:before {
+  content: "\e609";
+}
+
+.skim-jinbi:before {
+  content: "\eb19";
+}
+
+.skim-caoyaofei:before {
+  content: "\e675";
+}
+
+.skim-touqie:before {
+  content: "\e7ae";
+}
+

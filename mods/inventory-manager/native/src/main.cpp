@@ -15,6 +15,7 @@ namespace
         HotkeyConfig openPanel{};
         HotkeyConfig favorite{ 0x21, false, false, false };  // F
         HotkeyConfig activate{ 0x1C, false, false, false };  // Enter
+        HotkeyConfig pageToggle{ 0x38, false, false, true }; // Alt
         HotkeyConfig search{ 0x35, false, false, false };    // /
     };
 
@@ -43,6 +44,7 @@ namespace
         if (key.size() == 1 && key[0] >= '1' && key[0] <= '9') return 0x02 + (key[0] - '1');
         if (key == "0") return 0x0B;
         if (key == "ESC" || key == "ESCAPE") return 0x01;
+        if (key == "ALT") return 0x38;
         if (key == "SPACE") return 0x39;
         if (key == "TAB") return 0x0F;
         if (key == "ENTER") return 0x1C;
@@ -79,6 +81,7 @@ namespace
         if (a_key >= 0x02 && a_key <= 0x0A) return std::string(1, static_cast<char>('1' + a_key - 0x02));
         if (a_key == 0x0B) return "0";
         if (a_key == 0x01) return "Esc";
+        if (a_key == 0x38 || a_key == 0xB8) return "Alt";
         if (a_key == 0x0F) return "Tab";
         if (a_key == 0x1C) return "Enter";
         if (a_key == 0x35) return "/";
@@ -123,6 +126,7 @@ namespace
                     if (normalizedLine == "[HOTKEY]" || normalizedLine == "[OPENPANEL]") activeHotkey = std::addressof(hotkeys.openPanel);
                     else if (normalizedLine == "[FAVORITE]") activeHotkey = std::addressof(hotkeys.favorite);
                     else if (normalizedLine == "[ACTIVATE]") activeHotkey = std::addressof(hotkeys.activate);
+                    else if (normalizedLine == "[PAGETOGGLE]") activeHotkey = std::addressof(hotkeys.pageToggle);
                     else if (normalizedLine == "[SEARCH]") activeHotkey = std::addressof(hotkeys.search);
                     else activeHotkey = nullptr;
                     continue;
@@ -158,6 +162,7 @@ namespace
         writeBinding(configFile, "Hotkey", a_hotkeys.openPanel);
         writeBinding(configFile, "Favorite", a_hotkeys.favorite);
         writeBinding(configFile, "Activate", a_hotkeys.activate);
+        writeBinding(configFile, "PageToggle", a_hotkeys.pageToggle);
         writeBinding(configFile, "Search", a_hotkeys.search);
     }
 
@@ -444,6 +449,7 @@ namespace
                 HotkeyJson("open", g_hotkeys.openPanel),
                 HotkeyJson("favorite", g_hotkeys.favorite),
                 HotkeyJson("activate", g_hotkeys.activate),
+                HotkeyJson("pageToggle", g_hotkeys.pageToggle),
                 HotkeyJson("search", g_hotkeys.search)
             }) },
             { "capturingAction", g_capturingAction ? json(*g_capturingAction) : json(nullptr) },
@@ -502,11 +508,41 @@ namespace
         return true;
     }
 
+    [[nodiscard]] bool NavigateFocusedView(const std::uint32_t a_key)
+    {
+        const char* direction = nullptr;
+        switch (a_key) {
+        case 0x1E:  // A
+        case 0xCB:  // Left arrow
+            direction = "left";
+            break;
+        case 0x20:  // D
+        case 0xCD:  // Right arrow
+            direction = "right";
+            break;
+        case 0x11:  // W
+        case 0xC8:  // Up arrow
+            direction = "up";
+            break;
+        case 0x1F:  // S
+        case 0xD0:  // Down arrow
+            direction = "down";
+            break;
+        default:
+            return false;
+        }
+        if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
+        const auto script = std::string("window.InventoryManager && window.InventoryManager.navigate(\"") + direction + "\");";
+        g_prisma->Invoke(g_view, script.c_str());
+        return true;
+    }
+
     [[nodiscard]] HotkeyConfig* FindHotkey(const std::string_view a_action)
     {
         if (a_action == "open") return std::addressof(g_hotkeys.openPanel);
         if (a_action == "favorite") return std::addressof(g_hotkeys.favorite);
         if (a_action == "activate") return std::addressof(g_hotkeys.activate);
+        if (a_action == "pageToggle") return std::addressof(g_hotkeys.pageToggle);
         if (a_action == "search") return std::addressof(g_hotkeys.search);
         return nullptr;
     }
@@ -534,6 +570,8 @@ namespace
         }
         *hotkey = { a_key, a_shift, a_ctrl, a_alt };
         if (action == "open") InputHandler::GetSingleton()->SetHotkey(*hotkey);
+        else if (action == "pageToggle") InputHandler::GetSingleton()->SetPageToggleHotkey(*hotkey);
+        else if (action == "search") InputHandler::GetSingleton()->SetSearchHotkey(*hotkey);
         WriteHotkeyConfig(g_hotkeys);
         g_capturingAction.reset();
         SendState("Shortcut updated.");
@@ -733,9 +771,13 @@ namespace
         const auto input = InputHandler::GetSingleton();
         g_hotkeys = LoadHotkeySettings();
         input->SetHotkey(g_hotkeys.openPanel);
+        input->SetPageToggleHotkey(g_hotkeys.pageToggle);
+        input->SetSearchHotkey(g_hotkeys.search);
         input->SetToggleCallback(TogglePanel);
         input->SetEscapeCallback(CloseFocusedPanel);
         input->SetPageToggleCallback([] { return InvokeFocusedView("togglePage"); });
+        input->SetSearchCallback([] { return InvokeFocusedView("focusSearch"); });
+        input->SetNavigationCallback(NavigateFocusedView);
         input->SetCaptureCallback(CaptureHotkey);
         input->RegisterSink();
         logger::info("Inventory Manager loaded.");

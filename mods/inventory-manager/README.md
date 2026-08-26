@@ -5,7 +5,7 @@ The Inventory Manager is a lightweight PrismaUI panel for the player inventory a
 ## Current controls
 
 - **Shift+D** — open or close the panel (configurable in `packaging/InventoryManager.ini`).
-- **Alt** — switch inventory and magic tabs.
+- **Alt** — switch inventory and magic tabs (configurable in **快捷键配置**).
 - **Left / Right** or **A / D** — switch category.
 - **Up / Down** or **W / S** — switch selected row.
 - **F** — toggle the selected item's favorite state.
@@ -15,7 +15,7 @@ The Inventory Manager is a lightweight PrismaUI panel for the player inventory a
 
 ## Shortcut configuration
 
-The third top-level tab, **快捷键配置**, can rebind the panel, favorite, default-action, and search shortcuts. Click **重新绑定**, then press a key combination. The setting takes effect immediately and is persisted in `InventoryManager.ini`.
+The third top-level tab, **快捷键配置**, can rebind the panel, favorite, default-action, list-type toggle, and search shortcuts. Click **重新绑定**, then press a key combination. The setting takes effect immediately and is persisted in `InventoryManager.ini`.
 
 WASD and arrow navigation remain fixed so the panel always has a safe way to navigate. Supported bindings are letters, numbers, F1–F12, Tab, Enter, Space, and Slash.
 

@@ -1,0 +1,492 @@
+{
+  "id": "5226886",
+  "name": "skyrim",
+  "font_family": "skyrim-inventory-icons",
+  "css_prefix_text": "skim-",
+  "description": "PrismaUI 轻量级背包与魔法清单；使用单色图标字体。",
+  "glyphs": [
+    {
+      "icon_id": "23485427",
+      "name": "电话",
+      "font_class": "dianhua",
+      "unicode": "e76c",
+      "unicode_decimal": 59244
+    },
+    {
+      "icon_id": "8924415",
+      "name": "weight",
+      "font_class": "weight",
+      "unicode": "e612",
+      "unicode_decimal": 58898
+    },
+    {
+      "icon_id": "8193990",
+      "name": "box2",
+      "font_class": "box2",
+      "unicode": "e678",
+      "unicode_decimal": 59000
+    },
+    {
+      "icon_id": "47111168",
+      "name": "box",
+      "font_class": "box",
+      "unicode": "e65f",
+      "unicode_decimal": 58975
+    },
+    {
+      "icon_id": "34452979",
+      "name": "favorites-fill",
+      "font_class": "favorites-fill",
+      "unicode": "e839",
+      "unicode_decimal": 59449
+    },
+    {
+      "icon_id": "19705537",
+      "name": "Arrow - Right Square",
+      "font_class": "Arrow-RightSquare",
+      "unicode": "e743",
+      "unicode_decimal": 59203
+    },
+    {
+      "icon_id": "23722106",
+      "name": "Arrow - Left Square",
+      "font_class": "a-Arrow-LeftSquare",
+      "unicode": "e602",
+      "unicode_decimal": 58882
+    },
+    {
+      "icon_id": "5394543",
+      "name": "task",
+      "font_class": "task",
+      "unicode": "e651",
+      "unicode_decimal": 58961
+    },
+    {
+      "icon_id": "19705596",
+      "name": "Search",
+      "font_class": "Search",
+      "unicode": "e753",
+      "unicode_decimal": 59219
+    },
+    {
+      "icon_id": "128972",
+      "name": "hammer2",
+      "font_class": "hammer2",
+      "unicode": "e7a7",
+      "unicode_decimal": 59303
+    },
+    {
+      "icon_id": "212769",
+      "name": "password",
+      "font_class": "password",
+      "unicode": "ea32",
+      "unicode_decimal": 59954
+    },
+    {
+      "icon_id": "401079",
+      "name": "shield",
+      "font_class": "shield",
+      "unicode": "e83a",
+      "unicode_decimal": 59450
+    },
+    {
+      "icon_id": "850507",
+      "name": "book-2",
+      "font_class": "book2",
+      "unicode": "e62d",
+      "unicode_decimal": 58925
+    },
+    {
+      "icon_id": "3676061",
+      "name": "crossbow",
+      "font_class": "crossbow",
+      "unicode": "e8d9",
+      "unicode_decimal": 59609
+    },
+    {
+      "icon_id": "3676073",
+      "name": "mace",
+      "font_class": "mace",
+      "unicode": "e8dd",
+      "unicode_decimal": 59613
+    },
+    {
+      "icon_id": "4936652",
+      "name": "fire-fill",
+      "font_class": "fire-fill",
+      "unicode": "e866",
+      "unicode_decimal": 59494
+    },
+    {
+      "icon_id": "6807467",
+      "name": "Bath-Robe",
+      "font_class": "Bath-Robe",
+      "unicode": "ec54",
+      "unicode_decimal": 60500
+    },
+    {
+      "icon_id": "7821151",
+      "name": "health",
+      "font_class": "health",
+      "unicode": "e633",
+      "unicode_decimal": 58931
+    },
+    {
+      "icon_id": "7821159",
+      "name": "ring",
+      "font_class": "ring",
+      "unicode": "e636",
+      "unicode_decimal": 58934
+    },
+    {
+      "icon_id": "9203381",
+      "name": "lucky_play",
+      "font_class": "lucky_playdefuben",
+      "unicode": "e607",
+      "unicode_decimal": 58887
+    },
+    {
+      "icon_id": "10023722",
+      "name": "staff",
+      "font_class": "staff",
+      "unicode": "e886",
+      "unicode_decimal": 59526
+    },
+    {
+      "icon_id": "10168445",
+      "name": "scroll-paper",
+      "font_class": "scroll-paper",
+      "unicode": "e640",
+      "unicode_decimal": 58944
+    },
+    {
+      "icon_id": "10329808",
+      "name": "hand",
+      "font_class": "hand",
+      "unicode": "e632",
+      "unicode_decimal": 58930
+    },
+    {
+      "icon_id": "10330037",
+      "name": "tree",
+      "font_class": "tree",
+      "unicode": "e641",
+      "unicode_decimal": 58945
+    },
+    {
+      "icon_id": "10331201",
+      "name": "great-sword",
+      "font_class": "great-sword",
+      "unicode": "e68e",
+      "unicode_decimal": 59022
+    },
+    {
+      "icon_id": "11538092",
+      "name": "voice",
+      "font_class": "voice",
+      "unicode": "e67f",
+      "unicode_decimal": 59007
+    },
+    {
+      "icon_id": "12166541",
+      "name": "entertainment_life-potion",
+      "font_class": "entertainment_life-potion",
+      "unicode": "e8f6",
+      "unicode_decimal": 59638
+    },
+    {
+      "icon_id": "12478408",
+      "name": "Racing Helmet",
+      "font_class": "RacingHelmet",
+      "unicode": "e971",
+      "unicode_decimal": 59761
+    },
+    {
+      "icon_id": "13627889",
+      "name": "004-armor",
+      "font_class": "-armor",
+      "unicode": "e61d",
+      "unicode_decimal": 58909
+    },
+    {
+      "icon_id": "16599846",
+      "name": "icon-056-gloves",
+      "font_class": "icon-056-gloves",
+      "unicode": "e6c3",
+      "unicode_decimal": 59075
+    },
+    {
+      "icon_id": "17411860",
+      "name": "Arrow Up Right",
+      "font_class": "ArrowUpRight",
+      "unicode": "e615",
+      "unicode_decimal": 58901
+    },
+    {
+      "icon_id": "18092930",
+      "name": "letter",
+      "font_class": "letter",
+      "unicode": "e6bc",
+      "unicode_decimal": 59068
+    },
+    {
+      "icon_id": "18119322",
+      "name": "弓箭",
+      "font_class": "Bowandarrow",
+      "unicode": "e6b3",
+      "unicode_decimal": 59059
+    },
+    {
+      "icon_id": "22561876",
+      "name": "circle",
+      "font_class": "circle",
+      "unicode": "e60c",
+      "unicode_decimal": 58892
+    },
+    {
+      "icon_id": "22724113",
+      "name": "GZT-71",
+      "font_class": "GZT-71",
+      "unicode": "e6b5",
+      "unicode_decimal": 59061
+    },
+    {
+      "icon_id": "22820335",
+      "name": "hood-cloak",
+      "font_class": "hood-cloak",
+      "unicode": "ec07",
+      "unicode_decimal": 60423
+    },
+    {
+      "icon_id": "23494535",
+      "name": "hammer",
+      "font_class": "hammer",
+      "unicode": "ece0",
+      "unicode_decimal": 60640
+    },
+    {
+      "icon_id": "23557140",
+      "name": "battle-axe",
+      "font_class": "battle-axe",
+      "unicode": "e621",
+      "unicode_decimal": 58913
+    },
+    {
+      "icon_id": "24995745",
+      "name": "diamond-necklace",
+      "font_class": "diamond-necklace",
+      "unicode": "ea3f",
+      "unicode_decimal": 59967
+    },
+    {
+      "icon_id": "25743689",
+      "name": "crossbow",
+      "font_class": "crossbow1",
+      "unicode": "e653",
+      "unicode_decimal": 58963
+    },
+    {
+      "icon_id": "32907493",
+      "name": "Dollar-circle",
+      "font_class": "Dollar-circle",
+      "unicode": "e608",
+      "unicode_decimal": 58888
+    },
+    {
+      "icon_id": "33448628",
+      "name": "svg_shoes",
+      "font_class": "svg_shoes",
+      "unicode": "e69d",
+      "unicode_decimal": 59037
+    },
+    {
+      "icon_id": "36556420",
+      "name": "gem-solid",
+      "font_class": "gem-solid",
+      "unicode": "e667",
+      "unicode_decimal": 58983
+    },
+    {
+      "icon_id": "36569639",
+      "name": "thrown-daggers",
+      "font_class": "thrown-daggers",
+      "unicode": "e689",
+      "unicode_decimal": 59017
+    },
+    {
+      "icon_id": "36915469",
+      "name": "hat-cowboy",
+      "font_class": "hat-cowboy",
+      "unicode": "e60d",
+      "unicode_decimal": 58893
+    },
+    {
+      "icon_id": "40068941",
+      "name": "circle-three",
+      "font_class": "circle-three",
+      "unicode": "ea5a",
+      "unicode_decimal": 59994
+    },
+    {
+      "icon_id": "40386265",
+      "name": "shoes",
+      "font_class": "shoes",
+      "unicode": "e66d",
+      "unicode_decimal": 58989
+    },
+    {
+      "icon_id": "40670851",
+      "name": "Sword",
+      "font_class": "Sword",
+      "unicode": "eba4",
+      "unicode_decimal": 60324
+    },
+    {
+      "icon_id": "41022211",
+      "name": "fi-sr-mace",
+      "font_class": "fi-sr-mace",
+      "unicode": "e735",
+      "unicode_decimal": 59189
+    },
+    {
+      "icon_id": "41754871",
+      "name": "blank-notepad--content-notes-book-notepad-notebook",
+      "font_class": "blank-notepad--content-notes-book-notepad-notebook",
+      "unicode": "e7a3",
+      "unicode_decimal": 59299
+    },
+    {
+      "icon_id": "41755088",
+      "name": "trending-content--lit-flame-torch-trending",
+      "font_class": "trending-content--lit-flame-torch-trending",
+      "unicode": "e7b8",
+      "unicode_decimal": 59320
+    },
+    {
+      "icon_id": "42017694",
+      "name": "042-armor-3",
+      "font_class": "a-042-armor-3",
+      "unicode": "eb53",
+      "unicode_decimal": 60243
+    },
+    {
+      "icon_id": "42351972",
+      "name": "axe",
+      "font_class": "axe",
+      "unicode": "e68a",
+      "unicode_decimal": 59018
+    },
+    {
+      "icon_id": "42353157",
+      "name": "flask-round-potion",
+      "font_class": "flask-round-potion",
+      "unicode": "e8ae",
+      "unicode_decimal": 59566
+    },
+    {
+      "icon_id": "42354101",
+      "name": "pickaxe",
+      "font_class": "pickaxe",
+      "unicode": "eabd",
+      "unicode_decimal": 60093
+    },
+    {
+      "icon_id": "44044004",
+      "name": "secured",
+      "font_class": "secured",
+      "unicode": "e625",
+      "unicode_decimal": 58917
+    },
+    {
+      "icon_id": "44044251",
+      "name": "mushroom-1-filled",
+      "font_class": "mushroom-1-filled",
+      "unicode": "e643",
+      "unicode_decimal": 58947
+    },
+    {
+      "icon_id": "44064428",
+      "name": "apple-filled",
+      "font_class": "apple-filled",
+      "unicode": "eab6",
+      "unicode_decimal": 60086
+    },
+    {
+      "icon_id": "44547143",
+      "name": "Clothing_帽衫_clothes-sweater_linear",
+      "font_class": "Clothing_maoshan_clothes-sweater_linear",
+      "unicode": "e891",
+      "unicode_decimal": 59537
+    },
+    {
+      "icon_id": "45281506",
+      "name": "dream",
+      "font_class": "dream",
+      "unicode": "e706",
+      "unicode_decimal": 59142
+    },
+    {
+      "icon_id": "45871599",
+      "name": "HealthFilled,健康填充",
+      "font_class": "a-HealthFilledjiankangtianchong",
+      "unicode": "e922",
+      "unicode_decimal": 59682
+    },
+    {
+      "icon_id": "45874488",
+      "name": "MeatEggs,肉蛋类",
+      "font_class": "a-MeatEggsroudanlei",
+      "unicode": "e928",
+      "unicode_decimal": 59688
+    },
+    {
+      "icon_id": "47657884",
+      "name": "bow-arrow",
+      "font_class": "bow-arrow",
+      "unicode": "e61b",
+      "unicode_decimal": 58907
+    },
+    {
+      "icon_id": "48308116",
+      "name": "alcohol",
+      "font_class": "a-rongqi1",
+      "unicode": "e60e",
+      "unicode_decimal": 58894
+    },
+    {
+      "icon_id": "1038464",
+      "name": "附魔交易",
+      "font_class": "fumojiaoyi",
+      "unicode": "e898",
+      "unicode_decimal": 59544
+    },
+    {
+      "icon_id": "4880431",
+      "name": "关闭",
+      "font_class": "guanbi",
+      "unicode": "e609",
+      "unicode_decimal": 58889
+    },
+    {
+      "icon_id": "5387625",
+      "name": "金币",
+      "font_class": "jinbi",
+      "unicode": "eb19",
+      "unicode_decimal": 60185
+    },
+    {
+      "icon_id": "10268523",
+      "name": "草药费",
+      "font_class": "caoyaofei",
+      "unicode": "e675",
+      "unicode_decimal": 58997
+    },
+    {
+      "icon_id": "36779277",
+      "name": "偷窃",
+      "font_class": "touqie",
+      "unicode": "e7ae",
+      "unicode_decimal": 59310
+    }
+  ]
+}

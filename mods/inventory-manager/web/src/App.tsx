@@ -5,11 +5,14 @@ import type { HotkeyAction, HotkeyBinding, InventoryItem, ItemCategory, MagicCat
 
 type Row = InventoryItem | MagicItem;
 type SortKey = 'name' | 'count' | 'weight' | 'value' | 'stat' | 'type';
+type NavigationDirection = 'left' | 'right' | 'up' | 'down';
 
 type NativeBridge = {
   receiveState?: (next: PanelState) => void;
   togglePage?: () => void;
   toggleFavorite?: () => void;
+  navigate?: (direction: NavigationDirection) => void;
+  focusSearch?: () => void;
 };
 
 declare global {
@@ -37,12 +40,13 @@ const hotkeyLabels: Record<HotkeyAction, { title: string; description: string }>
   open: { title: '唤起面板', description: '在游戏中打开或关闭物品清单。' },
   favorite: { title: '切换收藏', description: '收藏或取消收藏当前选中的物品。' },
   activate: { title: '执行默认操作', description: '装备、使用当前选中的项目。' },
+  pageToggle: { title: '切换清单类型', description: '在背包清单和魔法清单之间切换。' },
   search: { title: '搜索', description: '将光标置入物品搜索框。' },
 };
 
 const directInputCodes: Record<string, number> = {
   Escape: 0x01, Digit1: 0x02, Digit2: 0x03, Digit3: 0x04, Digit4: 0x05, Digit5: 0x06, Digit6: 0x07, Digit7: 0x08, Digit8: 0x09, Digit9: 0x0A, Digit0: 0x0B,
-  Tab: 0x0F, KeyQ: 0x10, KeyW: 0x11, KeyE: 0x12, KeyR: 0x13, KeyT: 0x14, KeyY: 0x15, KeyU: 0x16, KeyI: 0x17, KeyO: 0x18, KeyP: 0x19,
+  Tab: 0x0F, KeyQ: 0x10, KeyW: 0x11, KeyE: 0x12, KeyR: 0x13, KeyT: 0x14, KeyY: 0x15, KeyU: 0x16, KeyI: 0x17, KeyO: 0x18, KeyP: 0x19, AltLeft: 0x38, AltRight: 0xB8,
   KeyA: 0x1E, KeyS: 0x1F, KeyD: 0x20, KeyF: 0x21, KeyG: 0x22, KeyH: 0x23, KeyJ: 0x24, KeyK: 0x25, KeyL: 0x26, Enter: 0x1C,
   KeyZ: 0x2C, KeyX: 0x2D, KeyC: 0x2E, KeyV: 0x2F, KeyB: 0x30, KeyN: 0x31, KeyM: 0x32, Slash: 0x35, Space: 0x39,
   F1: 0x3B, F2: 0x3C, F3: 0x3D, F4: 0x3E, F5: 0x3F, F6: 0x40, F7: 0x41, F8: 0x42, F9: 0x43, F10: 0x44, F11: 0x57, F12: 0x58,
@@ -129,6 +133,7 @@ export function App() {
   const searchRef = useRef<HTMLInputElement>(null);
   const selectedRef = useRef<Row>();
   const pageRef = useRef<Page>('inventory');
+  const navigateRef = useRef<(direction: NavigationDirection) => void>(() => {});
 
   useEffect(() => {
     window.InventoryManager = {
@@ -144,6 +149,8 @@ export function App() {
         if (!activeRow || (activePage === 'magic' && activeRow.category === 'status')) return;
         send('favorite', { id: activeRow.id, page: activePage });
       },
+      navigate: (direction) => navigateRef.current(direction),
+      focusSearch: () => searchRef.current?.focus(),
     };
     send('ready');
     return () => { delete window.InventoryManager; };
@@ -198,6 +205,13 @@ export function App() {
     const current = Math.max(0, rows.findIndex((row) => row.id === selected?.id));
     setSelectedId(rows[(current + direction + rows.length) % rows.length].id);
   };
+  navigateRef.current = (direction) => {
+    if (page === 'hotkeys') return;
+    if (direction === 'left') cycleCategory(-1);
+    else if (direction === 'right') cycleCategory(1);
+    else if (direction === 'up') selectRelative(-1);
+    else selectRelative(1);
+  };
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
@@ -212,6 +226,7 @@ export function App() {
       else if (event.key === 'ArrowDown' || event.code === 'KeyS') { event.preventDefault(); selectRelative(1); }
       else if (matchesHotkey(event, hotkey('favorite')) && selected) { event.preventDefault(); send('favorite', { id: selected.id, page }); }
       else if (matchesHotkey(event, hotkey('activate')) && selected && (page === 'inventory' ? canActivateInventory(selected) : canManageMagic(selected as MagicItem))) { event.preventDefault(); send('activate', { id: selected.id, page }); }
+      else if (matchesHotkey(event, hotkey('pageToggle'))) { event.preventDefault(); window.InventoryManager?.togglePage?.(); }
       else if (matchesHotkey(event, hotkey('search'))) { event.preventDefault(); searchRef.current?.focus(); }
     };
     window.addEventListener('keydown', keydown);
