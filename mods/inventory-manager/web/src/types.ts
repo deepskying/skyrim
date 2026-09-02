@@ -11,7 +11,7 @@ export type HotkeyBinding = {
   alt: boolean;
 };
 
-export type ItemCategory = 'favorites' | 'all' | 'weapons' | 'armor' | 'potions' | 'scrolls' | 'food' | 'ingredients' | 'misc';
+export type ItemCategory = 'favorites' | 'all' | 'weapons' | 'armor' | 'potions' | 'scrolls' | 'books' | 'food' | 'ingredients' | 'misc';
 export type MagicCategory = 'favorites' | 'all' | 'destruction' | 'alteration' | 'illusion' | 'restoration' | 'conjuration' | 'shouts' | 'powers' | 'status';
 
 export type InventoryItem = {

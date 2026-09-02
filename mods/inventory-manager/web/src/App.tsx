@@ -25,7 +25,7 @@ declare global {
 const inventoryCategories: { id: ItemCategory; label: string; icon: string }[] = [
   { id: 'favorites', label: '收藏', icon: 'favorite' }, { id: 'all', label: '所有', icon: 'all' },
   { id: 'weapons', label: '武器', icon: 'weapon' }, { id: 'armor', label: '护甲', icon: 'armor' },
-  { id: 'potions', label: '药水', icon: 'potion' }, { id: 'scrolls', label: '卷轴', icon: 'scroll' },
+  { id: 'potions', label: '药水', icon: 'potion' }, { id: 'scrolls', label: '卷轴', icon: 'scroll' }, { id: 'books', label: '书籍', icon: 'book' },
   { id: 'food', label: '食物', icon: 'food' }, { id: 'ingredients', label: '炼金', icon: 'ingredient' }, { id: 'misc', label: '杂项', icon: 'misc' },
 ];
 

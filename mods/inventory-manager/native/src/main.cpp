@@ -181,6 +181,7 @@ namespace
         case RE::FormType::Weapon: return "weapons";
         case RE::FormType::Armor: return "armor";
         case RE::FormType::Scroll: return "scrolls";
+        case RE::FormType::Book: return "books";
         case RE::FormType::Ingredient: return "ingredients";
         case RE::FormType::AlchemyItem:
             if (const auto alchemy = a_item->As<RE::AlchemyItem>(); alchemy && alchemy->IsFood()) return "food";
@@ -195,6 +196,7 @@ namespace
         if (a_category == "armor") return "armor";
         if (a_category == "potions") return "potion";
         if (a_category == "scrolls") return "scroll";
+        if (a_category == "books") return "book";
         if (a_category == "food") return "food";
         if (a_category == "ingredients") return "ingredient";
         return "misc";
