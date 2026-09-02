@@ -6,6 +6,7 @@ This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preservi
 
 - `mods/follower-spellbook-manager` — manage loaded followers, their spells, and spell tomes. Default panel hotkey: **Shift+S**.
 - `mods/inventory-manager` — lightweight inventory and magic list with configurable shortcuts. Default panel hotkey: **Shift+D**.
+- `mods/durability-manager` — PrismaUI foundation for weapon and armour durability. Default panel hotkey: **Shift+F**.
 
 Both mods can be installed together: they use separate DLLs, views, and INI files. Shared Iconfont source is under `shared/iconfont`; the external build dependencies stay in `reference/`.
 
