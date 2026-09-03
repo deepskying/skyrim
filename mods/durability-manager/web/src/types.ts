@@ -4,7 +4,9 @@ export type CardType = 'performance' | 'weight' | 'speed' | 'durability' | 'wear
 export type MaterialRequirement = { name: string; required: number; owned: number };
 
 export type EquipmentItem = {
-  id: number;
+  // Native emits the stable `baseFormID:uniqueID` instance key. It must not
+  // be reduced to a base FormID: players can own several copies of one item.
+  id: string;
   name: string;
   slot: string;
   category: 'weapon' | 'armor' | 'clothing';

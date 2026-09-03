@@ -9,10 +9,12 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 - The panel provides the agreed two tabs: **耐久状态** and **配置**.
 - Drawing, equipping, or switching to a weapon shows a non-blocking HUD card with its current durability. The display duration is configurable.
 - A low-durability HUD warning fires once when an equipped weapon is below the configured threshold; it becomes eligible again after returning above the threshold.
-- Low-durability threshold, weapon display duration, HUD-warning preference, enchanted-item breakage, and the panel hotkey are persisted in `SKSE/Plugins/DurabilityManager.ini`.
+- Low-durability threshold, weapon display duration, HUD-warning preference, enchanted-item breakage, ranged-shot wear values, and the panel hotkey are persisted in `SKSE/Plugins/DurabilityManager.ini`.
+- A bow loses durability only when Skyrim emits a completed `TESPlayerBowShotEvent`: drawing then cancelling costs nothing. Bows lose `1.0` by default; crossbows lose `2.0`; bound weapons are excluded. Wear-reduction effects apply after the base cost and are capped at 70% by default.
+- Equipment state is tracked per carried item instance (`base FormID + ExtraUniqueID`) and saved in the SKSE co-save. Existing saves without Durability Manager records start safely at the default 100 / 100 state.
 - The repair queue layout, material details, and forge-only hammer interaction are implemented in the Prisma view and ready for the native durability/forge bridge.
 
-The native durability-loss hooks, per-instance co-save identity, break/salvage transaction, and forge activation hook deliberately remain separate from this UI/configuration foundation. They must be completed as one integrity-preserving slice so that enchanted and unique items are never incorrectly merged or destroyed.
+Melee/armor loss, zero-durability break or salvage transactions, and forge activation remain separate from this ranged-wear slice. Those systems will build on the same per-instance key and co-save state before any item can be removed or altered.
 
 ## Install layout
 

@@ -17,7 +17,9 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 
 ## Gameplay rules
 
-- Quest objects and configured artifacts are excluded before every durability mutation.
+- The first time an equipped item participates, the plugin assigns or reuses Skyrim's `ExtraUniqueID`; the resulting `base FormID + unique ID` key is saved in the SKSE co-save. A save without this record simply starts each item at its default state.
+- Bows lose configured wear only after a completed `TESPlayerBowShotEvent` (cancelled draws cost nothing); crossbows use their separate configured base cost. Bound weapons are excluded. Wear-reduction is applied after the base cost and is clamped by the configured global cap.
+- Quest and unique-item breakage rules will be enforced by the future zero-durability transaction. The current ranged-shot hook is non-destructive and only changes the tracked durability value.
 - Ordinary non-unique equipment at zero durability is removed and converted into a partial set of forge-recipe materials.
 - `AllowEnchantedItemsToBreak` defaults to `true`: when enabled, ordinary enchanted equipment follows the same break-and-salvage rule; when disabled, it becomes `broken` instead.
 - Unique equipment always becomes `broken`; it is unequipped and cannot be used until repaired, regardless of the enchanted-item setting.
@@ -35,6 +37,12 @@ attack / hit
   -> zero: break or salvage
   -> save item state to co-save
   -> push refreshed data to PrismaUI when open
+
+completed bow / crossbow shot
+  -> resolve the equipped item instance
+  -> ignore bound weapons and cancelled draws
+  -> subtract configured base wear after wear-reduction cap
+  -> persist state through the next SKSE co-save
 
 weapon equip / switch / `weaponDraw` animation
   -> resolve the player's equipped weapon

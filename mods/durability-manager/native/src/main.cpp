@@ -17,6 +17,9 @@ namespace
         float weaponDisplaySeconds = 3.0F;
         bool enableLowDurabilityWarning = true;
         bool allowEnchantedItemsToBreak = true;
+        float bowShotWear = 1.0F;
+        float crossbowShotWear = 2.0F;
+        float maxWearReduction = 0.70F;
     };
 
     Settings g_settings{};
@@ -27,14 +30,33 @@ namespace
 
     struct DurabilitySnapshot
     {
-        std::uint32_t current = 100;
-        std::uint32_t maximum = 100;
+        float current = 100.0F;
+        float maximum = 100.0F;
         std::uint32_t enhancementLevel = 0;
         std::int32_t performanceBonus = 0;
         float weightReduction = 0.0F;
         float attackSpeedBonus = 0.0F;
         float wearReduction = 0.0F;
         float chargeBonus = 0.0F;
+    };
+
+    // A base FormID identifies an item definition, not a specific copy.  The
+    // ExtraUniqueID is persisted with the item by Skyrim and keeps two steel
+    // swords from ever sharing enhancement or durability state.
+    struct ItemKey
+    {
+        RE::FormID baseFormID = 0;
+        std::uint16_t uniqueID = 0;
+
+        [[nodiscard]] bool operator==(const ItemKey&) const = default;
+    };
+
+    struct ItemKeyHash
+    {
+        [[nodiscard]] std::size_t operator()(const ItemKey& a_key) const noexcept
+        {
+            return (static_cast<std::size_t>(a_key.baseFormID) << 16U) ^ a_key.uniqueID;
+        }
     };
 
     enum class EnhancementCardType : std::uint8_t { Performance, Weight, Speed, Durability, Wear, Charge, Enchantment };
@@ -52,11 +74,16 @@ namespace
         std::vector<RE::FormID> requiredMaterials;
     };
 
-    // This is deliberately kept behind one accessor: the persistence and wear
-    // bridge will replace the default snapshot without changing HUD consumers.
-    std::unordered_map<RE::FormID, DurabilitySnapshot> g_durability;
-    std::unordered_set<RE::FormID> g_lowDurabilityWarnings;
-    std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> g_weaponNotificationTimes;
+    std::unordered_map<ItemKey, DurabilitySnapshot, ItemKeyHash> g_durability;
+    std::unordered_set<ItemKey, ItemKeyHash> g_lowDurabilityWarnings;
+    std::unordered_map<ItemKey, std::chrono::steady_clock::time_point, ItemKeyHash> g_weaponNotificationTimes;
+    std::mutex g_durabilityLock;
+    std::uint16_t g_nextGeneratedUniqueID = 1;
+
+    constexpr std::uint32_t kSerializationID = 0x4455524DU;  // "DURM"
+    constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
+    constexpr std::uint32_t kDurabilityRecordVersion = 1;
+    constexpr std::uint32_t kMaxDurabilityRecords = 100000;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -135,6 +162,9 @@ namespace
                    << "\nWeaponDisplaySeconds=" << g_settings.weaponDisplaySeconds
                    << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false");
         configFile << "\n\n[Breakage]\nAllowEnchantedItemsToBreak=" << (g_settings.allowEnchantedItemsToBreak ? "true" : "false") << '\n';
+        configFile << "\n[Wear]\nBowShotWear=" << g_settings.bowShotWear
+                   << "\nCrossbowShotWear=" << g_settings.crossbowShotWear
+                   << "\nMaxWearReduction=" << g_settings.maxWearReduction << '\n';
     }
 
     void LoadConfig()
@@ -174,6 +204,14 @@ namespace
                 }
             } else if (section == "[BREAKAGE]" && key == "ALLOWENCHANTEDITEMSTOBREAK") {
                 g_settings.allowEnchantedItemsToBreak = ParseBool(value, g_settings.allowEnchantedItemsToBreak);
+            } else if (section == "[WEAR]") {
+                try {
+                    if (key == "BOWSHOTWEAR") g_settings.bowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "CROSSBOWSHOTWEAR") g_settings.crossbowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "MAXWEARREDUCTION") g_settings.maxWearReduction = std::clamp(std::stof(value), 0.0F, 0.95F);
+                } catch (const std::exception&) {
+                    logger::warn("Ignoring invalid DurabilityManager.ini value for {}.", key);
+                }
             }
         }
     }
@@ -214,11 +252,83 @@ namespace
         return name && name[0] ? name : "";
     }
 
-    [[nodiscard]] DurabilitySnapshot GetDurability(const RE::TESBoundObject* a_item)
+    [[nodiscard]] RE::ExtraDataList* FindWornExtraList(const RE::InventoryEntryData* a_entry)
     {
-        if (!a_item) return {};
-        if (const auto found = g_durability.find(a_item->GetFormID()); found != g_durability.end()) return found->second;
+        if (!a_entry || !a_entry->extraLists) return nullptr;
+        for (auto* extraList : *a_entry->extraLists) {
+            if (extraList && extraList->GetWorn()) return extraList;
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] bool IsUniqueIDInPlayerInventory(const RE::FormID a_baseFormID, const std::uint16_t a_uniqueID)
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return false;
+        for (const auto& [item, entry] : player->GetInventory()) {
+            if (!item || item->GetFormID() != a_baseFormID || !entry.second || !entry.second->extraLists) continue;
+            for (auto* extraList : *entry.second->extraLists) {
+                const auto* uniqueID = extraList ? extraList->GetByType<RE::ExtraUniqueID>() : nullptr;
+                if (uniqueID && uniqueID->uniqueID == a_uniqueID) return true;
+            }
+        }
+        return false;
+    }
+
+    [[nodiscard]] std::optional<ItemKey> EnsureItemKey(RE::InventoryEntryData* a_entry, const RE::TESBoundObject* a_item)
+    {
+        if (!a_item) return std::nullopt;
+        auto* extraList = FindWornExtraList(a_entry);
+        if (!extraList) {
+            logger::debug("Could not resolve a worn extra-data list for {:08X}; durability was not changed.", a_item->GetFormID());
+            return std::nullopt;
+        }
+
+        if (const auto* existing = extraList->GetByType<RE::ExtraUniqueID>()) {
+            return ItemKey{ a_item->GetFormID(), existing->uniqueID };
+        }
+
+        std::uint16_t generatedID = 0;
+        bool foundAvailableID = false;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            // Generated IDs occupy the upper half where possible, and are
+            // checked against every currently held instance before use.
+            if (g_nextGeneratedUniqueID < 0x8000U) g_nextGeneratedUniqueID = 0x8000U;
+            const auto firstCandidate = g_nextGeneratedUniqueID;
+            do {
+                generatedID = g_nextGeneratedUniqueID++;
+                if (g_nextGeneratedUniqueID == 0) g_nextGeneratedUniqueID = 0x8000U;
+                if (!g_durability.contains(ItemKey{ a_item->GetFormID(), generatedID }) &&
+                    !IsUniqueIDInPlayerInventory(a_item->GetFormID(), generatedID)) {
+                    foundAvailableID = true;
+                    break;
+                }
+            } while (g_nextGeneratedUniqueID != firstCandidate);
+        }
+        if (!foundAvailableID || generatedID == 0) return std::nullopt;
+
+        extraList->Add(new RE::ExtraUniqueID(a_item->GetFormID(), generatedID));
+        logger::debug("Assigned durability instance {:08X}:{:04X}.", a_item->GetFormID(), generatedID);
+        return ItemKey{ a_item->GetFormID(), generatedID };
+    }
+
+    [[nodiscard]] DurabilitySnapshot GetDurability(const ItemKey& a_key)
+    {
+        std::scoped_lock lock(g_durabilityLock);
+        if (const auto found = g_durability.find(a_key); found != g_durability.end()) return found->second;
         return {};
+    }
+
+    [[nodiscard]] RE::InventoryEntryData* FindEquippedWeaponEntry(const RE::TESObjectWEAP* a_weapon)
+    {
+        const auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player || !a_weapon) return nullptr;
+        for (const bool leftHand : { false, true }) {
+            auto* entry = player->GetEquippedEntryData(leftHand);
+            if (entry && entry->object == a_weapon) return entry;
+        }
+        return nullptr;
     }
 
     [[nodiscard]] std::string DisplayName(const RE::TESBoundObject* a_item)
@@ -232,6 +342,8 @@ namespace
     {
         if (g_prisma && g_view && !g_panelVisible && !g_hudVisible) g_prisma->Hide(g_view);
     }
+
+    void SendState(std::string_view a_message = {});
 
     void ShowHUD(std::string_view a_kind, std::string_view a_title, std::string_view a_detail, const float a_seconds)
     {
@@ -249,29 +361,61 @@ namespace
         g_prisma->Invoke(g_view, script.c_str());
     }
 
-    void ShowWeaponDurability(const RE::TESObjectWEAP* a_weapon)
+    void UpdateLowDurabilityWarning(const RE::TESObjectWEAP* a_weapon, const ItemKey& a_key, const DurabilitySnapshot& a_durability)
     {
-        if (!a_weapon) return;
-        const auto now = std::chrono::steady_clock::now();
-        const auto formID = a_weapon->GetFormID();
-        if (const auto previous = g_weaponNotificationTimes.find(formID); previous != g_weaponNotificationTimes.end() && now - previous->second < std::chrono::milliseconds(250)) return;
-        g_weaponNotificationTimes[formID] = now;
-
-        const auto durability = GetDurability(a_weapon);
-        const auto percentage = durability.maximum ? (durability.current * 100U / durability.maximum) : 0U;
-        ShowHUD("weapon", DisplayName(a_weapon), std::to_string(durability.current) + " / " + std::to_string(durability.maximum) + "  ·  " + std::to_string(percentage) + "%", g_settings.weaponDisplaySeconds);
-
-        if (!g_settings.enableLowDurabilityWarning || !durability.maximum) return;
+        if (!g_settings.enableLowDurabilityWarning || a_durability.maximum <= 0.0F) return;
+        const auto percentage = static_cast<std::uint32_t>(std::lround(a_durability.current * 100.0F / a_durability.maximum));
         if (percentage < g_settings.lowDurabilityThreshold) {
-            if (g_lowDurabilityWarnings.insert(formID).second) {
+            if (g_lowDurabilityWarnings.insert(a_key).second) {
                 ShowHUD("warning", "耐久度过低", DisplayName(a_weapon) + "：" + std::to_string(percentage) + "%（请尽快修复）", g_settings.weaponDisplaySeconds);
             }
         } else {
-            g_lowDurabilityWarnings.erase(formID);
+            g_lowDurabilityWarnings.erase(a_key);
         }
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>
+    void ShowWeaponDurability(const RE::TESObjectWEAP* a_weapon, RE::InventoryEntryData* a_entry = nullptr)
+    {
+        if (!a_weapon) return;
+        auto* entry = a_entry ? a_entry : FindEquippedWeaponEntry(a_weapon);
+        const auto key = EnsureItemKey(entry, a_weapon);
+        if (!key) return;
+        const auto now = std::chrono::steady_clock::now();
+        if (const auto previous = g_weaponNotificationTimes.find(*key); previous != g_weaponNotificationTimes.end() && now - previous->second < std::chrono::milliseconds(250)) return;
+        g_weaponNotificationTimes[*key] = now;
+
+        const auto durability = GetDurability(*key);
+        const auto current = static_cast<std::uint32_t>(std::lround(durability.current));
+        const auto maximum = static_cast<std::uint32_t>(std::lround(durability.maximum));
+        const auto percentage = maximum ? (current * 100U / maximum) : 0U;
+        ShowHUD("weapon", DisplayName(a_weapon), std::to_string(current) + " / " + std::to_string(maximum) + "  ·  " + std::to_string(percentage) + "%", g_settings.weaponDisplaySeconds);
+        UpdateLowDurabilityWarning(a_weapon, *key, durability);
+    }
+
+    void ApplyRangedWeaponWear(RE::InventoryEntryData* a_entry, const RE::TESObjectWEAP* a_weapon, const float a_baseWear)
+    {
+        if (!a_weapon || a_weapon->IsBound()) return;
+        const auto key = EnsureItemKey(a_entry, a_weapon);
+        if (!key) return;
+
+        DurabilitySnapshot durability;
+        float appliedWear = 0.0F;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            auto& stored = g_durability[*key];
+            stored.maximum = (std::max)(1.0F, stored.maximum);
+            stored.current = std::clamp(stored.current, 0.0F, stored.maximum);
+            const auto reduction = std::clamp(stored.wearReduction, 0.0F, g_settings.maxWearReduction);
+            appliedWear = (std::max)(0.1F, a_baseWear * (1.0F - reduction));
+            stored.current = (std::max)(0.0F, stored.current - appliedWear);
+            durability = stored;
+        }
+        logger::debug("Ranged shot wore {:08X}:{:04X} by {:.2F}; now {:.2F}/{:.2F}.", key->baseFormID, key->uniqueID, appliedWear, durability.current, durability.maximum);
+        UpdateLowDurabilityWarning(a_weapon, *key, durability);
+        if (g_panelVisible) SendState();
+    }
+
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -284,6 +428,7 @@ namespace
         {
             if (registered_) return;
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESEquipEvent>(this);
+            if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
         }
@@ -293,6 +438,18 @@ namespace
             const auto* player = RE::PlayerCharacter::GetSingleton();
             if (!a_event || !a_event->equipped || !player || a_event->actor.get() != player) return RE::BSEventNotifyControl::kContinue;
             ShowWeaponDurability(RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject));
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(const RE::TESPlayerBowShotEvent* a_event, RE::BSTEventSource<RE::TESPlayerBowShotEvent>*) override
+        {
+            if (!a_event) return RE::BSEventNotifyControl::kContinue;
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            auto* entry = player ? player->GetEquippedEntryData(false) : nullptr;
+            const auto* weapon = entry && entry->object ? entry->object->As<RE::TESObjectWEAP>() : nullptr;
+            if (!weapon || weapon->GetFormID() != a_event->weapon) return RE::BSEventNotifyControl::kContinue;
+            if (weapon->IsBow()) ApplyRangedWeaponWear(entry, weapon, g_settings.bowShotWear);
+            else if (weapon->IsCrossbow()) ApplyRangedWeaponWear(entry, weapon, g_settings.crossbowShotWear);
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -321,17 +478,19 @@ namespace
         for (const auto& [item, entry] : inventory) {
             if (!item || entry.first <= 0 || !entry.second || !entry.second->IsWorn()) continue;
             if (item->GetFormType() != RE::FormType::Weapon && item->GetFormType() != RE::FormType::Armor) continue;
-            const auto durability = GetDurability(item);
+            const auto key = EnsureItemKey(entry.second.get(), item);
+            if (!key) continue;
+            const auto durability = GetDurability(*key);
             const auto* weapon = item->As<RE::TESObjectWEAP>();
             const auto* armor = item->As<RE::TESObjectARMO>();
             const auto enchantment = EnchantmentName(entry.second.get());
             equipment.push_back({
-                { "id", item->GetFormID() },
+                { "id", std::to_string(key->baseFormID) + ":" + std::to_string(key->uniqueID) },
                 { "name", DisplayName(item) },
                 { "slot", EquipmentType(item) },
                 { "category", EquipmentCategory(item) },
-                { "current", durability.current },
-                { "maximum", durability.maximum },
+                { "current", static_cast<std::uint32_t>(std::lround(durability.current)) },
+                { "maximum", static_cast<std::uint32_t>(std::lround(durability.maximum)) },
                 { "enhancementLevel", durability.enhancementLevel },
                 { "damage", weapon ? static_cast<std::int32_t>(weapon->GetAttackDamage()) + durability.performanceBonus : 0 },
                 { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + durability.performanceBonus : 0 },
@@ -373,7 +532,7 @@ namespace
         };
     }
 
-    void SendState(std::string_view a_message = {})
+    void SendState(std::string_view a_message)
     {
         if (!g_prisma || !g_view) return;
         const auto script = "window.DurabilityManager && window.DurabilityManager.receiveState(" + CollectState(a_message).dump() + ");";
@@ -461,6 +620,98 @@ namespace
         }
     }
 
+    void SaveState(SKSE::SerializationInterface* a_serialization)
+    {
+        if (!a_serialization) return;
+        std::vector<std::pair<ItemKey, DurabilitySnapshot>> saved;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            saved.reserve(g_durability.size());
+            for (const auto& entry : g_durability) saved.push_back(entry);
+        }
+        if (saved.size() > kMaxDurabilityRecords) saved.resize(kMaxDurabilityRecords);
+        if (!a_serialization->OpenRecord(kDurabilityRecordType, kDurabilityRecordVersion)) return;
+
+        const auto count = static_cast<std::uint32_t>(saved.size());
+        if (!a_serialization->WriteRecordData(count)) return;
+        for (const auto& [key, durability] : saved) {
+            if (!a_serialization->WriteRecordData(key.baseFormID) ||
+                !a_serialization->WriteRecordData(key.uniqueID) ||
+                !a_serialization->WriteRecordData(durability.current) ||
+                !a_serialization->WriteRecordData(durability.maximum) ||
+                !a_serialization->WriteRecordData(durability.enhancementLevel) ||
+                !a_serialization->WriteRecordData(durability.performanceBonus) ||
+                !a_serialization->WriteRecordData(durability.weightReduction) ||
+                !a_serialization->WriteRecordData(durability.attackSpeedBonus) ||
+                !a_serialization->WriteRecordData(durability.wearReduction) ||
+                !a_serialization->WriteRecordData(durability.chargeBonus)) {
+                logger::warn("Could not finish saving durability state.");
+                return;
+            }
+        }
+    }
+
+    void LoadState(SKSE::SerializationInterface* a_serialization)
+    {
+        if (!a_serialization) return;
+        std::unordered_map<ItemKey, DurabilitySnapshot, ItemKeyHash> restored;
+        std::uint32_t type = 0;
+        std::uint32_t version = 0;
+        std::uint32_t length = 0;
+        while (a_serialization->GetNextRecordInfo(type, version, length)) {
+            if (type != kDurabilityRecordType || version != kDurabilityRecordVersion) {
+                std::vector<std::byte> ignored(length);
+                a_serialization->ReadRecordData(ignored.data(), length);
+                continue;
+            }
+
+            std::uint32_t count = 0;
+            if (a_serialization->ReadRecordData(count) != sizeof(count) || count > kMaxDurabilityRecords) break;
+            for (std::uint32_t index = 0; index < count; ++index) {
+                RE::FormID savedBaseFormID = 0;
+                std::uint16_t uniqueID = 0;
+                DurabilitySnapshot durability{};
+                if (a_serialization->ReadRecordData(savedBaseFormID) != sizeof(savedBaseFormID) ||
+                    a_serialization->ReadRecordData(uniqueID) != sizeof(uniqueID) ||
+                    a_serialization->ReadRecordData(durability.current) != sizeof(durability.current) ||
+                    a_serialization->ReadRecordData(durability.maximum) != sizeof(durability.maximum) ||
+                    a_serialization->ReadRecordData(durability.enhancementLevel) != sizeof(durability.enhancementLevel) ||
+                    a_serialization->ReadRecordData(durability.performanceBonus) != sizeof(durability.performanceBonus) ||
+                    a_serialization->ReadRecordData(durability.weightReduction) != sizeof(durability.weightReduction) ||
+                    a_serialization->ReadRecordData(durability.attackSpeedBonus) != sizeof(durability.attackSpeedBonus) ||
+                    a_serialization->ReadRecordData(durability.wearReduction) != sizeof(durability.wearReduction) ||
+                    a_serialization->ReadRecordData(durability.chargeBonus) != sizeof(durability.chargeBonus)) {
+                    logger::warn("Could not finish loading durability state.");
+                    break;
+                }
+                RE::FormID resolvedBaseFormID = 0;
+                if (!a_serialization->ResolveFormID(savedBaseFormID, resolvedBaseFormID)) continue;
+                durability.maximum = (std::max)(1.0F, durability.maximum);
+                durability.current = std::clamp(durability.current, 0.0F, durability.maximum);
+                durability.wearReduction = std::clamp(durability.wearReduction, 0.0F, 0.95F);
+                restored[ItemKey{ resolvedBaseFormID, uniqueID }] = durability;
+            }
+        }
+        std::size_t restoredCount = 0;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            g_durability = std::move(restored);
+            g_lowDurabilityWarnings.clear();
+            g_weaponNotificationTimes.clear();
+            restoredCount = g_durability.size();
+        }
+        logger::info("Loaded {} durability instance records.", restoredCount);
+    }
+
+    void RevertState(SKSE::SerializationInterface*)
+    {
+        std::scoped_lock lock(g_durabilityLock);
+        g_durability.clear();
+        g_lowDurabilityWarnings.clear();
+        g_weaponNotificationTimes.clear();
+        g_nextGeneratedUniqueID = 0x8000U;
+    }
+
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
@@ -494,6 +745,12 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
     const auto messaging = reinterpret_cast<SKSE::MessagingInterface*>(a_skse->QueryInterface(SKSE::LoadInterface::kMessaging));
     if (!messaging) return false;
     SKSE::Init(a_skse);
+    if (const auto serialization = SKSE::GetSerializationInterface()) {
+        serialization->SetUniqueID(kSerializationID);
+        serialization->SetSaveCallback(SaveState);
+        serialization->SetLoadCallback(LoadState);
+        serialization->SetRevertCallback(RevertState);
+    }
     messaging->RegisterListener("SKSE", OnSKSEMessage);
     return true;
 }

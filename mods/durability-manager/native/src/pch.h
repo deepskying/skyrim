@@ -14,10 +14,12 @@
 #include <array>
 #include <cctype>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>

@@ -56,7 +56,7 @@ function MaterialList({ card }: { card: EnhancementCard }) {
 export function App() {
   const [state, setState] = useState<PanelState>(import.meta.env.DEV ? demoState : emptyState);
   const [tab, setTab] = useState<Tab>('workshop');
-  const [selectedId, setSelectedId] = useState<number>();
+  const [selectedId, setSelectedId] = useState<string>();
   const [draft, setDraft] = useState<Settings>(state.settings);
   const [panelVisible, setPanelVisible] = useState(import.meta.env.DEV);
   const [hud, setHud] = useState<HudMessage>();
