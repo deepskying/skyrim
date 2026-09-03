@@ -84,7 +84,8 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.10";
+    constexpr std::string_view kPluginVersion = "0.1.11";
+    constexpr int kPanelRenderOrder = 1000;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -353,6 +354,20 @@ namespace
         g_prisma->Invoke(g_view, script);
     }
 
+    void LogPanelDOMState(const char* a_result)
+    {
+        logger::info("Durability Manager DOM state: {}", a_result ? a_result : "<no result>");
+    }
+
+    void RequestPanelDOMState()
+    {
+        if (!g_prisma || !g_view) return;
+        g_prisma->Invoke(
+            g_view,
+            "(()=>{const e=document.querySelector('.forge-shell');const r=e?e.getBoundingClientRect():null;const s=e?getComputedStyle(e):null;return JSON.stringify({bridge:!!window.DurabilityManager,panelAttribute:document.documentElement.dataset.panelVisible||'',shellExists:!!e,display:s?s.display:'missing',visibility:s?s.visibility:'missing',opacity:s?s.opacity:'missing',width:r?r.width:0,height:r?r.height:0,version:document.querySelector('.panel-footer small')?.textContent||''});})()",
+            LogPanelDOMState);
+    }
+
     void SendState(std::string_view a_message = {});
 
     void ShowHUD(
@@ -576,17 +591,14 @@ namespace
         logger::info("Durability Manager panel closed.");
     }
 
-    // The DLL survives save transitions. Reset our flags and release focus,
-    // but do not call Prisma Hide here: hiding during PostLoadGame can leave a
-    // valid view stuck below the game UI even after a later Show call.
+    // Save transitions can run while Prisma is updating its render surface.
+    // Reset only our own state here; calling Show/Hide/Focus/Invoke from a load
+    // notification can leave Prisma's render and focus states out of sync.
     void ResetViewForLoad()
     {
         g_panelVisible = false;
         g_hudVisible = false;
         g_capturingHotkey = false;
-        if (!g_prisma || !g_view) return;
-        if (g_prisma->HasFocus(g_view)) g_prisma->Unfocus(g_view);
-        SetPanelVisibilityInView(false);
     }
 
     [[nodiscard]] bool CloseFocusedPanel()
@@ -603,15 +615,17 @@ namespace
             return;
         }
         logger::info(
-            "Durability Manager panel toggle: visible={}, hidden={}, focused={}.",
+            "Durability Manager panel toggle: visible={}, hidden={}, focused={}, order={}.",
             g_panelVisible,
             g_prisma->IsHidden(g_view),
-            g_prisma->HasFocus(g_view));
+            g_prisma->HasFocus(g_view),
+            g_prisma->GetOrder(g_view));
         if (g_panelVisible && g_prisma->HasFocus(g_view)) {
             ClosePanel();
             return;
         }
         g_panelVisible = true;
+        g_prisma->SetOrder(g_view, kPanelRenderOrder);
         g_prisma->Show(g_view);
         SetPanelVisibilityInView(true);
         if (!g_prisma->Focus(g_view, true)) {
@@ -624,7 +638,8 @@ namespace
         // its hidden state while the transparent Prisma surface owns input.
         SetPanelVisibilityInView(true);
         SendState();
-        logger::info("Durability Manager panel opened and focused.");
+        RequestPanelDOMState();
+        logger::info("Durability Manager panel opened and focused at order {}.", g_prisma->GetOrder(g_view));
     }
 
     [[nodiscard]] bool CaptureHotkey(const std::uint32_t a_key, const bool a_shift, const bool a_ctrl, const bool a_alt)
@@ -650,7 +665,10 @@ namespace
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
             if (type == "ready") {
-                logger::info("Durability Manager web bridge is ready; restoring panel visibility={}.", g_panelVisible);
+                logger::info(
+                    "Durability Manager web bridge {} is ready; restoring panel visibility={}.",
+                    request.value("version", "<unknown>"),
+                    g_panelVisible);
                 SetPanelVisibilityInView(g_panelVisible);
                 if (g_panelVisible) SendState();
                 return;
@@ -783,13 +801,8 @@ namespace
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
-            const auto restoreView = [] {
-                ResetViewForLoad();
-                SendState();
-                logger::info("Durability Manager restored its view after PostLoadGame.");
-            };
-            if (const auto tasks = SKSE::GetTaskInterface()) tasks->AddTask(restoreView);
-            else restoreView();
+            ResetViewForLoad();
+            logger::info("Durability Manager received PostLoadGame; native view flags were reset without touching Prisma.");
             return;
         }
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
@@ -799,6 +812,7 @@ namespace
             return;
         }
         g_view = g_prisma->CreateView("DurabilityManager/index.html", [](const PrismaView a_view) {
+            g_prisma->SetOrder(a_view, kPanelRenderOrder);
             logger::info("Durability Manager Prisma DOM is ready: {}.", a_view);
         });
         if (!g_view) {
