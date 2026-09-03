@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { demoState } from './demo';
 import type { CardType, EnhancementCard, EquipmentItem, PanelState, Settings } from './types';
 
@@ -17,7 +18,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.13',
+  version: '0.1.14',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -66,7 +67,7 @@ export function App() {
     let hudTimer: number | undefined;
     window.DurabilityManager = {
       receiveState: (next) => { setState(next); setDraft(next.settings); },
-      setPanelVisible,
+      setPanelVisible: (visible) => { flushSync(() => setPanelVisible(visible)); },
       showHud: (message) => {
         if (hudTimer) window.clearTimeout(hudTimer);
         setHud(message);
@@ -76,6 +77,18 @@ export function App() {
     send('ready', { version: emptyState.version });
     return () => { if (hudTimer) window.clearTimeout(hudTimer); delete window.DurabilityManager; };
   }, []);
+
+  useEffect(() => {
+    if (!panelVisible) return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => send('panelRendered', { version: emptyState.version }));
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [panelVisible]);
 
   const selected = useMemo(() => state.equipped.find((item) => item.id === selectedId) ?? state.equipped[0], [selectedId, state.equipped]);
   const canRepair = Boolean(selected?.repairable && selected.current < selected.maximum && state.forge.active);

@@ -83,7 +83,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.13";
+    constexpr std::string_view kPluginVersion = "0.1.14";
     constexpr int kPanelRenderOrder = 1000;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -610,25 +610,15 @@ namespace
             g_prisma->IsHidden(g_view),
             g_prisma->HasFocus(g_view),
             g_prisma->GetOrder(g_view));
-        if (g_panelVisible && g_prisma->HasFocus(g_view)) {
+        if (g_panelVisible) {
             ClosePanel();
             return;
         }
         g_panelVisible = true;
         g_prisma->SetOrder(g_view, kPanelRenderOrder);
         SetPanelVisibilityInView(true);
-        if (!g_prisma->Focus(g_view, true)) {
-            g_panelVisible = false;
-            SetPanelVisibilityInView(false);
-            logger::warn("Durability Manager could not focus its Prisma view.");
-            return;
-        }
-        // Repeat after focus so save-transition timing cannot leave the DOM in
-        // its hidden state while the transparent Prisma surface owns input.
-        SetPanelVisibilityInView(true);
         SendState();
-        RequestPanelDOMState();
-        logger::info("Durability Manager panel opened and focused at order {}.", g_prisma->GetOrder(g_view));
+        logger::info("Durability Manager requested panel render at order {}; waiting for the web paint handshake.", g_prisma->GetOrder(g_view));
     }
 
     [[nodiscard]] bool CaptureHotkey(const std::uint32_t a_key, const bool a_shift, const bool a_ctrl, const bool a_alt)
@@ -664,7 +654,17 @@ namespace
                 }
                 return;
             }
-            if (type == "close") ClosePanel();
+            if (type == "panelRendered") {
+                if (!g_panelVisible) return;
+                if (!g_prisma || !g_view || !g_prisma->IsValid(g_view) || !g_prisma->Focus(g_view, true)) {
+                    g_panelVisible = false;
+                    SetPanelVisibilityInView(false);
+                    logger::warn("Durability Manager could not focus its Prisma view after the web paint handshake.");
+                    return;
+                }
+                RequestPanelDOMState();
+                logger::info("Durability Manager received the web paint handshake and queued focus.");
+            } else if (type == "close") ClosePanel();
             else if (type == "beginHotkeyCapture") {
                 g_capturingHotkey = true;
                 SendState("请按下新的快捷键组合。");
