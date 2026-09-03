@@ -83,7 +83,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.14";
+    constexpr std::string_view kPluginVersion = "0.1.15";
     constexpr int kPanelRenderOrder = 1000;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -656,14 +656,17 @@ namespace
             }
             if (type == "panelRendered") {
                 if (!g_panelVisible) return;
-                if (!g_prisma || !g_view || !g_prisma->IsValid(g_view) || !g_prisma->Focus(g_view, true)) {
+                // Skyrim 1.5.97 + PrismaUI 1.4.1 can replace the active
+                // Ultralight document when PrismaUI_FocusMenu opens. Keep
+                // Prisma input capture and game pause, but bypass that overlay.
+                if (!g_prisma || !g_view || !g_prisma->IsValid(g_view) || !g_prisma->Focus(g_view, true, true)) {
                     g_panelVisible = false;
                     SetPanelVisibilityInView(false);
                     logger::warn("Durability Manager could not focus its Prisma view after the web paint handshake.");
                     return;
                 }
                 RequestPanelDOMState();
-                logger::info("Durability Manager received the web paint handshake and queued focus.");
+                logger::info("Durability Manager received the web paint handshake and queued focus without PrismaUI_FocusMenu.");
             } else if (type == "close") ClosePanel();
             else if (type == "beginHotkeyCapture") {
                 g_capturingHotkey = true;
