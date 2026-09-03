@@ -84,7 +84,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.7";
+    constexpr std::string_view kPluginVersion = "0.1.8";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
