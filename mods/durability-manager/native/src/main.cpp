@@ -83,7 +83,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.12";
+    constexpr std::string_view kPluginVersion = "0.1.13";
     constexpr int kPanelRenderOrder = 1000;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -343,8 +343,8 @@ namespace
     {
         if (!g_prisma || !g_view) return;
         const auto* script = a_visible
-            ? "document.documentElement.dataset.panelVisible='true';window.DurabilityManager&&window.DurabilityManager.setPanelVisible(true);"
-            : "document.documentElement.dataset.panelVisible='false';window.DurabilityManager&&window.DurabilityManager.setPanelVisible(false);";
+            ? "window.DurabilityManager&&window.DurabilityManager.setPanelVisible(true);"
+            : "window.DurabilityManager&&window.DurabilityManager.setPanelVisible(false);";
         g_prisma->Invoke(g_view, script);
     }
 
@@ -658,8 +658,10 @@ namespace
                     "Durability Manager web bridge {} is ready; restoring panel visibility={}.",
                     request.value("version", "<unknown>"),
                     g_panelVisible);
-                SetPanelVisibilityInView(g_panelVisible);
-                if (g_panelVisible) SendState();
+                if (g_panelVisible) {
+                    SetPanelVisibilityInView(true);
+                    SendState();
+                }
                 return;
             }
             if (type == "close") ClosePanel();
@@ -778,6 +780,32 @@ namespace
         g_nextGeneratedUniqueID = 0x8000U;
     }
 
+    void RecreatePrismaView(std::string_view a_reason)
+    {
+        if (!g_prisma) return;
+
+        const auto previousView = g_view;
+        g_view = 0;
+        g_panelVisible = false;
+        g_capturingHotkey = false;
+        if (previousView && g_prisma->IsValid(previousView)) {
+            g_prisma->Destroy(previousView);
+            logger::info("Durability Manager destroyed pre-transition Prisma view {}.", previousView);
+        }
+
+        g_view = g_prisma->CreateView("DurabilityManager/index.html", [](const PrismaView a_view) {
+            g_prisma->SetOrder(a_view, kPanelRenderOrder);
+            logger::info("Durability Manager post-transition Prisma DOM is ready: {}.", a_view);
+        });
+        if (!g_view) {
+            logger::critical("Durability Manager Prisma view could not be created after {}.", a_reason);
+            return;
+        }
+        g_prisma->SetOrder(g_view, kPanelRenderOrder);
+        g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
+        logger::info("Durability Manager created Prisma view {} after {}.", g_view, a_reason);
+    }
+
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
         if (a_message->type == SKSE::MessagingInterface::kPreLoadGame) {
@@ -787,7 +815,12 @@ namespace
         }
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
             ResetViewForLoad();
-            logger::info("Durability Manager received PostLoadGame; native view flags were reset without touching Prisma.");
+            RecreatePrismaView("PostLoadGame");
+            return;
+        }
+        if (a_message->type == SKSE::MessagingInterface::kNewGame) {
+            ResetViewForLoad();
+            RecreatePrismaView("NewGame");
             return;
         }
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
@@ -796,15 +829,6 @@ namespace
             logger::critical("Prisma UI v1 is unavailable; Durability Manager will remain disabled.");
             return;
         }
-        g_view = g_prisma->CreateView("DurabilityManager/index.html", [](const PrismaView a_view) {
-            g_prisma->SetOrder(a_view, kPanelRenderOrder);
-            logger::info("Durability Manager Prisma DOM is ready: {}.", a_view);
-        });
-        if (!g_view) {
-            logger::critical("Durability Manager Prisma view could not be created.");
-            return;
-        }
-        g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
         LoadConfig();
         const auto input = InputHandler::GetSingleton();
         input->SetHotkey(g_settings.hotkey);
@@ -813,7 +837,7 @@ namespace
         input->SetCaptureCallback(CaptureHotkey);
         input->RegisterSink();
         EquipmentEventSink::GetSingleton()->Register();
-        logger::info("Durability Manager loaded.");
+        logger::info("Durability Manager loaded; Prisma view creation is deferred until PostLoadGame or NewGame.");
     }
 }
 
