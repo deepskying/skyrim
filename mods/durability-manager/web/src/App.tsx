@@ -3,7 +3,7 @@ import { demoState } from './demo';
 import type { CardType, EnhancementCard, EquipmentItem, PanelState, Settings } from './types';
 
 type Tab = 'workshop' | 'settings';
-type HudMessage = { id: number; kind: 'weapon' | 'warning'; title: string; detail: string; durationMilliseconds: number };
+type HudMessage = { id: number; kind: 'weapon' | 'warning'; title: string; detail: string; durationMilliseconds: number; current?: number; maximum?: number };
 
 declare global {
   interface Window {
@@ -80,7 +80,9 @@ export function App() {
   const selected = useMemo(() => state.equipped.find((item) => item.id === selectedId) ?? state.equipped[0], [selectedId, state.equipped]);
   const canRepair = Boolean(selected?.repairable && selected.current < selected.maximum && state.forge.active);
 
-  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div><b>{hud.title}</b><span>{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
+  const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
+
+  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{hud.current} / {hud.maximum}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
     <header className="forge-header">
       <div className="brand"><span className="brand-rune">ᛏ</span><div><p>{state.forge.active ? `${state.forge.station} · EQUIPMENT WORKSHOP` : 'SKYRIM FORGE LEDGER'}</p><h1>{state.forge.active ? '装备工坊' : '装备耐久'}</h1></div></div>
       <nav className="tabs" aria-label="装备耐久分页"><button className={tab === 'workshop' ? 'active' : ''} onClick={() => setTab('workshop')} type="button">⌁ 装备</button><button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')} type="button">⚙ 配置</button></nav>

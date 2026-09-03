@@ -84,7 +84,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.5";
+    constexpr std::string_view kPluginVersion = "0.1.6";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -346,16 +346,26 @@ namespace
 
     void SendState(std::string_view a_message = {});
 
-    void ShowHUD(std::string_view a_kind, std::string_view a_title, std::string_view a_detail, const float a_seconds)
+    void ShowHUD(
+        std::string_view a_kind,
+        std::string_view a_title,
+        std::string_view a_detail,
+        const float a_seconds,
+        const std::optional<std::uint32_t> a_current = std::nullopt,
+        const std::optional<std::uint32_t> a_maximum = std::nullopt)
     {
         if (!g_prisma || !g_view) return;
-        const auto message = json{
+        auto message = json{
             { "id", ++g_hudSequence },
             { "kind", a_kind },
             { "title", a_title },
             { "detail", a_detail },
             { "durationMilliseconds", static_cast<std::uint32_t>(a_seconds * 1000.0F) }
         };
+        if (a_current && a_maximum) {
+            message["current"] = *a_current;
+            message["maximum"] = *a_maximum;
+        }
         g_hudVisible = true;
         g_prisma->Show(g_view);
         const auto script = "window.DurabilityManager && window.DurabilityManager.showHud(" + message.dump() + ");";
@@ -388,8 +398,7 @@ namespace
         const auto durability = GetDurability(*key);
         const auto current = static_cast<std::uint32_t>(std::lround(durability.current));
         const auto maximum = static_cast<std::uint32_t>(std::lround(durability.maximum));
-        const auto percentage = maximum ? (current * 100U / maximum) : 0U;
-        ShowHUD("weapon", DisplayName(a_weapon), std::to_string(current) + " / " + std::to_string(maximum) + "  ·  " + std::to_string(percentage) + "%", g_settings.weaponDisplaySeconds);
+        ShowHUD("weapon", DisplayName(a_weapon), "当前装备耐久", g_settings.weaponDisplaySeconds, current, maximum);
         UpdateLowDurabilityWarning(a_weapon, *key, durability);
     }
 
