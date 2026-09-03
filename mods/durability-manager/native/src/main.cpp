@@ -84,7 +84,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.8";
+    constexpr std::string_view kPluginVersion = "0.1.9";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -566,9 +566,9 @@ namespace
         UpdateViewVisibility();
     }
 
-    // Death/reload can rebuild the Prisma DOM while this DLL keeps its static
-    // flags. Always drop the old focus before and after a save transition so a
-    // stale flag cannot hide Skyrim's UI behind an empty focused view.
+    // The DLL survives save transitions. Reset our flags and release focus,
+    // but do not call Prisma Hide here: hiding during PostLoadGame can leave a
+    // valid view stuck below the game UI even after a later Show call.
     void ResetViewForLoad()
     {
         g_panelVisible = false;
@@ -577,7 +577,6 @@ namespace
         if (!g_prisma || !g_view) return;
         if (g_prisma->HasFocus(g_view)) g_prisma->Unfocus(g_view);
         g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(false);");
-        g_prisma->Hide(g_view);
     }
 
     [[nodiscard]] bool CloseFocusedPanel()
@@ -589,7 +588,10 @@ namespace
 
     void TogglePanel()
     {
-        if (!g_prisma || !g_view) return;
+        if (!g_prisma || !g_view || !g_prisma->IsValid(g_view)) {
+            logger::warn("Durability Manager panel toggle ignored because the Prisma view is invalid.");
+            return;
+        }
         if (g_panelVisible && g_prisma->HasFocus(g_view)) {
             ClosePanel();
             return;
@@ -597,7 +599,12 @@ namespace
         g_panelVisible = true;
         g_prisma->Show(g_view);
         g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(true);");
-        g_prisma->Focus(g_view, true);
+        if (!g_prisma->Focus(g_view, true)) {
+            g_panelVisible = false;
+            g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(false);");
+            logger::warn("Durability Manager could not focus its Prisma view.");
+            return;
+        }
         SendState();
     }
 
@@ -623,18 +630,7 @@ namespace
         try {
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
-            if (type == "ready") {
-                const auto visibilityScript = std::string("window.DurabilityManager && window.DurabilityManager.setPanelVisible(") + (g_panelVisible ? "true" : "false") + ");";
-                g_prisma->Invoke(g_view, visibilityScript.c_str());
-                if (g_panelVisible) {
-                    g_prisma->Show(g_view);
-                    g_prisma->Focus(g_view, true);
-                } else {
-                    UpdateViewVisibility();
-                }
-                SendState();
-                return;
-            }
+            if (type == "ready") return;
             if (type == "close") ClosePanel();
             else if (type == "beginHotkeyCapture") {
                 g_capturingHotkey = true;
@@ -776,7 +772,9 @@ namespace
             logger::critical("Prisma UI v1 is unavailable; Durability Manager will remain disabled.");
             return;
         }
-        g_view = g_prisma->CreateView("DurabilityManager/index.html");
+        g_view = g_prisma->CreateView("DurabilityManager/index.html", [](const PrismaView a_view) {
+            logger::info("Durability Manager Prisma DOM is ready: {}.", a_view);
+        });
         if (!g_view) {
             logger::critical("Durability Manager Prisma view could not be created.");
             return;
