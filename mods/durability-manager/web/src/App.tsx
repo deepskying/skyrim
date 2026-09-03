@@ -17,6 +17,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
+  version: '0.1.5',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -101,6 +102,6 @@ export function App() {
         {state.forge.active ? <section className="card-area"><div className="card-heading"><div><p>ENHANCEMENT DRAFT</p><h3>选择本次强化</h3></div><button onClick={() => send('refreshEnhancements', { id: selected.id })} type="button">↻ 刷新 · {state.forge.refreshCost} 金币</button></div><div className="enhancement-cards">{state.forge.cards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={card.id}><header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p><MaterialList card={card} /><footer><span>成功率 {card.successChance}%</span><button disabled={Boolean(card.blockedReason)} onClick={() => send('applyEnhancement', { cardId: card.id, equipmentId: selected.id })} type="button">{card.blockedReason ?? '选择强化'}</button></footer></article>)}</div></section> : <p className="forge-hint">前往锻造熔炉、砂轮或工作台进入装备工坊，查看修复与强化选项。</p>}
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page"><div className="section-heading"><div><p>MOD SETTINGS</p><h2>配置</h2></div><span>保存后立即生效</span></div><section className="settings-card"><label className="setting range-setting"><div><h3>低耐久预警阈值 <b>{draft.lowDurabilityThreshold}%</b></h3><p>首次低于该耐久时显示 HUD 预警。</p></div><input max="99" min="1" onChange={(event) => setDraft({ ...draft, lowDurabilityThreshold: Number(event.target.value) })} type="range" value={draft.lowDurabilityThreshold} /></label><label className="setting range-setting"><div><h3>武器提示显示时长 <b>{draft.weaponDisplaySeconds.toFixed(1)} 秒</b></h3><p>装备、切换或拔刀时显示精确耐久。</p></div><input max="10" min="0.5" onChange={(event) => setDraft({ ...draft, weaponDisplaySeconds: Number(event.target.value) })} step="0.5" type="range" value={draft.weaponDisplaySeconds} /></label><label className="setting toggle-setting"><div><h3>启用低耐久 HUD 预警</h3><p>耐久低于阈值时显示一次预警。</p></div><input checked={draft.enableLowDurabilityWarning} onChange={(event) => setDraft({ ...draft, enableLowDurabilityWarning: event.target.checked })} type="checkbox" /></label><div className="setting-actions"><span>配置将保存到 <code>DurabilityManager.ini</code>。</span><button className="save" onClick={() => send('saveSettings', draft)} type="button">保存配置</button></div></section></section>}
-    <footer className="panel-footer">{state.message || `按 ${hotkeyLabel(state.settings)} 可随时查看耐久状态。`}</footer>
+    <footer className="panel-footer"><span>{state.message || `按 ${hotkeyLabel(state.settings)} 可随时查看耐久状态。`}</span><small>Durability Manager · v{state.version}</small></footer>
   </main>}</>;
 }

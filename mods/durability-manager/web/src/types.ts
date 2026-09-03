@@ -61,6 +61,7 @@ export type Settings = {
 };
 
 export type PanelState = {
+  version: string;
   equipped: EquipmentItem[];
   repairQueue: EquipmentItem[];
   forge: ForgeState;
