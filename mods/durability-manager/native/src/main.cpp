@@ -25,7 +25,6 @@ namespace
     Settings g_settings{};
     bool g_capturingHotkey = false;
     bool g_panelVisible = false;
-    bool g_hudVisible = false;
     std::uint32_t g_hudSequence = 0;
 
     struct DurabilitySnapshot
@@ -84,7 +83,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.11";
+    constexpr std::string_view kPluginVersion = "0.1.12";
     constexpr int kPanelRenderOrder = 1000;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -340,11 +339,6 @@ namespace
         return name && name[0] ? name : "未命名武器";
     }
 
-    void UpdateViewVisibility()
-    {
-        if (g_prisma && g_view && !g_panelVisible && !g_hudVisible) g_prisma->Hide(g_view);
-    }
-
     void SetPanelVisibilityInView(const bool a_visible)
     {
         if (!g_prisma || !g_view) return;
@@ -390,8 +384,6 @@ namespace
             message["current"] = *a_current;
             message["maximum"] = *a_maximum;
         }
-        g_hudVisible = true;
-        g_prisma->Show(g_view);
         const auto script = "window.DurabilityManager && window.DurabilityManager.showHud(" + message.dump() + ");";
         g_prisma->Invoke(g_view, script.c_str());
     }
@@ -587,7 +579,6 @@ namespace
         g_panelVisible = false;
         SetPanelVisibilityInView(false);
         g_prisma->Unfocus(g_view);
-        UpdateViewVisibility();
         logger::info("Durability Manager panel closed.");
     }
 
@@ -597,7 +588,6 @@ namespace
     void ResetViewForLoad()
     {
         g_panelVisible = false;
-        g_hudVisible = false;
         g_capturingHotkey = false;
     }
 
@@ -626,7 +616,6 @@ namespace
         }
         g_panelVisible = true;
         g_prisma->SetOrder(g_view, kPanelRenderOrder);
-        g_prisma->Show(g_view);
         SetPanelVisibilityInView(true);
         if (!g_prisma->Focus(g_view, true)) {
             g_panelVisible = false;
@@ -689,12 +678,8 @@ namespace
                 SendState("配置已保存至 DurabilityManager.ini。");
             } else if (type == "repair") {
                 SendState("修复仅能在锻炉的“修复装备”入口中执行。");
-            } else if (type == "hudHidden") {
-                if (request.value("id", 0U) == g_hudSequence) {
-                    g_hudVisible = false;
-                    UpdateViewVisibility();
-                }
-            } else SendState();
+            } else if (type == "hudHidden") return;
+            else SendState();
         } catch (const std::exception& error) {
             logger::warn("Rejected Durability Manager panel request: {}", error.what());
             SendState("面板请求无效。");
@@ -820,7 +805,6 @@ namespace
             return;
         }
         g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
-        g_prisma->Hide(g_view);
         LoadConfig();
         const auto input = InputHandler::GetSingleton();
         input->SetHotkey(g_settings.hotkey);
