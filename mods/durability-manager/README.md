@@ -9,7 +9,7 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 - The panel provides the agreed two tabs: **耐久状态** and **配置**.
 - Drawing, equipping, or switching to a weapon shows a non-blocking HUD card with large current / maximum durability numbers, percentage, and a high-contrast progress track. The display duration is configurable.
 - A low-durability HUD warning fires once when an equipped weapon is below the configured threshold; it becomes eligible again after returning above the threshold.
-- Loading a save releases stale Prisma focus and resets panel state without hiding the view during `PostLoadGame`, so the configured hotkey remains usable after death, reload, and a fresh launch.
+- Loading a save releases stale Prisma focus and resets panel state without hiding the view during `PostLoadGame`. Panel visibility is also mirrored to a DOM attribute, so reopening does not depend on a React callback surviving the save transition.
 - Low-durability threshold, weapon display duration, HUD-warning preference, enchanted-item breakage, ranged-shot wear values, and the panel hotkey are persisted in `SKSE/Plugins/DurabilityManager.ini`.
 - A bow loses durability only when Skyrim emits a completed `TESPlayerBowShotEvent`: drawing then cancelling costs nothing. Bows lose `1.0` by default; crossbows lose `2.0`; bound weapons are excluded. Wear-reduction effects apply after the base cost and are capped at 70% by default.
 - The equipment detail panel displays the effective per-shot durability cost (after wear reduction) for bows and crossbows. Other equipment shows that a loss rule has not been enabled yet, rather than implying a made-up rate.

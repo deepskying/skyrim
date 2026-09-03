@@ -17,7 +17,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.9',
+  version: '0.1.10',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -59,14 +59,14 @@ export function App() {
   const [tab, setTab] = useState<Tab>('workshop');
   const [selectedId, setSelectedId] = useState<string>();
   const [draft, setDraft] = useState<Settings>(state.settings);
-  const [panelVisible, setPanelVisible] = useState(import.meta.env.DEV);
   const [hud, setHud] = useState<HudMessage>();
 
   useEffect(() => {
     let hudTimer: number | undefined;
+    if (import.meta.env.DEV) document.documentElement.dataset.panelVisible = 'true';
     window.DurabilityManager = {
       receiveState: (next) => { setState(next); setDraft(next.settings); },
-      setPanelVisible,
+      setPanelVisible: (visible) => { document.documentElement.dataset.panelVisible = visible ? 'true' : 'false'; },
       showHud: (message) => {
         if (hudTimer) window.clearTimeout(hudTimer);
         setHud(message);
@@ -82,7 +82,7 @@ export function App() {
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
-  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{hud.current} / {hud.maximum}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
+  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{hud.current} / {hud.maximum}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}<main className="forge-shell">
     <header className="forge-header">
       <div className="brand"><span className="brand-rune">ᛏ</span><div><p>{state.forge.active ? `${state.forge.station} · EQUIPMENT WORKSHOP` : 'SKYRIM FORGE LEDGER'}</p><h1>{state.forge.active ? '装备工坊' : '装备耐久'}</h1></div></div>
       <nav className="tabs" aria-label="装备耐久分页"><button className={tab === 'workshop' ? 'active' : ''} onClick={() => setTab('workshop')} type="button">⌁ 装备</button><button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')} type="button">⚙ 配置</button></nav>
@@ -105,5 +105,5 @@ export function App() {
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page"><div className="section-heading"><div><p>MOD SETTINGS</p><h2>配置</h2></div><span>保存后立即生效</span></div><section className="settings-card"><label className="setting range-setting"><div><h3>低耐久预警阈值 <b>{draft.lowDurabilityThreshold}%</b></h3><p>首次低于该耐久时显示 HUD 预警。</p></div><input max="99" min="1" onChange={(event) => setDraft({ ...draft, lowDurabilityThreshold: Number(event.target.value) })} type="range" value={draft.lowDurabilityThreshold} /></label><label className="setting range-setting"><div><h3>武器提示显示时长 <b>{draft.weaponDisplaySeconds.toFixed(1)} 秒</b></h3><p>装备、切换或拔刀时显示精确耐久。</p></div><input max="10" min="0.5" onChange={(event) => setDraft({ ...draft, weaponDisplaySeconds: Number(event.target.value) })} step="0.5" type="range" value={draft.weaponDisplaySeconds} /></label><label className="setting toggle-setting"><div><h3>启用低耐久 HUD 预警</h3><p>耐久低于阈值时显示一次预警。</p></div><input checked={draft.enableLowDurabilityWarning} onChange={(event) => setDraft({ ...draft, enableLowDurabilityWarning: event.target.checked })} type="checkbox" /></label><div className="setting-actions"><span>配置将保存到 <code>DurabilityManager.ini</code>。</span><button className="save" onClick={() => send('saveSettings', draft)} type="button">保存配置</button></div></section></section>}
     <footer className="panel-footer"><span>{state.message || `按 ${hotkeyLabel(state.settings)} 可随时查看耐久状态。`}</span><small>Durability Manager · v{state.version}</small></footer>
-  </main>}</>;
+  </main></>;
 }
