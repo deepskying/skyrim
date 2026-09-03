@@ -121,7 +121,7 @@ function VirtualRows({
 }
 
 export function App() {
-  const [state, setState] = useState<PanelState>(import.meta.env.DEV ? demoState : { inventory: [], magic: [], player: { gold: 0, weight: 0, weightMax: 0 }, hotkeys: [] });
+  const [state, setState] = useState<PanelState>(import.meta.env.DEV ? demoState : { version: '0.1.5', inventory: [], magic: [], player: { gold: 0, weight: 0, weightMax: 0 }, hotkeys: [] });
   const [page, setPage] = useState<Page>('inventory');
   const [inventoryCategory, setInventoryCategory] = useState<ItemCategory>('all');
   const [magicCategory, setMagicCategory] = useState<MagicCategory>('all');
@@ -324,7 +324,7 @@ export function App() {
         </aside>
         </>}
       </section>
-      <footer>{state.message || '准备就绪。'}</footer>
+      <footer><span>{state.message || '准备就绪。'}</span><small>Inventory Manager · v{state.version}</small></footer>
     </main>
   );
 }

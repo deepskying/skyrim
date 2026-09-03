@@ -440,6 +440,7 @@ namespace
         const auto currentWeight = player ? player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kInventoryWeight) : 0.0F;
         const auto maxWeight = player ? player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kCarryWeight) : 0.0F;
         return {
+            { "version", "0.1.5" },
             { "inventory", CollectInventory() },
             { "magic", CollectMagic() },
             { "player", {

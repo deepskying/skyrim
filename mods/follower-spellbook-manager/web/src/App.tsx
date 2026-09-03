@@ -47,6 +47,7 @@ type Tome = Omit<Spell, 'enabled'> & {
 };
 
 type State = {
+  version: string;
   followers: Follower[];
   tomes: Tome[];
   message?: string;
@@ -64,6 +65,7 @@ declare global {
 }
 
 const demo: State = {
+  version: '0.9.1',
   followers: [
     { id: 'demo-lydia', name: 'Lydia', className: 'Combat Warrior', level: 34, levelScaling: { playerScaled: true, multiplier: 1, currentMax: 50, originalMax: 50, targetMax: 300, enabled: false, canToggle: true }, maxMagicka: 100, resources: { health: { current: 312, max: 360 }, magicka: { current: 72, max: 100 }, stamina: { current: 185, max: 240 } }, spells: [{ id: 'ice-spike', name: 'Ice Spike', school: 'Destruction', cost: 30, enabled: true }] },
     { id: 'demo-serana', name: 'Serana', className: 'Vampire Mystic', level: 48, levelScaling: { playerScaled: true, multiplier: 1, currentMax: 300, originalMax: 50, targetMax: 300, enabled: true, canToggle: true }, maxMagicka: 220, resources: { health: { current: 280, max: 280 }, magicka: { current: 146, max: 220 }, stamina: { current: 124, max: 170 } }, spells: [{ id: 'firebolt', name: 'Firebolt', school: 'Destruction', cost: 25, enabled: false }] },
@@ -75,7 +77,7 @@ const demo: State = {
   message: 'Choose a follower and a spell tome to begin.',
 };
 
-const empty: State = { followers: [], tomes: [], message: 'Loading follower data…' };
+const empty: State = { version: '0.9.1', followers: [], tomes: [], message: 'Loading follower data…' };
 const initialState = import.meta.env.DEV ? demo : empty;
 
 function send(type: string, data: Record<string, unknown> = {}) {
@@ -329,7 +331,7 @@ export function App() {
         </section>
       )}
 
-      <footer>{state.message || 'Choose a follower and a spell tome to begin.'}</footer>
+      <footer><span>{state.message || 'Choose a follower and a spell tome to begin.'}</span><small>Follower Spellbook Manager · v{state.version}</small></footer>
     </main>
   );
 }

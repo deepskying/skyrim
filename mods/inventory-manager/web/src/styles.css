@@ -130,7 +130,7 @@ h2 { color: #e2f0f7; font-size: 26px; }
 .dismantle-confirm div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .dismantle-confirm button { min-height: 37px; border: 1px solid rgba(198, 149, 93, .48); background: rgba(65, 45, 31, .42); color: #e3ceb0; font-size: 13px; }
 .dismantle-confirm .danger { border-color: #e0735d; background: linear-gradient(110deg, #a54839, #6c302c); color: #fff1e8; }
-footer { min-height: 40px; padding: 11px 26px; border-top: 1px solid rgba(105, 177, 210, .24); color: #7f9ca8; font-family: Arial, sans-serif; font-size: 13px; }
+footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 40px; padding: 11px 26px; border-top: 1px solid rgba(105, 177, 210, .24); color: #7f9ca8; font-family: Arial, sans-serif; font-size: 13px; } footer small { color: #54717e; font-size: 11px; white-space: nowrap; }
 .icon { display: inline-block; font-family: 'skyrim-inventory-icons' !important; font-style: normal; line-height: 1; }
 
 @media (max-width: 1100px) {

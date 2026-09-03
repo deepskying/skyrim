@@ -3,7 +3,7 @@ set_xmakever("2.8.2")
 includes("../../../reference/example-skse-plugin/lib/commonlibsse-ng")
 
 set_project("FollowerSpellbookManager")
-set_version("0.9.0")
+set_version("0.9.1")
 set_languages("c++23")
 set_warnings("allextra")
 set_policy("package.requires_lock", true)
@@ -24,4 +24,6 @@ target("FollowerSpellbookManager")
     add_files("src/**.cpp")
     add_headerfiles("src/**.h")
     add_includedirs("src")
-    set_pcxxheader("src/pch.h")
+    -- Resolve from this module's xmake file; a workspace-level build cache can
+    -- otherwise point the generated PCH wrapper at an unrelated native/src.
+    set_pcxxheader(path.join(os.scriptdir(), "src", "pch.h"))

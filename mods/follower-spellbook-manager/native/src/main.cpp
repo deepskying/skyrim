@@ -682,6 +682,7 @@ namespace
     {
         if (!g_prisma || !g_view) return;
         const json state = {
+            { "version", "0.9.1" },
             { "followers", CollectFollowers() },
             { "tomes", CollectTomes() },
             { "message", a_message }

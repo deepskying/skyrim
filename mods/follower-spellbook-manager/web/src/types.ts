@@ -42,6 +42,7 @@ export type Tome = Spell & {
 };
 
 export type PanelState = {
+  version: string;
   followers: Follower[];
   tomes: Tome[];
   message?: string;

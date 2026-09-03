@@ -226,7 +226,7 @@ h2 { margin-bottom: 0; color: #e9f9f7; font-size: 24px; font-weight: 600; }
 
 .empty { margin: 25px 0; color: #a8c4c4; font-size: 15px; }
 .detail-empty { padding: 0 36px; }
-footer { min-height: 48px; padding: 15px 36px; border-top: 1px solid rgba(60, 172, 170, .4); color: #a8d5d0; font-size: 14px; flex: none; }
+footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 48px; padding: 15px 36px; border-top: 1px solid rgba(60, 172, 170, .4); color: #a8d5d0; font-size: 14px; flex: none; } footer small { color: #75aaa6; font-size: 11px; white-space: nowrap; }
 
 @media (max-width: 1300px) {
   .roster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }

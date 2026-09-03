@@ -52,6 +52,7 @@ export type MagicItem = {
 };
 
 export type PanelState = {
+  version: string;
   inventory: InventoryItem[];
   magic: MagicItem[];
   player: {
