@@ -7,6 +7,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 - **Shift+F** opens the PrismaUI panel; it can be rebound in the **配置** tab.
 - The panel reads the player’s currently equipped weapons and armour, including quest and enchantment markers.
 - The panel provides the agreed two tabs: **耐久状态** and **配置**.
+- Drawing, equipping, or switching to a weapon shows a non-blocking HUD card with its current durability. The display duration is configurable.
+- A low-durability HUD warning fires once when an equipped weapon is below the configured threshold; it becomes eligible again after returning above the threshold.
 - Low-durability threshold, weapon display duration, HUD-warning preference, enchanted-item breakage, and the panel hotkey are persisted in `SKSE/Plugins/DurabilityManager.ini`.
 - The repair queue layout, material details, and forge-only hammer interaction are implemented in the Prisma view and ready for the native durability/forge bridge.
 

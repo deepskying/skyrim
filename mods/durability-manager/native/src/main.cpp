@@ -21,6 +21,42 @@ namespace
 
     Settings g_settings{};
     bool g_capturingHotkey = false;
+    bool g_panelVisible = false;
+    bool g_hudVisible = false;
+    std::uint32_t g_hudSequence = 0;
+
+    struct DurabilitySnapshot
+    {
+        std::uint32_t current = 100;
+        std::uint32_t maximum = 100;
+        std::uint32_t enhancementLevel = 0;
+        std::int32_t performanceBonus = 0;
+        float weightReduction = 0.0F;
+        float attackSpeedBonus = 0.0F;
+        float wearReduction = 0.0F;
+        float chargeBonus = 0.0F;
+    };
+
+    enum class EnhancementCardType : std::uint8_t { Performance, Weight, Speed, Durability, Wear, Charge, Enchantment };
+    enum class EnhancementTier : std::uint8_t { Weak, Standard, Strong, Extreme };
+
+    // The persisted equipment record will use these fields per ItemKey. Keeping
+    // the card result as data (not UI behaviour) makes future card packs and
+    // third-party material rules additive instead of requiring a UI rewrite.
+    struct EnhancementCardState
+    {
+        EnhancementCardType type{};
+        EnhancementTier tier{};
+        float rolledValue = 0.0F;
+        std::uint32_t successChance = 100;
+        std::vector<RE::FormID> requiredMaterials;
+    };
+
+    // This is deliberately kept behind one accessor: the persistence and wear
+    // bridge will replace the default snapshot without changing HUD consumers.
+    std::unordered_map<RE::FormID, DurabilitySnapshot> g_durability;
+    std::unordered_set<RE::FormID> g_lowDurabilityWarnings;
+    std::unordered_map<RE::FormID, std::chrono::steady_clock::time_point> g_weaponNotificationTimes;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -157,6 +193,125 @@ namespace
         return "护甲";
     }
 
+    [[nodiscard]] std::string EquipmentCategory(const RE::TESBoundObject* a_item)
+    {
+        if (!a_item) return "clothing";
+        if (a_item->GetFormType() == RE::FormType::Weapon) return "weapon";
+        return a_item->As<RE::TESObjectARMO>() ? "armor" : "clothing";
+    }
+
+    [[nodiscard]] float EquipmentWeight(const RE::TESBoundObject* a_item)
+    {
+        if (const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr) return weapon->weight;
+        if (const auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr) return armor->weight;
+        return 0.0F;
+    }
+
+    [[nodiscard]] std::string EnchantmentName(const RE::InventoryEntryData* a_entry)
+    {
+        const auto* enchantment = a_entry ? a_entry->GetEnchantment() : nullptr;
+        const auto* name = enchantment ? enchantment->GetFullName() : nullptr;
+        return name && name[0] ? name : "";
+    }
+
+    [[nodiscard]] DurabilitySnapshot GetDurability(const RE::TESBoundObject* a_item)
+    {
+        if (!a_item) return {};
+        if (const auto found = g_durability.find(a_item->GetFormID()); found != g_durability.end()) return found->second;
+        return {};
+    }
+
+    [[nodiscard]] std::string DisplayName(const RE::TESBoundObject* a_item)
+    {
+        const auto* fullName = a_item ? a_item->As<RE::TESFullName>() : nullptr;
+        const auto* name = fullName ? fullName->GetFullName() : nullptr;
+        return name && name[0] ? name : "未命名武器";
+    }
+
+    void UpdateViewVisibility()
+    {
+        if (g_prisma && g_view && !g_panelVisible && !g_hudVisible) g_prisma->Hide(g_view);
+    }
+
+    void ShowHUD(std::string_view a_kind, std::string_view a_title, std::string_view a_detail, const float a_seconds)
+    {
+        if (!g_prisma || !g_view) return;
+        const auto message = json{
+            { "id", ++g_hudSequence },
+            { "kind", a_kind },
+            { "title", a_title },
+            { "detail", a_detail },
+            { "durationMilliseconds", static_cast<std::uint32_t>(a_seconds * 1000.0F) }
+        };
+        g_hudVisible = true;
+        g_prisma->Show(g_view);
+        const auto script = "window.DurabilityManager && window.DurabilityManager.showHud(" + message.dump() + ");";
+        g_prisma->Invoke(g_view, script.c_str());
+    }
+
+    void ShowWeaponDurability(const RE::TESObjectWEAP* a_weapon)
+    {
+        if (!a_weapon) return;
+        const auto now = std::chrono::steady_clock::now();
+        const auto formID = a_weapon->GetFormID();
+        if (const auto previous = g_weaponNotificationTimes.find(formID); previous != g_weaponNotificationTimes.end() && now - previous->second < std::chrono::milliseconds(250)) return;
+        g_weaponNotificationTimes[formID] = now;
+
+        const auto durability = GetDurability(a_weapon);
+        const auto percentage = durability.maximum ? (durability.current * 100U / durability.maximum) : 0U;
+        ShowHUD("weapon", DisplayName(a_weapon), std::to_string(durability.current) + " / " + std::to_string(durability.maximum) + "  ·  " + std::to_string(percentage) + "%", g_settings.weaponDisplaySeconds);
+
+        if (!g_settings.enableLowDurabilityWarning || !durability.maximum) return;
+        if (percentage < g_settings.lowDurabilityThreshold) {
+            if (g_lowDurabilityWarnings.insert(formID).second) {
+                ShowHUD("warning", "耐久度过低", DisplayName(a_weapon) + "：" + std::to_string(percentage) + "%（请尽快修复）", g_settings.weaponDisplaySeconds);
+            }
+        } else {
+            g_lowDurabilityWarnings.erase(formID);
+        }
+    }
+
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>
+    {
+    public:
+        static EquipmentEventSink* GetSingleton()
+        {
+            static EquipmentEventSink singleton;
+            return std::addressof(singleton);
+        }
+
+        void Register()
+        {
+            if (registered_) return;
+            if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESEquipEvent>(this);
+            if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
+            registered_ = true;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(const RE::TESEquipEvent* a_event, RE::BSTEventSource<RE::TESEquipEvent>*) override
+        {
+            const auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!a_event || !a_event->equipped || !player || a_event->actor.get() != player) return RE::BSEventNotifyControl::kContinue;
+            ShowWeaponDurability(RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject));
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(const RE::BSAnimationGraphEvent* a_event, RE::BSTEventSource<RE::BSAnimationGraphEvent>*) override
+        {
+            const auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!a_event || !player || a_event->holder != player || Normalize(a_event->tag.c_str()) != "WEAPONDRAW") return RE::BSEventNotifyControl::kContinue;
+            const auto* rightHand = player->GetEquippedObject(false);
+            const auto* leftHand = player->GetEquippedObject(true);
+            const auto* weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;
+            if (!weapon && leftHand) weapon = leftHand->As<RE::TESObjectWEAP>();
+            ShowWeaponDurability(weapon);
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+    private:
+        bool registered_ = false;
+    };
+
     [[nodiscard]] json CollectEquippedItems()
     {
         json equipment = json::array();
@@ -166,16 +321,27 @@ namespace
         for (const auto& [item, entry] : inventory) {
             if (!item || entry.first <= 0 || !entry.second || !entry.second->IsWorn()) continue;
             if (item->GetFormType() != RE::FormType::Weapon && item->GetFormType() != RE::FormType::Armor) continue;
-            const auto* fullName = item->As<RE::TESFullName>();
-            const auto* name = fullName ? fullName->GetFullName() : nullptr;
+            const auto durability = GetDurability(item);
+            const auto* weapon = item->As<RE::TESObjectWEAP>();
+            const auto* armor = item->As<RE::TESObjectARMO>();
+            const auto enchantment = EnchantmentName(entry.second.get());
             equipment.push_back({
                 { "id", item->GetFormID() },
-                { "name", name && name[0] ? name : "未命名装备" },
+                { "name", DisplayName(item) },
                 { "slot", EquipmentType(item) },
-                { "current", 100 },
-                { "maximum", 100 },
+                { "category", EquipmentCategory(item) },
+                { "current", durability.current },
+                { "maximum", durability.maximum },
+                { "enhancementLevel", durability.enhancementLevel },
+                { "damage", weapon ? static_cast<std::int32_t>(weapon->GetAttackDamage()) + durability.performanceBonus : 0 },
+                { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + durability.performanceBonus : 0 },
+                { "weight", (std::max)(0.1F, EquipmentWeight(item) - durability.weightReduction) },
+                { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + durability.attackSpeedBonus)) : 0.0F },
+                { "enchantment", enchantment },
                 { "enchanted", entry.second->IsEnchanted() },
+                { "enchantmentReplaceable", !entry.second->IsQuestObject() },
                 { "quest", entry.second->IsQuestObject() },
+                { "unique", false },
                 { "broken", false },
                 { "repairable", false }
             });
@@ -188,7 +354,13 @@ namespace
         return {
             { "equipped", CollectEquippedItems() },
             { "repairQueue", json::array() },
-            { "atForge", false },
+            { "forge", {
+                { "active", false },
+                { "station", "" },
+                { "refreshCost", 0 },
+                { "refreshes", 0 },
+                { "cards", json::array() }
+            } },
             { "settings", {
                 { "hotkey", { { "key", KeyName(g_settings.hotkey.keyCode) }, { "keyCode", g_settings.hotkey.keyCode }, { "shift", g_settings.hotkey.requireShift }, { "ctrl", g_settings.hotkey.requireCtrl }, { "alt", g_settings.hotkey.requireAlt } } },
                 { "lowDurabilityThreshold", g_settings.lowDurabilityThreshold },
@@ -211,8 +383,10 @@ namespace
     void ClosePanel()
     {
         if (!g_prisma || !g_view) return;
+        g_panelVisible = false;
+        g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(false);");
         g_prisma->Unfocus(g_view);
-        g_prisma->Hide(g_view);
+        UpdateViewVisibility();
     }
 
     [[nodiscard]] bool CloseFocusedPanel()
@@ -225,11 +399,13 @@ namespace
     void TogglePanel()
     {
         if (!g_prisma || !g_view) return;
-        if (g_prisma->HasFocus(g_view)) {
+        if (g_panelVisible) {
             ClosePanel();
             return;
         }
+        g_panelVisible = true;
         g_prisma->Show(g_view);
+        g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(true);");
         g_prisma->Focus(g_view, true);
         SendState();
     }
@@ -273,6 +449,11 @@ namespace
                 SendState("配置已保存至 DurabilityManager.ini。");
             } else if (type == "repair") {
                 SendState("修复仅能在锻炉的“修复装备”入口中执行。");
+            } else if (type == "hudHidden") {
+                if (request.value("id", 0U) == g_hudSequence) {
+                    g_hudVisible = false;
+                    UpdateViewVisibility();
+                }
             } else SendState();
         } catch (const std::exception& error) {
             logger::warn("Rejected Durability Manager panel request: {}", error.what());
@@ -302,6 +483,7 @@ namespace
         input->SetEscapeCallback(CloseFocusedPanel);
         input->SetCaptureCallback(CaptureHotkey);
         input->RegisterSink();
+        EquipmentEventSink::GetSingleton()->Register();
         logger::info("Durability Manager loaded.");
     }
 }

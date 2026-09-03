@@ -1,15 +1,49 @@
+export type EnhancementTier = '微弱' | '标准' | '强效' | '极强';
+export type CardType = 'performance' | 'weight' | 'speed' | 'durability' | 'wear' | 'charge' | 'enchantment';
+
+export type MaterialRequirement = { name: string; required: number; owned: number };
+
 export type EquipmentItem = {
   id: number;
   name: string;
   slot: string;
+  category: 'weapon' | 'armor' | 'clothing';
   current: number;
   maximum: number;
+  enhancementLevel: number;
+  damage?: number;
+  armor?: number;
+  weight: number;
+  attackSpeed?: number;
+  enchantment?: string;
   enchanted: boolean;
+  enchantmentReplaceable: boolean;
   quest: boolean;
+  unique: boolean;
   broken: boolean;
   repairable: boolean;
   material?: string;
   materialCount?: number;
+};
+
+export type EnhancementCard = {
+  id: string;
+  type: CardType;
+  tier: EnhancementTier;
+  title: string;
+  description: string;
+  value: string;
+  successChance: number;
+  materials: MaterialRequirement[];
+  blockedReason?: string;
+};
+
+export type ForgeState = {
+  active: boolean;
+  station: string;
+  refreshCost: number;
+  refreshes: number;
+  cards: EnhancementCard[];
 };
 
 export type Settings = {
@@ -23,7 +57,7 @@ export type Settings = {
 export type PanelState = {
   equipped: EquipmentItem[];
   repairQueue: EquipmentItem[];
-  atForge: boolean;
+  forge: ForgeState;
   settings: Settings;
   capturingHotkey: boolean;
   message?: string;
