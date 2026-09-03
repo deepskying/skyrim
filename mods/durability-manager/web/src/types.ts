@@ -17,6 +17,10 @@ export type EquipmentItem = {
   armor?: number;
   weight: number;
   attackSpeed?: number;
+  /** Effective durability cost of one supported action, after wear reduction. */
+  wearRate?: number;
+  wearRateLabel?: string;
+  wearReduction?: number;
   enchantment?: string;
   enchanted: boolean;
   enchantmentReplaceable: boolean;

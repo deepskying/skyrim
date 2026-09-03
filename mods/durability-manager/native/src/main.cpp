@@ -484,6 +484,10 @@ namespace
             const auto* weapon = item->As<RE::TESObjectWEAP>();
             const auto* armor = item->As<RE::TESObjectARMO>();
             const auto enchantment = EnchantmentName(entry.second.get());
+            const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
+            const auto rangedBaseWear = weapon && weapon->IsCrossbow() ? g_settings.crossbowShotWear : g_settings.bowShotWear;
+            const auto effectiveWearReduction = std::clamp(durability.wearReduction, 0.0F, g_settings.maxWearReduction);
+            const auto effectiveRangedWear = (std::max)(0.1F, rangedBaseWear * (1.0F - effectiveWearReduction));
             equipment.push_back({
                 { "id", std::to_string(key->baseFormID) + ":" + std::to_string(key->uniqueID) },
                 { "name", DisplayName(item) },
@@ -496,6 +500,9 @@ namespace
                 { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + durability.performanceBonus : 0 },
                 { "weight", (std::max)(0.1F, EquipmentWeight(item) - durability.weightReduction) },
                 { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + durability.attackSpeedBonus)) : 0.0F },
+                { "wearRate", isRangedWeapon ? json(effectiveRangedWear) : json(nullptr) },
+                { "wearRateLabel", isRangedWeapon ? "每次成功射击" : "尚未启用" },
+                { "wearReduction", effectiveWearReduction },
                 { "enchantment", enchantment },
                 { "enchanted", entry.second->IsEnchanted() },
                 { "enchantmentReplaceable", !entry.second->IsQuestObject() },
