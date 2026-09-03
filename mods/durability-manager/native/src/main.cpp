@@ -84,7 +84,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.6";
+    constexpr std::string_view kPluginVersion = "0.1.7";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -566,6 +566,20 @@ namespace
         UpdateViewVisibility();
     }
 
+    // Death/reload can rebuild the Prisma DOM while this DLL keeps its static
+    // flags. Always drop the old focus before and after a save transition so a
+    // stale flag cannot hide Skyrim's UI behind an empty focused view.
+    void ResetViewForLoad()
+    {
+        g_panelVisible = false;
+        g_hudVisible = false;
+        g_capturingHotkey = false;
+        if (!g_prisma || !g_view) return;
+        if (g_prisma->HasFocus(g_view)) g_prisma->Unfocus(g_view);
+        g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(false);");
+        g_prisma->Hide(g_view);
+    }
+
     [[nodiscard]] bool CloseFocusedPanel()
     {
         if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
@@ -576,7 +590,7 @@ namespace
     void TogglePanel()
     {
         if (!g_prisma || !g_view) return;
-        if (g_panelVisible) {
+        if (g_panelVisible && g_prisma->HasFocus(g_view)) {
             ClosePanel();
             return;
         }
@@ -609,7 +623,18 @@ namespace
         try {
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
-            if (type == "ready") return;
+            if (type == "ready") {
+                const auto visibilityScript = std::string("window.DurabilityManager && window.DurabilityManager.setPanelVisible(") + (g_panelVisible ? "true" : "false") + ");";
+                g_prisma->Invoke(g_view, visibilityScript.c_str());
+                if (g_panelVisible) {
+                    g_prisma->Show(g_view);
+                    g_prisma->Focus(g_view, true);
+                } else {
+                    UpdateViewVisibility();
+                }
+                SendState();
+                return;
+            }
             if (type == "close") ClosePanel();
             else if (type == "beginHotkeyCapture") {
                 g_capturingHotkey = true;
@@ -732,6 +757,19 @@ namespace
 
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
+        if (a_message->type == SKSE::MessagingInterface::kPreLoadGame) {
+            ResetViewForLoad();
+            return;
+        }
+        if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
+            const auto restoreView = [] {
+                ResetViewForLoad();
+                SendState();
+            };
+            if (const auto tasks = SKSE::GetTaskInterface()) tasks->AddTask(restoreView);
+            else restoreView();
+            return;
+        }
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
         g_prisma = PRISMA_UI_API::RequestPluginAPI();
         if (!g_prisma) {
