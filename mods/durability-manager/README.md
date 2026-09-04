@@ -19,9 +19,11 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 - Equipment state is tracked per carried item instance (`base FormID + ExtraUniqueID`) and saved in the SKSE co-save. Existing saves without Durability Manager records start safely at the default 100 / 100 state.
 - At zero durability, ordinary equipment with a forge recipe is removed and returns half of that recipe's materials (at least one of each component). Quest items, recognized artifacts/unique items, protected enchanted items, and mod equipment without a usable recipe are unequipped and retained as broken; attempts to equip them again are rejected until repair is implemented.
 - Broken retained items remain visible in the panel's combined equipment/repair list. Artifact protection uses Skyrim's standard `DaedricArtifact` and `MagicDisallowEnchanting` keywords in addition to the quest-item flag.
-- The repair queue layout, material details, and forge-only hammer interaction are implemented in the Prisma view and ready for the native durability/forge bridge.
+- Activating a standard forge, smelter, sharpening wheel, or armor workbench unlocks the equipment workshop for two minutes while the player remains within 600 game units. This does not replace or interrupt Skyrim's crafting menu; after closing the original menu, the normal panel hotkey opens the workshop.
+- Damaged equipped items and retained broken items show their repair requirements together with the amount currently carried. The mod prefers the item's tempering recipe, falls back to another constructible-object recipe, and charges 25%, 50%, 75%, or 100% of its ingredient counts according to missing durability (at least one of each ingredient).
+- Repair is a native, per-instance transaction: forge context, inventory ownership, current durability, recipe availability, and all ingredient counts are revalidated before materials are removed. A successful repair restores that exact item instance to its full current maximum durability.
 
-Armor loss, actual repair transactions, and forge activation remain separate from the current weapon-wear slice. Those systems will build on the same per-instance key and co-save state.
+Armor loss and randomized enhancement cards remain separate from the current weapon-wear and repair slice. Those systems will build on the same per-instance key and co-save state.
 
 ## Install layout
 

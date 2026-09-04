@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { demoState } from './demo';
-import type { CardType, EnhancementCard, EquipmentItem, PanelState, Settings } from './types';
+import type { CardType, EquipmentItem, MaterialRequirement, PanelState, Settings } from './types';
 
 type Tab = 'workshop' | 'settings';
 type HudMessage = { id: number; kind: 'weapon' | 'warning'; title: string; detail: string; durationMilliseconds: number; current?: number; maximum?: number };
@@ -17,7 +17,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.20',
+  version: '0.1.21',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -43,6 +43,17 @@ function text(value: unknown, fallback = '') {
 
 function flag(value: unknown, fallback = false) {
   return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeMaterials(value: unknown): MaterialRequirement[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!isRecord(entry)) return [];
+    const name = text(entry.name);
+    const required = Math.max(0, Math.floor(finiteNumber(entry.required, 0)));
+    const owned = Math.max(0, Math.floor(finiteNumber(entry.owned, 0)));
+    return name && required > 0 ? [{ name, required, owned }] : [];
+  });
 }
 
 function normalizeEquipment(value: unknown, index: number): EquipmentItem | undefined {
@@ -72,8 +83,7 @@ function normalizeEquipment(value: unknown, index: number): EquipmentItem | unde
     unique: flag(value.unique),
     broken: flag(value.broken),
     repairable: flag(value.repairable),
-    material: text(value.material) || undefined,
-    materialCount: optionalFiniteNumber(value.materialCount),
+    repairMaterials: normalizeMaterials(value.repairMaterials),
   };
 }
 
@@ -149,8 +159,8 @@ function itemIcon(item: EquipmentItem) {
   return item.category === 'armor' ? '◈' : '◇';
 }
 
-function MaterialList({ card }: { card: EnhancementCard }) {
-  return <div className="materials">{card.materials.map((material) => <span className={material.owned < material.required ? 'missing' : ''} key={material.name}>{material.name}<b>{material.owned} / {material.required}</b></span>)}</div>;
+function MaterialList({ materials }: { materials: MaterialRequirement[] }) {
+  return <div className="materials">{materials.map((material, index) => <span className={material.owned < material.required ? 'missing' : ''} key={`${material.name}-${index}`}>{material.name}<b>{material.owned} / {material.required}</b></span>)}</div>;
 }
 
 export function App() {
@@ -185,7 +195,8 @@ export function App() {
     return [...state.equipped, ...state.repairQueue.filter((item) => !equippedIds.has(item.id))];
   }, [state.equipped, state.repairQueue]);
   const selected = useMemo(() => visibleEquipment.find((item) => item.id === selectedId) ?? visibleEquipment[0], [selectedId, visibleEquipment]);
-  const canRepair = Boolean(selected?.repairable && selected.current < selected.maximum && state.forge.active);
+  const hasRepairMaterials = Boolean(selected?.repairMaterials.every((material) => material.owned >= material.required));
+  const canRepair = Boolean(selected?.repairable && state.forge.active && hasRepairMaterials);
   const selectedWearRate = optionalFiniteNumber(selected?.wearRate);
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
@@ -208,8 +219,8 @@ export function App() {
         <div className="stat-grid"><div><small>耐久</small><b>{selected.current} <span>/ {selected.maximum}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
-        <section className="action-strip"><div><p>修复装备</p><small>{selected.current >= selected.maximum ? '耐久已满' : selected.material ? `需要 ${selected.material} × ${selected.materialCount}` : '材料映射待配置'}</small></div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">⚒ 修复</button></section>
-        {state.forge.active ? <section className="card-area"><div className="card-heading"><div><p>ENHANCEMENT DRAFT</p><h3>选择本次强化</h3></div><button onClick={() => send('refreshEnhancements', { id: selected.id })} type="button">↻ 刷新 · {state.forge.refreshCost} 金币</button></div><div className="enhancement-cards">{state.forge.cards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={card.id}><header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p><MaterialList card={card} /><footer><span>成功率 {card.successChance}%</span><button disabled={Boolean(card.blockedReason)} onClick={() => send('applyEnhancement', { cardId: card.id, equipmentId: selected.id })} type="button">{card.blockedReason ?? '选择强化'}</button></footer></article>)}</div></section> : <p className="forge-hint">前往锻造熔炉、砂轮或工作台进入装备工坊，查看修复与强化选项。</p>}
+        <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? '材料不足' : '⚒ 修复'}</button></section>
+        {state.forge.active ? <section className="card-area"><div className="card-heading"><div><p>ENHANCEMENT DRAFT</p><h3>选择本次强化</h3></div><button onClick={() => send('refreshEnhancements', { id: selected.id })} type="button">↻ 刷新 · {state.forge.refreshCost} 金币</button></div><div className="enhancement-cards">{state.forge.cards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={card.id}><header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p><MaterialList materials={card.materials} /><footer><span>成功率 {card.successChance}%</span><button disabled={Boolean(card.blockedReason)} onClick={() => send('applyEnhancement', { cardId: card.id, equipmentId: selected.id })} type="button">{card.blockedReason ?? '选择强化'}</button></footer></article>)}</div></section> : <p className="forge-hint">使用锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，可在两分钟内于附近打开装备工坊。</p>}
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page">
       <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>界面与耐久提示</h2></div><span className="settings-status"><i />保存后立即生效</span></div>

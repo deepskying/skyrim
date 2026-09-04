@@ -14,11 +14,14 @@
 #include <array>
 #include <cctype>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <limits>
+#include <map>
 #include <mutex>
 #include <optional>
 #include <string>

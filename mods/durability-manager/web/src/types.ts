@@ -28,8 +28,7 @@ export type EquipmentItem = {
   unique: boolean;
   broken: boolean;
   repairable: boolean;
-  material?: string;
-  materialCount?: number;
+  repairMaterials: MaterialRequirement[];
 };
 
 export type EnhancementCard = {

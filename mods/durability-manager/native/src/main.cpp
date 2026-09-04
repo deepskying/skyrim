@@ -90,11 +90,18 @@ namespace
     std::uint16_t g_nextGeneratedUniqueID = 1;
     std::uint64_t g_stateEpoch = 0;
 
+    RE::ObjectRefHandle g_forgeStation;
+    std::string g_forgeStationName;
+    std::chrono::steady_clock::time_point g_forgeActivatedAt{};
+    std::mutex g_forgeLock;
+
     constexpr std::uint32_t kSerializationID = 0x4455524DU;  // "DURM"
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.20";
+    constexpr std::string_view kPluginVersion = "0.1.21";
+    constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
+    constexpr float kForgeContextMaximumDistance = 600.0F;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -393,12 +400,74 @@ namespace
         return name && name[0] ? name : "未命名武器";
     }
 
+    void SendState(std::string_view a_message = {});
+
+    struct ForgeContext
+    {
+        bool active = false;
+        std::string station;
+    };
+
+    [[nodiscard]] std::string ForgeStationName(RE::TESBoundObject* a_station)
+    {
+        if (!a_station) return {};
+        if (a_station->HasKeywordByEditorID("CraftingSmithingSharpeningWheel")) return "磨刀砂轮";
+        if (a_station->HasKeywordByEditorID("CraftingSmithingArmorTable")) return "护甲工作台";
+        if (a_station->HasKeywordByEditorID("CraftingSmelter")) return "冶炼熔炉";
+        if (a_station->HasKeywordByEditorID("CraftingSmithingForge")) return "锻造熔炉";
+        return {};
+    }
+
+    void ClearForgeContext()
+    {
+        std::scoped_lock lock(g_forgeLock);
+        g_forgeStation.reset();
+        g_forgeStationName.clear();
+        g_forgeActivatedAt = {};
+    }
+
+    [[nodiscard]] ForgeContext GetForgeContext()
+    {
+        RE::ObjectRefHandle stationHandle;
+        std::string stationName;
+        std::chrono::steady_clock::time_point activatedAt;
+        {
+            std::scoped_lock lock(g_forgeLock);
+            stationHandle = g_forgeStation;
+            stationName = g_forgeStationName;
+            activatedAt = g_forgeActivatedAt;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        auto station = stationHandle.get();
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!station || !player || activatedAt == std::chrono::steady_clock::time_point{} ||
+            now - activatedAt > kForgeContextLifetime || player->GetDistance(station.get()) > kForgeContextMaximumDistance) {
+            ClearForgeContext();
+            return {};
+        }
+        return { true, std::move(stationName) };
+    }
+
+    void ActivateForgeContext(RE::TESObjectREFR* a_station, std::string a_stationName)
+    {
+        if (!a_station || a_stationName.empty()) return;
+        {
+            std::scoped_lock lock(g_forgeLock);
+            g_forgeStation = a_station->GetHandle();
+            g_forgeStationName = a_stationName;
+            g_forgeActivatedAt = std::chrono::steady_clock::now();
+        }
+        const auto notification = a_stationName + "已启用装备工坊；关闭原菜单后按面板快捷键打开。";
+        RE::DebugNotification(notification.c_str());
+        logger::info("Equipment workshop context activated at {}.", a_stationName);
+        if (g_panelVisible) SendState("已进入" + a_stationName + "的装备工坊范围。");
+    }
+
     void UpdateViewVisibility()
     {
         if (g_prisma && g_view && !g_panelVisible && !g_hudVisible) g_prisma->Hide(g_view);
     }
-
-    void SendState(std::string_view a_message = {});
 
     void ShowHUD(
         std::string_view a_kind,
@@ -465,6 +534,138 @@ namespace
         return materials;
     }
 
+    [[nodiscard]] bool IsTemperingBench(const RE::BGSKeyword* a_keyword)
+    {
+        if (!a_keyword) return false;
+        const auto matches = [a_keyword](std::string_view a_editorID) {
+            return a_keyword == RE::TESForm::LookupByEditorID<RE::BGSKeyword>(a_editorID);
+        };
+        return matches("CraftingSmithingSharpeningWheel") || matches("CraftingSmithingArmorTable");
+    }
+
+    [[nodiscard]] const RE::BGSConstructibleObject* FindRepairRecipe(RE::TESBoundObject* a_item)
+    {
+        auto* dataHandler = RE::TESDataHandler::GetSingleton();
+        if (!dataHandler || !a_item) return nullptr;
+        const RE::BGSConstructibleObject* bestRecipe = nullptr;
+        std::uint32_t bestScore = 0;
+        for (const auto* recipe : dataHandler->GetFormArray<RE::BGSConstructibleObject>()) {
+            if (!recipe || recipe->createdItem != a_item || recipe->requiredItems.numContainerObjects == 0) continue;
+            const auto score = (IsTemperingBench(recipe->benchKeyword) ? 1000U : 0U) + recipe->requiredItems.numContainerObjects;
+            if (!bestRecipe || score > bestScore) {
+                bestRecipe = recipe;
+                bestScore = score;
+            }
+        }
+        return bestRecipe;
+    }
+
+    [[nodiscard]] std::map<RE::TESBoundObject*, std::int32_t> GetRepairMaterials(
+        RE::TESBoundObject* a_item,
+        const DurabilitySnapshot& a_durability)
+    {
+        std::map<RE::TESBoundObject*, std::int32_t> materials;
+        const auto* recipe = FindRepairRecipe(a_item);
+        if (!recipe || a_durability.maximum <= 0.0F || a_durability.current >= a_durability.maximum) return materials;
+
+        const auto missingRatio = std::clamp((a_durability.maximum - a_durability.current) / a_durability.maximum, 0.0F, 1.0F);
+        const auto costRatio = missingRatio <= 0.25F ? 0.25F : missingRatio <= 0.50F ? 0.50F : missingRatio <= 0.75F ? 0.75F : 1.0F;
+        recipe->requiredItems.ForEachContainerObject([&materials, costRatio](RE::ContainerObject& a_ingredient) {
+            if (!a_ingredient.obj || a_ingredient.count <= 0) return RE::BSContainer::ForEachResult::kContinue;
+            const auto scaledCount = static_cast<std::int32_t>(std::ceil(static_cast<float>(a_ingredient.count) * costRatio));
+            materials[a_ingredient.obj] += (std::max)(1, scaledCount);
+            return RE::BSContainer::ForEachResult::kContinue;
+        });
+        return materials;
+    }
+
+    [[nodiscard]] json RepairMaterialsJson(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
+    {
+        json result = json::array();
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        for (const auto& [material, required] : a_materials) {
+            result.push_back({
+                { "name", DisplayName(material) },
+                { "required", required },
+                { "owned", player ? (std::max)(0, player->GetItemCount(material)) : 0 }
+            });
+        }
+        return result;
+    }
+
+    [[nodiscard]] std::optional<ItemKey> ParseItemKey(std::string_view a_value)
+    {
+        const auto separator = a_value.find(':');
+        if (separator == std::string_view::npos || separator == 0 || separator + 1 >= a_value.size()) return std::nullopt;
+        std::uint64_t baseFormID = 0;
+        std::uint64_t uniqueID = 0;
+        const auto baseResult = std::from_chars(a_value.data(), a_value.data() + separator, baseFormID);
+        const auto uniqueResult = std::from_chars(a_value.data() + separator + 1, a_value.data() + a_value.size(), uniqueID);
+        if (baseResult.ec != std::errc{} || baseResult.ptr != a_value.data() + separator ||
+            uniqueResult.ec != std::errc{} || uniqueResult.ptr != a_value.data() + a_value.size() ||
+            baseFormID > (std::numeric_limits<RE::FormID>::max)() || uniqueID > (std::numeric_limits<std::uint16_t>::max)()) {
+            return std::nullopt;
+        }
+        return ItemKey{ static_cast<RE::FormID>(baseFormID), static_cast<std::uint16_t>(uniqueID) };
+    }
+
+    void RepairEquipment(const std::string_view a_equipmentID)
+    {
+        if (!GetForgeContext().active) {
+            SendState("修复失败：请先使用附近的锻造熔炉、冶炼熔炉、砂轮或护甲工作台。");
+            return;
+        }
+        const auto key = ParseItemKey(a_equipmentID);
+        if (!key) {
+            SendState("修复失败：装备实例标识无效。");
+            return;
+        }
+
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* item = RE::TESForm::LookupByID<RE::TESBoundObject>(key->baseFormID);
+        if (!player || !item) {
+            SendState("修复失败：找不到该装备。");
+            return;
+        }
+        const auto inventory = player->GetInventory();
+        const auto found = inventory.find(item);
+        auto* entry = found != inventory.end() && found->second.second ? found->second.second.get() : nullptr;
+        if (!entry || !FindExtraListByKey(entry, *key)) {
+            SendState("修复失败：该装备实例已不在背包中。");
+            return;
+        }
+
+        const auto durability = GetDurability(*key);
+        if (durability.current >= durability.maximum) {
+            SendState(DisplayName(item) + "的耐久已经全满。");
+            return;
+        }
+        const auto materials = GetRepairMaterials(item, durability);
+        if (materials.empty()) {
+            SendState("修复失败：没有找到可用于该装备的锻造或强化配方。");
+            return;
+        }
+        for (const auto& [material, required] : materials) {
+            if (player->GetItemCount(material) < required) {
+                SendState("修复失败：缺少" + DisplayName(material) + "，需要 " + std::to_string(required) + " 个。");
+                return;
+            }
+        }
+        for (const auto& [material, required] : materials) {
+            player->RemoveItem(material, required, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+        }
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            auto& stored = g_durability[*key];
+            stored.maximum = (std::max)(1.0F, durability.maximum);
+            stored.current = stored.maximum;
+            g_lowDurabilityWarnings.erase(*key);
+            g_pendingBreaks.erase(*key);
+        }
+        logger::info("Repaired item {:08X}:{:04X} to full durability using {} material types.", key->baseFormID, key->uniqueID, materials.size());
+        SendState(DisplayName(item) + "已修复至满耐久。");
+    }
+
     [[nodiscard]] std::string SalvageDescription(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
     {
         std::string description = "已损毁并分解：";
@@ -481,7 +682,12 @@ namespace
     {
         {
             std::scoped_lock lock(g_durabilityLock);
-            if (a_epoch != g_stateEpoch) return;
+            const auto durability = g_durability.find(a_key);
+            if (a_epoch != g_stateEpoch || !g_pendingBreaks.contains(a_key) ||
+                (durability != g_durability.end() && durability->second.current > 0.0F)) {
+                g_pendingBreaks.erase(a_key);
+                return;
+            }
         }
         const auto finish = [&a_key] {
             std::scoped_lock lock(g_durabilityLock);
@@ -636,7 +842,7 @@ namespace
         if (g_panelVisible) SendState();
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESActivateEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -651,8 +857,19 @@ namespace
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESEquipEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESHitEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
+            if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESActivateEvent>(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(const RE::TESActivateEvent* a_event, RE::BSTEventSource<RE::TESActivateEvent>*) override
+        {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            auto* station = a_event ? a_event->objectActivated.get() : nullptr;
+            if (!a_event || !player || a_event->actionRef.get() != player || !station) return RE::BSEventNotifyControl::kContinue;
+            auto stationName = ForgeStationName(station->GetBaseObject());
+            if (!stationName.empty()) ActivateForgeContext(station, std::move(stationName));
+            return RE::BSEventNotifyControl::kContinue;
         }
 
         RE::BSEventNotifyControl ProcessEvent(const RE::TESEquipEvent* a_event, RE::BSTEventSource<RE::TESEquipEvent>*) override
@@ -725,13 +942,15 @@ namespace
         const auto questItem = a_entry && a_entry->IsQuestObject();
         const auto uniqueItem = IsProtectedUniqueItem(a_item);
         const auto broken = a_durability.current <= 0.0F;
+        const auto repairMaterials = GetRepairMaterials(a_item, a_durability);
+        const auto repairable = a_durability.current < a_durability.maximum && !repairMaterials.empty();
         auto equipmentItem = json{
             { "id", std::to_string(a_key.baseFormID) + ":" + std::to_string(a_key.uniqueID) },
             { "name", DisplayName(a_item) },
             { "slot", EquipmentType(a_item) },
             { "category", EquipmentCategory(a_item) },
-            { "current", static_cast<std::uint32_t>(std::lround(a_durability.current)) },
-            { "maximum", static_cast<std::uint32_t>(std::lround(a_durability.maximum)) },
+            { "current", std::round(a_durability.current * 100.0F) / 100.0F },
+            { "maximum", std::round(a_durability.maximum * 100.0F) / 100.0F },
             { "enhancementLevel", a_durability.enhancementLevel },
             { "damage", weapon ? static_cast<std::int32_t>(weapon->GetAttackDamage()) + a_durability.performanceBonus : 0 },
             { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
@@ -745,7 +964,8 @@ namespace
             { "quest", questItem },
             { "unique", uniqueItem },
             { "broken", broken },
-            { "repairable", broken }
+            { "repairable", repairable },
+            { "repairMaterials", RepairMaterialsJson(repairMaterials) }
         };
         if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
         return equipmentItem;
@@ -792,13 +1012,14 @@ namespace
 
     [[nodiscard]] json CollectState(std::string_view a_message = {})
     {
+        const auto forge = GetForgeContext();
         return {
             { "version", kPluginVersion },
             { "equipped", CollectEquippedItems() },
             { "repairQueue", CollectRepairQueue() },
             { "forge", {
-                { "active", false },
-                { "station", "" },
+                { "active", forge.active },
+                { "station", forge.station },
                 { "refreshCost", 0 },
                 { "refreshes", 0 },
                 { "cards", json::array() }
@@ -840,6 +1061,7 @@ namespace
         g_panelVisible = false;
         g_hudVisible = false;
         g_capturingHotkey = false;
+        ClearForgeContext();
         std::scoped_lock lock(g_durabilityLock);
         ++g_stateEpoch;
         g_pendingBreaks.clear();
@@ -911,7 +1133,7 @@ namespace
                 WriteConfig();
                 SendState("配置已保存至 DurabilityManager.ini。");
             } else if (type == "repair") {
-                SendState("修复仅能在锻炉的“修复装备”入口中执行。");
+                RepairEquipment(request.value("id", ""));
             } else if (type == "hudHidden") {
                 if (request.value("id", 0U) == g_hudSequence) {
                     g_hudVisible = false;
