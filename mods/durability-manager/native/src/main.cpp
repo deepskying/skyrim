@@ -84,7 +84,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.16";
+    constexpr std::string_view kPluginVersion = "0.1.17";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -498,7 +498,7 @@ namespace
             const auto rangedBaseWear = weapon && weapon->IsCrossbow() ? g_settings.crossbowShotWear : g_settings.bowShotWear;
             const auto effectiveWearReduction = std::clamp(durability.wearReduction, 0.0F, g_settings.maxWearReduction);
             const auto effectiveRangedWear = (std::max)(0.1F, rangedBaseWear * (1.0F - effectiveWearReduction));
-            equipment.push_back({
+            auto equipmentItem = json{
                 { "id", std::to_string(key->baseFormID) + ":" + std::to_string(key->uniqueID) },
                 { "name", DisplayName(item) },
                 { "slot", EquipmentType(item) },
@@ -510,7 +510,6 @@ namespace
                 { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + durability.performanceBonus : 0 },
                 { "weight", (std::max)(0.1F, EquipmentWeight(item) - durability.weightReduction) },
                 { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + durability.attackSpeedBonus)) : 0.0F },
-                { "wearRate", isRangedWeapon ? json(effectiveRangedWear) : json(nullptr) },
                 { "wearRateLabel", isRangedWeapon ? "每次成功射击" : "尚未启用" },
                 { "wearReduction", effectiveWearReduction },
                 { "enchantment", enchantment },
@@ -520,7 +519,9 @@ namespace
                 { "unique", false },
                 { "broken", false },
                 { "repairable", false }
-            });
+            };
+            if (isRangedWeapon) equipmentItem["wearRate"] = effectiveRangedWear;
+            equipment.push_back(std::move(equipmentItem));
         }
         return equipment;
     }
@@ -649,8 +650,12 @@ namespace
                     g_hudVisible = false;
                     UpdateViewVisibility();
                 }
-            }
-            else SendState();
+            } else if (type == "clientError") {
+                logger::error(
+                    "Durability Manager web UI error: {} | component: {}",
+                    request.value("message", "Unknown frontend error"),
+                    request.value("componentStack", "<not available>"));
+            } else SendState();
         } catch (const std::exception& error) {
             logger::warn("Rejected Durability Manager panel request: {}", error.what());
             SendState("面板请求无效。");

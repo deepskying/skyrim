@@ -17,11 +17,105 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.16',
+  version: '0.1.17',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
 };
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null;
+}
+
+function finiteNumber(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function optionalFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function text(value: unknown, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function flag(value: unknown, fallback = false) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function normalizeEquipment(value: unknown, index: number): EquipmentItem | undefined {
+  if (!isRecord(value)) return undefined;
+  const category = value.category === 'weapon' || value.category === 'armor' || value.category === 'clothing'
+    ? value.category
+    : 'clothing';
+  return {
+    id: text(value.id, `unknown:${index}`),
+    name: text(value.name, '未命名装备'),
+    slot: text(value.slot, '未知槽位'),
+    category,
+    current: finiteNumber(value.current, 0),
+    maximum: Math.max(1, finiteNumber(value.maximum, 100)),
+    enhancementLevel: Math.max(0, finiteNumber(value.enhancementLevel, 0)),
+    damage: optionalFiniteNumber(value.damage),
+    armor: optionalFiniteNumber(value.armor),
+    weight: Math.max(0, finiteNumber(value.weight, 0)),
+    attackSpeed: optionalFiniteNumber(value.attackSpeed),
+    wearRate: optionalFiniteNumber(value.wearRate),
+    wearRateLabel: text(value.wearRateLabel, '尚未启用'),
+    wearReduction: optionalFiniteNumber(value.wearReduction),
+    enchantment: text(value.enchantment) || undefined,
+    enchanted: flag(value.enchanted),
+    enchantmentReplaceable: flag(value.enchantmentReplaceable),
+    quest: flag(value.quest),
+    unique: flag(value.unique),
+    broken: flag(value.broken),
+    repairable: flag(value.repairable),
+    material: text(value.material) || undefined,
+    materialCount: optionalFiniteNumber(value.materialCount),
+  };
+}
+
+function normalizeState(value: unknown): PanelState {
+  if (!isRecord(value)) return emptyState;
+  const rawSettings = isRecord(value.settings) ? value.settings : {};
+  const rawHotkey = isRecord(rawSettings.hotkey) ? rawSettings.hotkey : {};
+  const rawForge = isRecord(value.forge) ? value.forge : {};
+  const equipped = Array.isArray(value.equipped)
+    ? value.equipped.map(normalizeEquipment).filter((item): item is EquipmentItem => item !== undefined)
+    : [];
+  const repairQueue = Array.isArray(value.repairQueue)
+    ? value.repairQueue.map(normalizeEquipment).filter((item): item is EquipmentItem => item !== undefined)
+    : [];
+  return {
+    version: text(value.version, emptyState.version),
+    equipped,
+    repairQueue,
+    capturingHotkey: flag(value.capturingHotkey),
+    message: text(value.message) || undefined,
+    forge: {
+      active: flag(rawForge.active),
+      station: text(rawForge.station),
+      refreshCost: Math.max(0, finiteNumber(rawForge.refreshCost, 0)),
+      refreshes: Math.max(0, finiteNumber(rawForge.refreshes, 0)),
+      cards: Array.isArray(rawForge.cards) ? rawForge.cards as PanelState['forge']['cards'] : [],
+    },
+    settings: {
+      hotkey: {
+        key: text(rawHotkey.key, emptyState.settings.hotkey.key),
+        keyCode: finiteNumber(rawHotkey.keyCode, emptyState.settings.hotkey.keyCode),
+        shift: flag(rawHotkey.shift),
+        ctrl: flag(rawHotkey.ctrl),
+        alt: flag(rawHotkey.alt),
+      },
+      lowDurabilityThreshold: finiteNumber(rawSettings.lowDurabilityThreshold, emptyState.settings.lowDurabilityThreshold),
+      weaponDisplaySeconds: finiteNumber(rawSettings.weaponDisplaySeconds, emptyState.settings.weaponDisplaySeconds),
+      enableLowDurabilityWarning: flag(rawSettings.enableLowDurabilityWarning, emptyState.settings.enableLowDurabilityWarning),
+      allowEnchantedItemsToBreak: flag(rawSettings.allowEnchantedItemsToBreak, emptyState.settings.allowEnchantedItemsToBreak),
+    },
+  };
+}
 
 const cardLabels: Record<CardType, string> = {
   performance: '性能强化', weight: '重量强化', speed: '攻速强化', durability: '耐久强化', wear: '耐磨强化', charge: '充能强化', enchantment: '附魔替换',
@@ -65,7 +159,11 @@ export function App() {
   useEffect(() => {
     let hudTimer: number | undefined;
     window.DurabilityManager = {
-      receiveState: (next) => { setState(next); setDraft(next.settings); },
+      receiveState: (next) => {
+        const normalized = normalizeState(next);
+        setState(normalized);
+        setDraft(normalized.settings);
+      },
       setPanelVisible,
       showHud: (message) => {
         if (hudTimer) window.clearTimeout(hudTimer);
@@ -79,6 +177,7 @@ export function App() {
 
   const selected = useMemo(() => state.equipped.find((item) => item.id === selectedId) ?? state.equipped[0], [selectedId, state.equipped]);
   const canRepair = Boolean(selected?.repairable && selected.current < selected.maximum && state.forge.active);
+  const selectedWearRate = optionalFiniteNumber(selected?.wearRate);
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
@@ -97,7 +196,7 @@ export function App() {
 
       {selected ? <section className="equipment-detail"><div className="detail-title"><div><p>{selected.slot.toUpperCase()}</p><h2>{selected.name} {selected.enhancementLevel > 0 && <span>+{selected.enhancementLevel}</span>}</h2></div><div className={`condition ${selected.broken ? 'broken' : percentage(selected) < state.settings.lowDurabilityThreshold ? 'warning' : ''}`}>{selected.broken ? '已破损' : `${Math.round(percentage(selected))}%`}</div></div>
         <div className="detail-tags"><span>{selected.category === 'weapon' ? '武器' : selected.category === 'armor' ? '护甲' : '服装'}</span>{selected.enchanted && <span>✦ 已附魔</span>}{selected.unique && <span>唯一物品</span>}{selected.quest && <span>任务物品</span>}</div>
-        <div className="stat-grid"><div><small>耐久</small><b>{selected.current} <span>/ {selected.maximum}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}<div className="wear-stat"><small>耐久损耗</small><b>{selected.wearRate === undefined ? '—' : `-${selected.wearRate.toFixed(2)}`}<span>{selected.wearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selected.wearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
+        <div className="stat-grid"><div><small>耐久</small><b>{selected.current} <span>/ {selected.maximum}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
         <section className="action-strip"><div><p>修复装备</p><small>{selected.current >= selected.maximum ? '耐久已满' : selected.material ? `需要 ${selected.material} × ${selected.materialCount}` : '材料映射待配置'}</small></div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">⚒ 修复</button></section>
