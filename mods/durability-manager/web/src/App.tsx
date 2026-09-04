@@ -17,9 +17,9 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.21',
+  version: '0.1.22',
   equipped: [], repairQueue: [], capturingHotkey: false,
-  forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
+  forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
 };
 
@@ -66,6 +66,8 @@ function normalizeEquipment(value: unknown, index: number): EquipmentItem | unde
     name: text(value.name, '未命名装备'),
     slot: text(value.slot, '未知槽位'),
     category,
+    equipped: flag(value.equipped),
+    quantity: Math.max(1, Math.floor(finiteNumber(value.quantity, 1))),
     current: finiteNumber(value.current, 0),
     maximum: Math.max(1, finiteNumber(value.maximum, 100)),
     enhancementLevel: Math.max(0, finiteNumber(value.enhancementLevel, 0)),
@@ -107,6 +109,7 @@ function normalizeState(value: unknown): PanelState {
     forge: {
       active: flag(rawForge.active),
       station: text(rawForge.station),
+      gold: Math.max(0, finiteNumber(rawForge.gold, 0)),
       refreshCost: Math.max(0, finiteNumber(rawForge.refreshCost, 0)),
       refreshes: Math.max(0, finiteNumber(rawForge.refreshes, 0)),
       cards: Array.isArray(rawForge.cards) ? rawForge.cards as PanelState['forge']['cards'] : [],
@@ -199,6 +202,12 @@ export function App() {
   const canRepair = Boolean(selected?.repairable && state.forge.active && hasRepairMaterials);
   const selectedWearRate = optionalFiniteNumber(selected?.wearRate);
 
+  useEffect(() => {
+    if (!selected) return;
+    if (selectedId !== selected.id) setSelectedId(selected.id);
+    if (state.forge.active) send('selectEquipment', { id: selected.id });
+  }, [state.forge.active, selected?.id]);
+
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
   return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{hud.current} / {hud.maximum}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
@@ -210,8 +219,8 @@ export function App() {
     </header>
 
     {tab === 'workshop' ? <section className="workshop-layout">
-      <aside className="equipment-list"><div className="list-heading"><div><p>EQUIPMENT</p><h2>装备与损坏物品</h2></div><span>{visibleEquipment.length} 件</span></div>
-        <div className="list-scroll">{visibleEquipment.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>}</b><small>{item.broken ? '已损坏 · 等待修复' : item.slot} · 耐久 {item.current}/{item.maximum}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span>{item.enchanted && <span className="enchanted">✦</span>}</button>)}{!visibleEquipment.length && <p className="empty">尚未发现装备或损坏物品。</p>}</div>
+      <aside className="equipment-list"><div className="list-heading"><div><p>INVENTORY EQUIPMENT</p><h2>背包装备</h2></div><span>{visibleEquipment.length} 件</span></div>
+        <div className="list-scroll">{visibleEquipment.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>} {item.quantity > 1 && <em>×{item.quantity}</em>}</b><small>{item.broken ? '已损坏 · 等待修复' : `${item.equipped ? '已装备 · ' : ''}${item.slot}`} · 耐久 {item.current}/{item.maximum}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span>{item.enchanted && <span className="enchanted">✦</span>}</button>)}{!visibleEquipment.length && <p className="empty">背包中没有可用的武器或装备。</p>}</div>
       </aside>
 
       {selected ? <section className="equipment-detail"><div className="detail-title"><div><p>{selected.slot.toUpperCase()}</p><h2>{selected.name} {selected.enhancementLevel > 0 && <span>+{selected.enhancementLevel}</span>}</h2></div><div className={`condition ${selected.broken ? 'broken' : percentage(selected) < state.settings.lowDurabilityThreshold ? 'warning' : ''}`}>{selected.broken ? '已破损' : `${Math.round(percentage(selected))}%`}</div></div>
@@ -220,7 +229,7 @@ export function App() {
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
         <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? '材料不足' : '⚒ 修复'}</button></section>
-        {state.forge.active ? <section className="card-area"><div className="card-heading"><div><p>ENHANCEMENT DRAFT</p><h3>选择本次强化</h3></div><button onClick={() => send('refreshEnhancements', { id: selected.id })} type="button">↻ 刷新 · {state.forge.refreshCost} 金币</button></div><div className="enhancement-cards">{state.forge.cards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={card.id}><header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p><MaterialList materials={card.materials} /><footer><span>成功率 {card.successChance}%</span><button disabled={Boolean(card.blockedReason)} onClick={() => send('applyEnhancement', { cardId: card.id, equipmentId: selected.id })} type="button">{card.blockedReason ?? '选择强化'}</button></footer></article>)}</div></section> : <p className="forge-hint">使用锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，可在两分钟内于附近打开装备工坊。</p>}
+        {state.forge.active ? <section className="card-area"><div className="card-heading"><div><p>ENHANCEMENT DRAFT · 已刷新 {state.forge.refreshes} 次</p><h3>选择本次强化</h3></div><button disabled={state.forge.gold < state.forge.refreshCost} onClick={() => send('refreshEnhancements', { id: selected.id })} type="button">↻ 刷新 · {state.forge.refreshCost} 金币（持有 {state.forge.gold}）</button></div><div className="enhancement-cards">{state.forge.cards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={card.id}><header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p><MaterialList materials={card.materials} /><footer><span>成功率 {card.successChance}%</span><button disabled={Boolean(card.blockedReason)} onClick={() => send('applyEnhancement', { cardId: card.id, equipmentId: selected.id })} type="button">{card.blockedReason ?? '选择强化'}</button></footer></article>)}</div>{!state.forge.cards.length && <p className="card-loading">正在为所选装备准备强化卡片……</p>}</section> : <p className="forge-hint">使用锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，可在两分钟内于附近打开装备工坊。</p>}
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page">
       <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>界面与耐久提示</h2></div><span className="settings-status"><i />保存后立即生效</span></div>

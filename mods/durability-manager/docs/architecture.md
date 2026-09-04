@@ -51,10 +51,11 @@ weapon equip / switch / `weaponDraw` animation
   -> if it is below the configured threshold, show the one-time low-durability warning
 
 activate forge
-  -> choose “原版锻造” or “装备工坊”
-  -> open PrismaUI in forge context
-  -> show a selectable equipment list and full selected-item details
-  -> draft three validated enhancement cards; refresh consumes escalating gold
+  -> remember the workstation for two minutes while the player stays nearby
+  -> close the original crafting menu, then open PrismaUI with the panel hotkey
+  -> show all carried equipment and full selected-item details
+  -> draft three eligible enhancement-card previews
+  -> refresh consumes 80, 160, 240... gold and replaces all three cards
   -> user repairs or selects one card
   -> validate material inventory, outcome and limits again
   -> apply repair/enhancement result, update co-save

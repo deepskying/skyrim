@@ -10,6 +10,8 @@ export type EquipmentItem = {
   name: string;
   slot: string;
   category: 'weapon' | 'armor' | 'clothing';
+  equipped: boolean;
+  quantity: number;
   current: number;
   maximum: number;
   enhancementLevel: number;
@@ -46,6 +48,7 @@ export type EnhancementCard = {
 export type ForgeState = {
   active: boolean;
   station: string;
+  gold: number;
   refreshCost: number;
   refreshes: number;
   cards: EnhancementCard[];
