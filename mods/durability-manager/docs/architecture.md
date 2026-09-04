@@ -18,8 +18,9 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 ## Gameplay rules
 
 - The first time an equipped item participates, the plugin assigns or reuses Skyrim's `ExtraUniqueID`; the resulting `base FormID + unique ID` key is saved in the SKSE co-save. A save without this record simply starts each item at its default state.
+- Successful player melee hits consume the equipped weapon's type-specific base wear. Power attacks multiply that cost; misses, bashes, unarmed attacks, bound weapons, and hits caused by other actors are ignored. Warhammers are distinguished from battleaxes through the standard `WeapTypeWarhammer` keyword.
 - Bows lose configured wear only after a completed `TESPlayerBowShotEvent` (cancelled draws cost nothing); crossbows use their separate configured base cost. Bound weapons are excluded. Wear-reduction is applied after the base cost and is clamped by the configured global cap.
-- Quest and unique-item breakage rules will be enforced by the future zero-durability transaction. The current ranged-shot hook is non-destructive and only changes the tracked durability value.
+- Quest and unique-item breakage rules will be enforced by the future zero-durability transaction. The current weapon-wear hooks are non-destructive and only change the tracked durability value.
 - Ordinary non-unique equipment at zero durability is removed and converted into a partial set of forge-recipe materials.
 - `AllowEnchantedItemsToBreak` defaults to `true`: when enabled, ordinary enchanted equipment follows the same break-and-salvage rule; when disabled, it becomes `broken` instead.
 - Unique equipment always becomes `broken`; it is unequipped and cannot be used until repaired, regardless of the enchanted-item setting.
@@ -29,10 +30,10 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 ## Event flow
 
 ```text
-attack / hit
+successful player melee hit
   -> resolve equipped item instance
-  -> verify it participates
-  -> subtract configured wear
+  -> verify source is a supported non-bound melee weapon
+  -> subtract type-specific wear (power-attack multiplier when applicable)
   -> warn once when crossing threshold
   -> zero: break or salvage
   -> save item state to co-save

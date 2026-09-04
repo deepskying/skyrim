@@ -17,6 +17,14 @@ namespace
         float weaponDisplaySeconds = 3.0F;
         bool enableLowDurabilityWarning = true;
         bool allowEnchantedItemsToBreak = true;
+        float daggerHitWear = 0.35F;
+        float swordHitWear = 0.50F;
+        float warAxeHitWear = 0.65F;
+        float maceHitWear = 0.80F;
+        float greatswordHitWear = 0.80F;
+        float battleaxeHitWear = 0.95F;
+        float warhammerHitWear = 1.10F;
+        float powerAttackWearMultiplier = 1.60F;
         float bowShotWear = 1.0F;
         float crossbowShotWear = 2.0F;
         float maxWearReduction = 0.70F;
@@ -84,7 +92,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.18";
+    constexpr std::string_view kPluginVersion = "0.1.19";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -163,7 +171,15 @@ namespace
                    << "\nWeaponDisplaySeconds=" << g_settings.weaponDisplaySeconds
                    << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false");
         configFile << "\n\n[Breakage]\nAllowEnchantedItemsToBreak=" << (g_settings.allowEnchantedItemsToBreak ? "true" : "false") << '\n';
-        configFile << "\n[Wear]\nBowShotWear=" << g_settings.bowShotWear
+        configFile << "\n[Wear]\nDaggerHitWear=" << g_settings.daggerHitWear
+                   << "\nSwordHitWear=" << g_settings.swordHitWear
+                   << "\nWarAxeHitWear=" << g_settings.warAxeHitWear
+                   << "\nMaceHitWear=" << g_settings.maceHitWear
+                   << "\nGreatswordHitWear=" << g_settings.greatswordHitWear
+                   << "\nBattleaxeHitWear=" << g_settings.battleaxeHitWear
+                   << "\nWarhammerHitWear=" << g_settings.warhammerHitWear
+                   << "\nPowerAttackWearMultiplier=" << g_settings.powerAttackWearMultiplier
+                   << "\nBowShotWear=" << g_settings.bowShotWear
                    << "\nCrossbowShotWear=" << g_settings.crossbowShotWear
                    << "\nMaxWearReduction=" << g_settings.maxWearReduction << '\n';
     }
@@ -207,7 +223,15 @@ namespace
                 g_settings.allowEnchantedItemsToBreak = ParseBool(value, g_settings.allowEnchantedItemsToBreak);
             } else if (section == "[WEAR]") {
                 try {
-                    if (key == "BOWSHOTWEAR") g_settings.bowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    if (key == "DAGGERHITWEAR") g_settings.daggerHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "SWORDHITWEAR") g_settings.swordHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "WARAXEHITWEAR") g_settings.warAxeHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "MACEHITWEAR") g_settings.maceHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "GREATSWORDHITWEAR") g_settings.greatswordHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "BATTLEAXEHITWEAR") g_settings.battleaxeHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "WARHAMMERHITWEAR") g_settings.warhammerHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "POWERATTACKWEARMULTIPLIER") g_settings.powerAttackWearMultiplier = std::clamp(std::stof(value), 1.0F, 10.0F);
+                    else if (key == "BOWSHOTWEAR") g_settings.bowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "CROSSBOWSHOTWEAR") g_settings.crossbowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "MAXWEARREDUCTION") g_settings.maxWearReduction = std::clamp(std::stof(value), 0.0F, 0.95F);
                 } catch (const std::exception&) {
@@ -402,7 +426,37 @@ namespace
         UpdateLowDurabilityWarning(a_weapon, *key, durability);
     }
 
-    void ApplyRangedWeaponWear(RE::InventoryEntryData* a_entry, const RE::TESObjectWEAP* a_weapon, const float a_baseWear)
+    [[nodiscard]] std::optional<float> BaseWeaponWear(const RE::TESObjectWEAP* a_weapon)
+    {
+        if (!a_weapon || a_weapon->IsBound()) return std::nullopt;
+        switch (a_weapon->GetWeaponType()) {
+        case RE::WEAPON_TYPE::kOneHandDagger:
+            return g_settings.daggerHitWear;
+        case RE::WEAPON_TYPE::kOneHandSword:
+            return g_settings.swordHitWear;
+        case RE::WEAPON_TYPE::kOneHandAxe:
+            return g_settings.warAxeHitWear;
+        case RE::WEAPON_TYPE::kOneHandMace:
+            return g_settings.maceHitWear;
+        case RE::WEAPON_TYPE::kTwoHandSword:
+            return g_settings.greatswordHitWear;
+        case RE::WEAPON_TYPE::kTwoHandAxe:
+            return a_weapon->HasKeywordString("WeapTypeWarhammer") ? g_settings.warhammerHitWear : g_settings.battleaxeHitWear;
+        case RE::WEAPON_TYPE::kBow:
+            return g_settings.bowShotWear;
+        case RE::WEAPON_TYPE::kCrossbow:
+            return g_settings.crossbowShotWear;
+        default:
+            return std::nullopt;
+        }
+    }
+
+    void ApplyWeaponWear(
+        RE::InventoryEntryData* a_entry,
+        const RE::TESObjectWEAP* a_weapon,
+        const float a_baseWear,
+        const float a_actionMultiplier,
+        const std::string_view a_action)
     {
         if (!a_weapon || a_weapon->IsBound()) return;
         const auto key = EnsureItemKey(a_entry, a_weapon);
@@ -416,16 +470,16 @@ namespace
             stored.maximum = (std::max)(1.0F, stored.maximum);
             stored.current = std::clamp(stored.current, 0.0F, stored.maximum);
             const auto reduction = std::clamp(stored.wearReduction, 0.0F, g_settings.maxWearReduction);
-            appliedWear = (std::max)(0.1F, a_baseWear * (1.0F - reduction));
+            appliedWear = (std::max)(0.1F, a_baseWear * a_actionMultiplier * (1.0F - reduction));
             stored.current = (std::max)(0.0F, stored.current - appliedWear);
             durability = stored;
         }
-        logger::debug("Ranged shot wore {:08X}:{:04X} by {:.2F}; now {:.2F}/{:.2F}.", key->baseFormID, key->uniqueID, appliedWear, durability.current, durability.maximum);
+        logger::debug("{} wore {:08X}:{:04X} by {:.2F}; now {:.2F}/{:.2F}.", a_action, key->baseFormID, key->uniqueID, appliedWear, durability.current, durability.maximum);
         UpdateLowDurabilityWarning(a_weapon, *key, durability);
         if (g_panelVisible) SendState();
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -438,6 +492,7 @@ namespace
         {
             if (registered_) return;
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESEquipEvent>(this);
+            if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESHitEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
@@ -458,8 +513,22 @@ namespace
             auto* entry = player ? player->GetEquippedEntryData(false) : nullptr;
             const auto* weapon = entry && entry->object ? entry->object->As<RE::TESObjectWEAP>() : nullptr;
             if (!weapon || weapon->GetFormID() != a_event->weapon) return RE::BSEventNotifyControl::kContinue;
-            if (weapon->IsBow()) ApplyRangedWeaponWear(entry, weapon, g_settings.bowShotWear);
-            else if (weapon->IsCrossbow()) ApplyRangedWeaponWear(entry, weapon, g_settings.crossbowShotWear);
+            if (weapon->IsBow()) ApplyWeaponWear(entry, weapon, g_settings.bowShotWear, 1.0F, "Ranged shot");
+            else if (weapon->IsCrossbow()) ApplyWeaponWear(entry, weapon, g_settings.crossbowShotWear, 1.0F, "Ranged shot");
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(const RE::TESHitEvent* a_event, RE::BSTEventSource<RE::TESHitEvent>*) override
+        {
+            const auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!a_event || !player || a_event->cause.get() != player || a_event->source == 0 || a_event->flags.any(RE::TESHitEvent::Flag::kBashAttack)) return RE::BSEventNotifyControl::kContinue;
+            const auto* weapon = RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->source);
+            const auto baseWear = BaseWeaponWear(weapon);
+            if (!weapon || !weapon->IsMelee() || weapon->IsHandToHandMelee() || !baseWear) return RE::BSEventNotifyControl::kContinue;
+            auto* entry = FindEquippedWeaponEntry(weapon);
+            if (!entry) return RE::BSEventNotifyControl::kContinue;
+            const auto multiplier = a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack) ? g_settings.powerAttackWearMultiplier : 1.0F;
+            ApplyWeaponWear(entry, weapon, *baseWear, multiplier, a_event->flags.any(RE::TESHitEvent::Flag::kPowerAttack) ? "Melee power hit" : "Melee hit");
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -495,9 +564,10 @@ namespace
             const auto* armor = item->As<RE::TESObjectARMO>();
             const auto enchantment = EnchantmentName(entry.second.get());
             const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
-            const auto rangedBaseWear = weapon && weapon->IsCrossbow() ? g_settings.crossbowShotWear : g_settings.bowShotWear;
+            const auto isMeleeWeapon = weapon && weapon->IsMelee() && !weapon->IsHandToHandMelee() && !weapon->IsBound();
+            const auto baseWeaponWear = BaseWeaponWear(weapon);
             const auto effectiveWearReduction = std::clamp(durability.wearReduction, 0.0F, g_settings.maxWearReduction);
-            const auto effectiveRangedWear = (std::max)(0.1F, rangedBaseWear * (1.0F - effectiveWearReduction));
+            const auto effectiveWeaponWear = baseWeaponWear ? (std::max)(0.1F, *baseWeaponWear * (1.0F - effectiveWearReduction)) : 0.0F;
             auto equipmentItem = json{
                 { "id", std::to_string(key->baseFormID) + ":" + std::to_string(key->uniqueID) },
                 { "name", DisplayName(item) },
@@ -510,7 +580,7 @@ namespace
                 { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + durability.performanceBonus : 0 },
                 { "weight", (std::max)(0.1F, EquipmentWeight(item) - durability.weightReduction) },
                 { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + durability.attackSpeedBonus)) : 0.0F },
-                { "wearRateLabel", isRangedWeapon ? "每次成功射击" : "尚未启用" },
+                { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : "尚未启用" },
                 { "wearReduction", effectiveWearReduction },
                 { "enchantment", enchantment },
                 { "enchanted", entry.second->IsEnchanted() },
@@ -520,7 +590,7 @@ namespace
                 { "broken", false },
                 { "repairable", false }
             };
-            if (isRangedWeapon) equipmentItem["wearRate"] = effectiveRangedWear;
+            if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
             equipment.push_back(std::move(equipmentItem));
         }
         return equipment;

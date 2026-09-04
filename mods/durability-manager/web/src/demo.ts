@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.18',
+  version: '0.1.19',
   capturingHotkey: false,
   message: '锻造熔炉 · 装备工坊。选择装备后查看其完整状态。',
   settings: {
