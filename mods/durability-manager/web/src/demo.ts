@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.23',
+  version: '0.1.25',
   capturingHotkey: false,
   message: '锻造熔炉 · 装备工坊。选择装备后查看其完整状态。',
   settings: {
@@ -20,7 +20,7 @@ export const demoState: PanelState = {
     ],
   },
   equipped: [
-    { id: '1:32768', name: '附魔钢弓', slot: '右手武器', category: 'weapon', equipped: true, quantity: 1, current: 18, maximum: 100, enhancementLevel: 4, damage: 18, weight: 10, attackSpeed: 1, wearRate: 0.96, wearRateLabel: '每次成功射击', wearReduction: 0.04, enchantment: '火焰伤害', enchanted: true, enchantmentReplaceable: true, quest: false, unique: false, broken: false, repairable: true, repairMaterials: [{ name: '钢锭', required: 2, owned: 12 }, { name: '皮革条', required: 1, owned: 7 }] },
+    { id: '1:32768', name: '附魔钢弓', slot: '右手武器', category: 'weapon', equipped: true, quantity: 1, current: 18, maximum: 100, enhancementLevel: 4, damage: 18, weight: 10, attackSpeed: 1, chargeCurrent: 1120, chargeCapacity: 1400, chargeBonus: 0.4, wearRate: 0.96, wearRateLabel: '每次成功射击', wearReduction: 0.04, enchantment: '火焰伤害', enchanted: true, enchantmentReplaceable: true, quest: false, unique: false, broken: false, repairable: true, repairMaterials: [{ name: '钢锭', required: 2, owned: 12 }, { name: '皮革条', required: 1, owned: 7 }] },
     { id: '2:32769', name: '钢制胸甲', slot: '胸甲', category: 'armor', equipped: false, quantity: 1, current: 105, maximum: 120, enhancementLevel: 1, armor: 34, weight: 35, wearRate: null, enchanted: false, enchantmentReplaceable: true, quest: false, unique: false, broken: false, repairable: true, repairMaterials: [{ name: '钢锭', required: 1, owned: 12 }] },
   ],
   repairQueue: [

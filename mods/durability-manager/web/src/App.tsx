@@ -17,7 +17,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.23',
+  version: '0.1.25',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -75,6 +75,9 @@ function normalizeEquipment(value: unknown, index: number): EquipmentItem | unde
     armor: optionalFiniteNumber(value.armor),
     weight: Math.max(0, finiteNumber(value.weight, 0)),
     attackSpeed: optionalFiniteNumber(value.attackSpeed),
+    chargeCurrent: optionalFiniteNumber(value.chargeCurrent),
+    chargeCapacity: optionalFiniteNumber(value.chargeCapacity),
+    chargeBonus: optionalFiniteNumber(value.chargeBonus),
     wearRate: optionalFiniteNumber(value.wearRate),
     wearRateLabel: text(value.wearRateLabel, '尚未启用'),
     wearReduction: optionalFiniteNumber(value.wearReduction),
@@ -225,7 +228,7 @@ export function App() {
 
       {selected ? <section className="equipment-detail"><div className="detail-title"><div><p>{selected.slot.toUpperCase()}</p><h2>{selected.name} {selected.enhancementLevel > 0 && <span>+{selected.enhancementLevel}</span>}</h2></div><div className={`condition ${selected.broken ? 'broken' : percentage(selected) < state.settings.lowDurabilityThreshold ? 'warning' : ''}`}>{selected.broken ? '已破损' : `${Math.round(percentage(selected))}%`}</div></div>
         <div className="detail-tags"><span>{selected.category === 'weapon' ? '武器' : selected.category === 'armor' ? '护甲' : '服装'}</span>{selected.enchanted && <span>✦ 已附魔</span>}{selected.unique && <span>唯一物品</span>}{selected.quest && <span>任务物品</span>}</div>
-        <div className="stat-grid"><div><small>耐久</small><b>{selected.current} <span>/ {selected.maximum}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
+        <div className="stat-grid"><div><small>耐久</small><b>{selected.current} <span>/ {selected.maximum}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}{selected.chargeCapacity !== undefined && <div><small>附魔充能</small><b>{Math.round(selected.chargeCurrent ?? selected.chargeCapacity)} <span>/ {Math.round(selected.chargeCapacity)}</span></b>{(selected.chargeBonus ?? 0) > 0 && <i>容量强化 +{Math.round((selected.chargeBonus ?? 0) * 100)}%</i>}</div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
         <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? '材料不足' : '⚒ 修复'}</button></section>

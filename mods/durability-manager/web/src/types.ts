@@ -19,6 +19,9 @@ export type EquipmentItem = {
   armor?: number;
   weight: number;
   attackSpeed?: number;
+  chargeCurrent?: number;
+  chargeCapacity?: number;
+  chargeBonus?: number;
   /** Effective durability cost of one supported action, after wear reduction. */
   wearRate?: number | null;
   wearRateLabel?: string;

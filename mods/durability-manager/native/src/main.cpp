@@ -46,6 +46,12 @@ namespace
         float attackSpeedBonus = 0.0F;
         float wearReduction = 0.0F;
         float chargeBonus = 0.0F;
+        float performanceBaselineHealth = 1.0F;
+        float performanceAppliedHealth = 1.0F;
+        std::uint16_t chargeBaselineCapacity = 0;
+        std::uint16_t chargeAppliedCapacity = 0;
+        bool performanceBridgeInitialized = false;
+        bool chargeBridgeInitialized = false;
     };
 
     // A base FormID identifies an item definition, not a specific copy.  The
@@ -107,11 +113,23 @@ namespace
     std::uint64_t g_cardSequence = 0;
     std::mutex g_forgeLock;
 
+    struct SpeedGraphBridgeState
+    {
+        float appliedBonus = 0.0F;
+        float lastTarget = 0.0F;
+        bool initialized = false;
+    };
+
+    SpeedGraphBridgeState g_rightSpeedBridge;
+    SpeedGraphBridgeState g_leftSpeedBridge;
+    bool g_playerRuntimeSyncQueued = false;
+    std::mutex g_playerRuntimeLock;
+
     constexpr std::uint32_t kSerializationID = 0x4455524DU;  // "DURM"
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
-    constexpr std::uint32_t kDurabilityRecordVersion = 1;
+    constexpr std::uint32_t kDurabilityRecordVersion = 2;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.23";
+    constexpr std::string_view kPluginVersion = "0.1.25";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
     constexpr std::uint32_t kBaseCardRefreshCost = 80;
@@ -332,6 +350,20 @@ namespace
         if (!a_entry || !a_entry->extraLists) return nullptr;
         for (auto* extraList : *a_entry->extraLists) {
             if (extraList && extraList->GetWorn()) return extraList;
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] RE::ExtraDataList* FindWornExtraListForHand(
+        const RE::InventoryEntryData* a_entry,
+        const bool a_leftHand)
+    {
+        if (!a_entry || !a_entry->extraLists) return nullptr;
+        for (auto* extraList : *a_entry->extraLists) {
+            if (!extraList) continue;
+            if (a_leftHand ? extraList->HasType<RE::ExtraWornLeft>() : extraList->HasType<RE::ExtraWorn>()) {
+                return extraList;
+            }
         }
         return nullptr;
     }
@@ -735,6 +767,334 @@ namespace
         return ResolvedEquipmentInstance{ item, extraList };
     }
 
+    [[nodiscard]] float BasePerformanceValue(RE::TESBoundObject* a_item)
+    {
+        if (const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr) {
+            return static_cast<float>(weapon->GetAttackDamage());
+        }
+        if (auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr) return armor->GetArmorRating();
+        return 0.0F;
+    }
+
+    [[nodiscard]] RE::EnchantmentItem* InstanceEnchantment(RE::TESBoundObject* a_item, RE::ExtraDataList* a_extraList)
+    {
+        if (auto* extraEnchantment = a_extraList ? a_extraList->GetByType<RE::ExtraEnchantment>() : nullptr) {
+            return extraEnchantment->enchantment;
+        }
+        auto* enchantable = a_item ? a_item->As<RE::TESEnchantableForm>() : nullptr;
+        return enchantable ? enchantable->formEnchanting : nullptr;
+    }
+
+    [[nodiscard]] std::optional<std::uint16_t> InstanceChargeCapacity(
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        if (const auto* extraEnchantment = a_extraList ? a_extraList->GetByType<RE::ExtraEnchantment>() : nullptr) {
+            if (!extraEnchantment->enchantment || extraEnchantment->charge == 0) return std::nullopt;
+            return extraEnchantment->charge;
+        }
+        const auto* enchantable = a_item ? a_item->As<RE::TESEnchantableForm>() : nullptr;
+        if (!enchantable || !enchantable->formEnchanting || enchantable->amountofEnchantment == 0) return std::nullopt;
+        return enchantable->amountofEnchantment;
+    }
+
+    bool SyncPerformanceRuntimeEffect(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        if (!a_item || !a_extraList) return false;
+        const auto baseValue = BasePerformanceValue(a_item);
+        if (!std::isfinite(baseValue) || baseValue <= 0.0F) return false;
+
+        auto* extraHealth = a_extraList->GetByType<RE::ExtraHealth>();
+        const auto currentHealth = extraHealth && std::isfinite(extraHealth->health) ?
+                                       (std::max)(0.01F, extraHealth->health) :
+                                       1.0F;
+        float targetHealth = currentHealth;
+        bool shouldSync = false;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            const auto found = g_durability.find(a_key);
+            if (found == g_durability.end()) return false;
+            auto& durability = found->second;
+            if (durability.performanceBonus == 0 && !durability.performanceBridgeInitialized) return false;
+
+            if (!durability.performanceBridgeInitialized || !std::isfinite(durability.performanceBaselineHealth) ||
+                !std::isfinite(durability.performanceAppliedHealth)) {
+                durability.performanceBaselineHealth = currentHealth;
+                durability.performanceBridgeInitialized = true;
+            } else if (std::abs(currentHealth - durability.performanceAppliedHealth) > 0.001F) {
+                // Carry an external tempering delta into the baseline. This keeps
+                // our previous contribution from being baked in and added twice.
+                durability.performanceBaselineHealth += currentHealth - durability.performanceAppliedHealth;
+            }
+            durability.performanceBaselineHealth = std::clamp(durability.performanceBaselineHealth, 0.01F, 10000.0F);
+            targetHealth = std::clamp(
+                durability.performanceBaselineHealth + static_cast<float>(durability.performanceBonus) / baseValue,
+                0.01F,
+                10000.0F);
+            durability.performanceAppliedHealth = targetHealth;
+            shouldSync = std::abs(currentHealth - targetHealth) > 0.001F;
+        }
+        if (!shouldSync) return false;
+        if (extraHealth) extraHealth->health = targetHealth;
+        else a_extraList->Add(new RE::ExtraHealth(targetHealth));
+        logger::debug(
+            "Synced performance bridge for {:08X}:{:04X}; health {:.4F} -> {:.4F}.",
+            a_key.baseFormID,
+            a_key.uniqueID,
+            currentHealth,
+            targetHealth);
+        return true;
+    }
+
+    bool SyncChargeRuntimeEffect(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        if (!a_item || !a_extraList) return false;
+        auto* enchantment = InstanceEnchantment(a_item, a_extraList);
+        const auto currentCapacity = InstanceChargeCapacity(a_item, a_extraList);
+        if (!enchantment || !currentCapacity) return false;
+
+        std::uint16_t targetCapacity = *currentCapacity;
+        bool shouldSync = false;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            const auto found = g_durability.find(a_key);
+            if (found == g_durability.end()) return false;
+            auto& durability = found->second;
+            if (durability.chargeBonus <= 0.0F && !durability.chargeBridgeInitialized) return false;
+
+            if (!durability.chargeBridgeInitialized || durability.chargeBaselineCapacity == 0) {
+                durability.chargeBaselineCapacity = *currentCapacity;
+                durability.chargeBridgeInitialized = true;
+            } else if (*currentCapacity != durability.chargeAppliedCapacity) {
+                // A foreign capacity change normally includes our already-applied
+                // multiplier. Remove that multiplier before accepting the baseline.
+                const auto multiplier = 1.0 + static_cast<double>((std::max)(0.0F, durability.chargeBonus));
+                durability.chargeBaselineCapacity = static_cast<std::uint16_t>(std::clamp<long long>(
+                    std::llround(static_cast<double>(*currentCapacity) / multiplier),
+                    1LL,
+                    static_cast<long long>((std::numeric_limits<std::uint16_t>::max)())));
+            }
+            const auto scaledCapacity = std::llround(
+                static_cast<double>(durability.chargeBaselineCapacity) *
+                (1.0 + static_cast<double>(std::clamp(durability.chargeBonus, 0.0F, 65534.0F))));
+            targetCapacity = static_cast<std::uint16_t>(std::clamp<long long>(
+                scaledCapacity,
+                1LL,
+                static_cast<long long>((std::numeric_limits<std::uint16_t>::max)())));
+            durability.chargeBonus = (std::max)(
+                0.0F,
+                static_cast<float>(targetCapacity) / static_cast<float>(durability.chargeBaselineCapacity) - 1.0F);
+            durability.chargeAppliedCapacity = targetCapacity;
+            shouldSync = *currentCapacity != targetCapacity;
+        }
+        if (!shouldSync) return false;
+
+        auto* extraCharge = a_extraList->GetByType<RE::ExtraCharge>();
+        const auto currentChargeRatio = extraCharge && std::isfinite(extraCharge->charge) ?
+                                            std::clamp(extraCharge->charge / static_cast<float>(*currentCapacity), 0.0F, 1.0F) :
+                                            1.0F;
+        if (auto* extraEnchantment = a_extraList->GetByType<RE::ExtraEnchantment>()) {
+            extraEnchantment->charge = targetCapacity;
+        } else {
+            a_extraList->Add(new RE::ExtraEnchantment(enchantment, targetCapacity));
+        }
+        if (extraCharge) extraCharge->charge = currentChargeRatio * static_cast<float>(targetCapacity);
+        logger::debug(
+            "Synced charge bridge for {:08X}:{:04X}; capacity {} -> {}.",
+            a_key.baseFormID,
+            a_key.uniqueID,
+            *currentCapacity,
+            targetCapacity);
+        return true;
+    }
+
+    void SyncInstanceRuntimeEffects(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        if (!a_extraList) return;
+        SyncPerformanceRuntimeEffect(a_key, a_item, a_extraList);
+        SyncChargeRuntimeEffect(a_key, a_item, a_extraList);
+    }
+
+    void SyncAllRuntimeEffects()
+    {
+        std::vector<ItemKey> keys;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            keys.reserve(g_durability.size());
+            for (const auto& [key, durability] : g_durability) {
+                if (durability.performanceBonus != 0 || durability.chargeBonus > 0.0F ||
+                    durability.performanceBridgeInitialized || durability.chargeBridgeInitialized) {
+                    keys.push_back(key);
+                }
+            }
+        }
+        std::size_t synced = 0;
+        for (const auto& key : keys) {
+            const auto instance = ResolveEquipmentInstance(key);
+            if (!instance || !instance->extraList) continue;
+            SyncInstanceRuntimeEffects(key, instance->item, instance->extraList);
+            ++synced;
+        }
+        logger::info("Synchronized runtime effects for {} carried enhancement records.", synced);
+    }
+
+    [[nodiscard]] float EquippedAttackSpeedBonus(const bool a_leftHand)
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* entry = player ? player->GetEquippedEntryData(a_leftHand) : nullptr;
+        auto* weapon = entry && entry->object ? entry->object->As<RE::TESObjectWEAP>() : nullptr;
+        if (!weapon || weapon->IsBound()) return 0.0F;
+        auto* extraList = FindWornExtraListForHand(entry, a_leftHand);
+        const auto key = EnsureItemKeyForExtraList(extraList, weapon);
+        return key ? std::clamp(GetDurability(*key).attackSpeedBonus, 0.0F, 1.0F) : 0.0F;
+    }
+
+    void ApplyAttackSpeedGraphForHand(
+        RE::PlayerCharacter* a_player,
+        const bool a_leftHand,
+        const float a_desiredBonus)
+    {
+        const auto* strings = RE::FixedStrings::GetSingleton();
+        if (!a_player || !strings) return;
+        const auto& variable = a_leftHand ? strings->leftWeaponSpeedMult : strings->weaponSpeedMult;
+        float currentValue = 0.0F;
+        if (!a_player->GetGraphVariableFloat(variable, currentValue) || !std::isfinite(currentValue)) return;
+
+        float targetValue = currentValue;
+        float appliedBonus = 0.0F;
+        {
+            std::scoped_lock lock(g_playerRuntimeLock);
+            auto& bridge = a_leftHand ? g_leftSpeedBridge : g_rightSpeedBridge;
+            const auto baseline = bridge.initialized && std::abs(currentValue - bridge.lastTarget) <= 0.001F ?
+                                      currentValue - bridge.appliedBonus :
+                                      currentValue;
+            appliedBonus = std::clamp(a_desiredBonus, 0.0F, 1.0F);
+            targetValue = std::clamp(baseline + appliedBonus, -10.0F, 10.0F);
+            bridge.appliedBonus = targetValue - baseline;
+            bridge.lastTarget = targetValue;
+            bridge.initialized = true;
+        }
+        if (std::abs(currentValue - targetValue) <= 0.001F) return;
+        a_player->SetGraphVariableFloat(variable, targetValue);
+        logger::debug(
+            "Synced {} weapon speed graph value {:.4F} -> {:.4F} (bonus {:.4F}).",
+            a_leftHand ? "left" : "right",
+            currentValue,
+            targetValue,
+            appliedBonus);
+    }
+
+    void SyncAttackSpeedRuntimeEffects()
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return;
+        ApplyAttackSpeedGraphForHand(player, false, EquippedAttackSpeedBonus(false));
+        ApplyAttackSpeedGraphForHand(player, true, EquippedAttackSpeedBonus(true));
+    }
+
+    struct WeightReductionSummary
+    {
+        float total = 0.0F;
+        float wornArmor = 0.0F;
+    };
+
+    [[nodiscard]] WeightReductionSummary CalculateWeightReduction()
+    {
+        WeightReductionSummary result;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return result;
+
+        std::unordered_map<ItemKey, float, ItemKeyHash> reductions;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            reductions.reserve(g_durability.size());
+            for (const auto& [key, durability] : g_durability) {
+                if (durability.weightReduction > 0.0F) reductions.emplace(key, durability.weightReduction);
+            }
+        }
+        if (reductions.empty()) return result;
+
+        for (const auto& [item, entry] : player->GetInventory()) {
+            if (!item || !entry.second || !entry.second->extraLists) continue;
+            if (item->GetFormType() != RE::FormType::Weapon && item->GetFormType() != RE::FormType::Armor) continue;
+            const auto itemWeight = EquipmentWeight(item);
+            if (!std::isfinite(itemWeight) || itemWeight <= 0.1F) continue;
+            for (auto* extraList : *entry.second->extraLists) {
+                const auto* uniqueID = extraList ? extraList->GetByType<RE::ExtraUniqueID>() : nullptr;
+                if (!uniqueID) continue;
+                const auto found = reductions.find(ItemKey{ item->GetFormID(), uniqueID->uniqueID });
+                if (found == reductions.end()) continue;
+                const auto count = static_cast<float>((std::max)(1, extraList->GetCount()));
+                const auto reduction = (std::min)(itemWeight - 0.1F, (std::max)(0.0F, found->second)) * count;
+                result.total += reduction;
+                if (item->GetFormType() == RE::FormType::Armor && extraList->GetWorn()) result.wornArmor += reduction;
+            }
+        }
+        result.total = std::isfinite(result.total) ? (std::max)(0.0F, result.total) : 0.0F;
+        result.wornArmor = std::isfinite(result.wornArmor) ? (std::max)(0.0F, result.wornArmor) : 0.0F;
+        return result;
+    }
+
+    void SyncWeightRuntimeEffect()
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* changes = player ? player->GetInventoryChanges() : nullptr;
+        if (!changes) return;
+        const auto reduction = CalculateWeightReduction();
+        changes->changed = true;
+        const auto rawTotalWeight = changes->GetInventoryWeight();
+        const auto rawArmorWeight = changes->armorWeight;
+        changes->totalWeight = (std::max)(0.0F, rawTotalWeight - reduction.total);
+        changes->armorWeight = (std::max)(0.0F, rawArmorWeight - reduction.wornArmor);
+        logger::debug(
+            "Synced player weight cache {:.2F} -> {:.2F}; worn armor reduction {:.2F}.",
+            rawTotalWeight,
+            changes->totalWeight,
+            reduction.wornArmor);
+    }
+
+    void SyncPlayerRuntimeEffects()
+    {
+        SyncAttackSpeedRuntimeEffects();
+        SyncWeightRuntimeEffect();
+    }
+
+    void QueuePlayerRuntimeEffectsSync()
+    {
+        {
+            std::scoped_lock lock(g_playerRuntimeLock);
+            if (g_playerRuntimeSyncQueued) return;
+            g_playerRuntimeSyncQueued = true;
+        }
+        const auto sync = [] {
+            {
+                std::scoped_lock lock(g_playerRuntimeLock);
+                g_playerRuntimeSyncQueued = false;
+            }
+            SyncPlayerRuntimeEffects();
+        };
+        if (const auto* tasks = SKSE::GetTaskInterface()) tasks->AddTask(sync);
+        else sync();
+    }
+
+    void PreparePlayerRuntimeEffectsForStateChange()
+    {
+        std::scoped_lock lock(g_playerRuntimeLock);
+        // Keep the per-hand bridge values across a load. If Skyrim retains the
+        // animation graph, the next sync can remove the previous save's bonus;
+        // if it rebuilt the graph, the changed value is accepted as baseline.
+        g_playerRuntimeSyncQueued = false;
+    }
+
     [[nodiscard]] std::string CardTypeID(const EnhancementCardType a_type)
     {
         switch (a_type) {
@@ -884,6 +1244,11 @@ namespace
         case EnhancementCardType::Charge: {
             static constexpr std::array minimum{ 0.05F, 0.11F, 0.21F, 0.36F };
             static constexpr std::array maximum{ 0.10F, 0.20F, 0.35F, 0.50F };
+            if (a_durability.chargeBridgeInitialized &&
+                a_durability.chargeAppliedCapacity == (std::numeric_limits<std::uint16_t>::max)()) {
+                a_blockedReason = "附魔充能已达引擎上限";
+                return 0.0F;
+            }
             return roll(minimum[tier], maximum[tier]) * levelScale;
         }
         case EnhancementCardType::Enchantment:
@@ -949,12 +1314,12 @@ namespace
         std::vector<EnhancementCardType> types;
         const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
         const auto category = EquipmentCategory(a_item);
-        if (weapon || category == "armor") types.push_back(EnhancementCardType::Performance);
+        if ((weapon && BasePerformanceValue(a_item) > 0.0F) || category == "armor") types.push_back(EnhancementCardType::Performance);
         if (EquipmentWeight(a_item) > 0.1F) types.push_back(EnhancementCardType::Weight);
         if (weapon) types.push_back(EnhancementCardType::Speed);
         types.push_back(EnhancementCardType::Durability);
         types.push_back(EnhancementCardType::Wear);
-        if (weapon && IsInstanceEnchanted(a_item, a_extraList)) types.push_back(EnhancementCardType::Charge);
+        if (weapon && InstanceChargeCapacity(a_item, a_extraList)) types.push_back(EnhancementCardType::Charge);
         const auto protectedItem = IsProtectedUniqueItem(a_item) || (a_extraList && a_extraList->HasQuestObjectAlias());
         if (!protectedItem) types.push_back(EnhancementCardType::Enchantment);
         return types;
@@ -1158,7 +1523,7 @@ namespace
         g_enhancementCards.clear();
     }
 
-    [[nodiscard]] DurabilitySnapshot ApplySuccessfulCard(
+    void ApplySuccessfulCard(
         const ItemKey& a_key,
         RE::TESBoundObject* a_item,
         const EnhancementCardState& a_card)
@@ -1194,17 +1559,18 @@ namespace
             durability.wearReduction = (std::min)(g_settings.maxWearReduction, durability.wearReduction + (std::max)(0.0F, a_card.rolledValue));
             break;
         case EnhancementCardType::Charge:
-            durability.chargeBonus += (std::max)(0.0F, a_card.rolledValue);
+            durability.chargeBonus = (std::min)(
+                65534.0F,
+                durability.chargeBonus + (std::max)(0.0F, a_card.rolledValue));
             break;
         case EnhancementCardType::Enchantment:
             break;
         }
         if (durability.enhancementLevel < (std::numeric_limits<std::uint32_t>::max)()) ++durability.enhancementLevel;
         g_lowDurabilityWarnings.erase(a_key);
-        return durability;
     }
 
-    [[nodiscard]] DurabilitySnapshot DowngradeProtectedEquipment(const ItemKey& a_key)
+    void DowngradeProtectedEquipment(const ItemKey& a_key)
     {
         std::scoped_lock lock(g_durabilityLock);
         auto& durability = g_durability[a_key];
@@ -1220,7 +1586,6 @@ namespace
         durability.current = std::clamp(durability.current, 0.0F, durability.maximum);
         durability.enhancementLevel = newLevel;
         g_lowDurabilityWarnings.erase(a_key);
-        return durability;
     }
 
     void ApplyEnhancementCard(const std::string_view a_equipmentID, const std::string_view a_cardID)
@@ -1305,7 +1670,10 @@ namespace
         const auto roll = std::uniform_int_distribution<std::uint32_t>(1, 100)(random);
         const auto itemName = InstanceDisplayName(instance->item, instance->extraList);
         if (roll <= card.successChance) {
-            const auto result = ApplySuccessfulCard(*key, instance->item, card);
+            ApplySuccessfulCard(*key, instance->item, card);
+            SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
+            QueuePlayerRuntimeEffectsSync();
+            const auto result = GetDurability(*key);
             SetNextEnhancementDraft(*key, instance->item, instance->extraList);
             logger::info(
                 "Enhancement succeeded for {:08X}:{:04X}; card={}, roll={}, chance={}, newLevel={}.",
@@ -1321,7 +1689,10 @@ namespace
 
         const auto protectedItem = instance->extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(instance->item);
         if (protectedItem) {
-            const auto result = DowngradeProtectedEquipment(*key);
+            DowngradeProtectedEquipment(*key);
+            SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
+            QueuePlayerRuntimeEffectsSync();
+            const auto result = GetDurability(*key);
             SetNextEnhancementDraft(*key, instance->item, instance->extraList);
             logger::info(
                 "Protected enhancement failed for {:08X}:{:04X}; roll={}, chance={}, downgradedTo={}.",
@@ -1341,6 +1712,7 @@ namespace
             if (retainedInstance) SetNextEnhancementDraft(*key, retainedInstance->item, retainedInstance->extraList);
             else ClearEnhancementDraft();
             logger::error("Could not remove failed enhancement item {:08X}:{:04X}.", key->baseFormID, key->uniqueID);
+            QueuePlayerRuntimeEffectsSync();
             SendState(itemName + "强化失败，但装备移除失败；装备已保留，尝试材料仍然消耗。");
             return;
         }
@@ -1353,6 +1725,7 @@ namespace
             g_weaponNotificationTimes.erase(*key);
         }
         ClearEnhancementDraft();
+        QueuePlayerRuntimeEffectsSync();
         logger::info(
             "Enhancement failed and dismantled {:08X}:{:04X}; roll={}, chance={}, salvageTypes={}.",
             key->baseFormID,
@@ -1429,6 +1802,7 @@ namespace
             }
         }
         finish();
+        QueuePlayerRuntimeEffectsSync();
         if (g_panelVisible) SendState();
     }
 
@@ -1527,7 +1901,7 @@ namespace
         if (g_panelVisible) SendState();
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESActivateEvent>
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESActivateEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -1543,6 +1917,7 @@ namespace
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESHitEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESActivateEvent>(this);
+            if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESContainerChangedEvent>(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
         }
@@ -1559,16 +1934,34 @@ namespace
 
         RE::BSEventNotifyControl ProcessEvent(const RE::TESEquipEvent* a_event, RE::BSTEventSource<RE::TESEquipEvent>*) override
         {
-            const auto* player = RE::PlayerCharacter::GetSingleton();
-            if (!a_event || !a_event->equipped || !player || a_event->actor.get() != player) return RE::BSEventNotifyControl::kContinue;
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!a_event || !player || a_event->actor.get() != player) return RE::BSEventNotifyControl::kContinue;
+            QueuePlayerRuntimeEffectsSync();
+            if (!a_event->equipped) return RE::BSEventNotifyControl::kContinue;
             const auto* weapon = RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject);
             auto* entry = FindEquippedWeaponEntry(weapon);
             const auto key = EnsureItemKey(entry, weapon);
+            if (key) {
+                if (const auto instance = ResolveEquipmentInstance(*key); instance && instance->extraList) {
+                    SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
+                }
+            }
             if (key && GetDurability(*key).current <= 0.0F) {
                 QueueZeroDurabilityResolution(*key);
                 return RE::BSEventNotifyControl::kContinue;
             }
             ShowWeaponDurability(weapon, entry);
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(
+            const RE::TESContainerChangedEvent* a_event,
+            RE::BSTEventSource<RE::TESContainerChangedEvent>*) override
+        {
+            const auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!a_event || !player) return RE::BSEventNotifyControl::kContinue;
+            const auto playerID = player->GetFormID();
+            if (a_event->oldContainer == playerID || a_event->newContainer == playerID) QueuePlayerRuntimeEffectsSync();
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -1602,6 +1995,7 @@ namespace
         {
             const auto* player = RE::PlayerCharacter::GetSingleton();
             if (!a_event || !player || a_event->holder != player || Normalize(a_event->tag.c_str()) != "WEAPONDRAW") return RE::BSEventNotifyControl::kContinue;
+            QueuePlayerRuntimeEffectsSync();
             const auto* rightHand = player->GetEquippedObject(false);
             const auto* leftHand = player->GetEquippedObject(true);
             const auto* weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;
@@ -1624,6 +2018,7 @@ namespace
         const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
         const auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr;
         const auto enchantment = EnchantmentName(a_item, a_extraList);
+        const auto chargeCapacity = InstanceChargeCapacity(a_item, a_extraList);
         const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
         const auto isMeleeWeapon = weapon && weapon->IsMelee() && !weapon->IsHandToHandMelee() && !weapon->IsBound();
         const auto baseWeaponWear = BaseWeaponWear(weapon);
@@ -1660,6 +2055,15 @@ namespace
             { "repairMaterials", RepairMaterialsJson(repairMaterials) }
         };
         if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
+        if (chargeCapacity) {
+            const auto* extraCharge = a_extraList ? a_extraList->GetByType<RE::ExtraCharge>() : nullptr;
+            const auto currentCharge = extraCharge && std::isfinite(extraCharge->charge) ?
+                                           std::clamp(extraCharge->charge, 0.0F, static_cast<float>(*chargeCapacity)) :
+                                           static_cast<float>(*chargeCapacity);
+            equipmentItem["chargeCurrent"] = std::round(currentCharge * 100.0F) / 100.0F;
+            equipmentItem["chargeCapacity"] = *chargeCapacity;
+            equipmentItem["chargeBonus"] = (std::max)(0.0F, a_durability.chargeBonus);
+        }
         return equipmentItem;
     }
 
@@ -1678,6 +2082,7 @@ namespace
                 representedCount += (std::max)(1, extraList->GetCount());
                 const auto key = EnsureItemKeyForExtraList(extraList, item);
                 if (!key) continue;
+                SyncInstanceRuntimeEffects(*key, item, extraList);
                 const auto durability = GetDurability(*key);
                 equipment.push_back(BuildEquipmentItem(item, extraList, *key, durability, extraList->GetCount()));
             }
@@ -1866,6 +2271,8 @@ namespace
         const auto count = static_cast<std::uint32_t>(saved.size());
         if (!a_serialization->WriteRecordData(count)) return;
         for (const auto& [key, durability] : saved) {
+            const auto performanceBridgeInitialized = static_cast<std::uint8_t>(durability.performanceBridgeInitialized);
+            const auto chargeBridgeInitialized = static_cast<std::uint8_t>(durability.chargeBridgeInitialized);
             if (!a_serialization->WriteRecordData(key.baseFormID) ||
                 !a_serialization->WriteRecordData(key.uniqueID) ||
                 !a_serialization->WriteRecordData(durability.current) ||
@@ -1875,7 +2282,13 @@ namespace
                 !a_serialization->WriteRecordData(durability.weightReduction) ||
                 !a_serialization->WriteRecordData(durability.attackSpeedBonus) ||
                 !a_serialization->WriteRecordData(durability.wearReduction) ||
-                !a_serialization->WriteRecordData(durability.chargeBonus)) {
+                !a_serialization->WriteRecordData(durability.chargeBonus) ||
+                !a_serialization->WriteRecordData(durability.performanceBaselineHealth) ||
+                !a_serialization->WriteRecordData(durability.performanceAppliedHealth) ||
+                !a_serialization->WriteRecordData(durability.chargeBaselineCapacity) ||
+                !a_serialization->WriteRecordData(durability.chargeAppliedCapacity) ||
+                !a_serialization->WriteRecordData(performanceBridgeInitialized) ||
+                !a_serialization->WriteRecordData(chargeBridgeInitialized)) {
                 logger::warn("Could not finish saving durability state.");
                 return;
             }
@@ -1890,7 +2303,7 @@ namespace
         std::uint32_t version = 0;
         std::uint32_t length = 0;
         while (a_serialization->GetNextRecordInfo(type, version, length)) {
-            if (type != kDurabilityRecordType || version != kDurabilityRecordVersion) {
+            if (type != kDurabilityRecordType || (version != 1 && version != kDurabilityRecordVersion)) {
                 std::vector<std::byte> ignored(length);
                 a_serialization->ReadRecordData(ignored.data(), length);
                 continue;
@@ -1915,11 +2328,48 @@ namespace
                     logger::warn("Could not finish loading durability state.");
                     break;
                 }
+                if (version >= 2) {
+                    std::uint8_t performanceBridgeInitialized = 0;
+                    std::uint8_t chargeBridgeInitialized = 0;
+                    if (a_serialization->ReadRecordData(durability.performanceBaselineHealth) != sizeof(durability.performanceBaselineHealth) ||
+                        a_serialization->ReadRecordData(durability.performanceAppliedHealth) != sizeof(durability.performanceAppliedHealth) ||
+                        a_serialization->ReadRecordData(durability.chargeBaselineCapacity) != sizeof(durability.chargeBaselineCapacity) ||
+                        a_serialization->ReadRecordData(durability.chargeAppliedCapacity) != sizeof(durability.chargeAppliedCapacity) ||
+                        a_serialization->ReadRecordData(performanceBridgeInitialized) != sizeof(performanceBridgeInitialized) ||
+                        a_serialization->ReadRecordData(chargeBridgeInitialized) != sizeof(chargeBridgeInitialized)) {
+                        logger::warn("Could not finish loading runtime bridge state.");
+                        break;
+                    }
+                    durability.performanceBridgeInitialized = performanceBridgeInitialized != 0;
+                    durability.chargeBridgeInitialized = chargeBridgeInitialized != 0;
+                }
                 RE::FormID resolvedBaseFormID = 0;
                 if (!a_serialization->ResolveFormID(savedBaseFormID, resolvedBaseFormID)) continue;
-                durability.maximum = (std::max)(1.0F, durability.maximum);
-                durability.current = std::clamp(durability.current, 0.0F, durability.maximum);
-                durability.wearReduction = std::clamp(durability.wearReduction, 0.0F, 0.95F);
+                durability.maximum = std::isfinite(durability.maximum) ? (std::max)(1.0F, durability.maximum) : 100.0F;
+                durability.current = std::isfinite(durability.current) ?
+                                         std::clamp(durability.current, 0.0F, durability.maximum) :
+                                         durability.maximum;
+                durability.performanceBonus = (std::max)(0, durability.performanceBonus);
+                durability.weightReduction = std::isfinite(durability.weightReduction) ?
+                                                 (std::max)(0.0F, durability.weightReduction) :
+                                                 0.0F;
+                durability.attackSpeedBonus = std::isfinite(durability.attackSpeedBonus) ?
+                                                  std::clamp(durability.attackSpeedBonus, 0.0F, 1.0F) :
+                                                  0.0F;
+                durability.wearReduction = std::isfinite(durability.wearReduction) ?
+                                               std::clamp(durability.wearReduction, 0.0F, 0.95F) :
+                                               0.0F;
+                durability.chargeBonus = std::isfinite(durability.chargeBonus) ?
+                                             std::clamp(durability.chargeBonus, 0.0F, 65534.0F) :
+                                             0.0F;
+                if (!std::isfinite(durability.performanceBaselineHealth) || durability.performanceBaselineHealth <= 0.0F) {
+                    durability.performanceBaselineHealth = 1.0F;
+                    durability.performanceBridgeInitialized = false;
+                }
+                if (!std::isfinite(durability.performanceAppliedHealth) || durability.performanceAppliedHealth <= 0.0F) {
+                    durability.performanceAppliedHealth = durability.performanceBaselineHealth;
+                    durability.performanceBridgeInitialized = false;
+                }
                 restored[ItemKey{ resolvedBaseFormID, uniqueID }] = durability;
             }
         }
@@ -1937,30 +2387,38 @@ namespace
 
     void RevertState(SKSE::SerializationInterface*)
     {
-        std::scoped_lock lock(g_durabilityLock);
-        g_durability.clear();
-        g_lowDurabilityWarnings.clear();
-        g_pendingBreaks.clear();
-        g_weaponNotificationTimes.clear();
-        g_nextGeneratedUniqueID = 0x8000U;
-        ++g_stateEpoch;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            g_durability.clear();
+            g_lowDurabilityWarnings.clear();
+            g_pendingBreaks.clear();
+            g_weaponNotificationTimes.clear();
+            g_nextGeneratedUniqueID = 0x8000U;
+            ++g_stateEpoch;
+        }
+        PreparePlayerRuntimeEffectsForStateChange();
     }
 
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
         if (a_message->type == SKSE::MessagingInterface::kPreLoadGame) {
             ResetViewForLoad();
+            PreparePlayerRuntimeEffectsForStateChange();
             logger::info("Durability Manager reset local panel state before loading a save.");
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
             ResetViewForLoad();
+            SyncAllRuntimeEffects();
+            QueuePlayerRuntimeEffectsSync();
             QueueStoredZeroDurabilityResolutions();
             logger::info("Durability Manager reset local panel state after loading a save.");
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kNewGame) {
             ResetViewForLoad();
+            PreparePlayerRuntimeEffectsForStateChange();
+            QueuePlayerRuntimeEffectsSync();
             logger::info("Durability Manager reset local panel state for a new game.");
             return;
         }
