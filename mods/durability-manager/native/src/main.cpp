@@ -25,6 +25,7 @@ namespace
     Settings g_settings{};
     bool g_capturingHotkey = false;
     bool g_panelVisible = false;
+    bool g_hudVisible = false;
     std::uint32_t g_hudSequence = 0;
 
     struct DurabilitySnapshot
@@ -83,8 +84,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.15";
-    constexpr int kPanelRenderOrder = 1000;
+    constexpr std::string_view kPluginVersion = "0.1.16";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -339,27 +339,9 @@ namespace
         return name && name[0] ? name : "未命名武器";
     }
 
-    void SetPanelVisibilityInView(const bool a_visible)
+    void UpdateViewVisibility()
     {
-        if (!g_prisma || !g_view) return;
-        const auto* script = a_visible
-            ? "window.DurabilityManager&&window.DurabilityManager.setPanelVisible(true);"
-            : "window.DurabilityManager&&window.DurabilityManager.setPanelVisible(false);";
-        g_prisma->Invoke(g_view, script);
-    }
-
-    void LogPanelDOMState(const char* a_result)
-    {
-        logger::info("Durability Manager DOM state: {}", a_result ? a_result : "<no result>");
-    }
-
-    void RequestPanelDOMState()
-    {
-        if (!g_prisma || !g_view) return;
-        g_prisma->Invoke(
-            g_view,
-            "(()=>{const e=document.querySelector('.forge-shell');const r=e?e.getBoundingClientRect():null;const s=e?getComputedStyle(e):null;return JSON.stringify({bridge:!!window.DurabilityManager,panelAttribute:document.documentElement.dataset.panelVisible||'',shellExists:!!e,display:s?s.display:'missing',visibility:s?s.visibility:'missing',opacity:s?s.opacity:'missing',width:r?r.width:0,height:r?r.height:0,version:document.querySelector('.panel-footer small')?.textContent||''});})()",
-            LogPanelDOMState);
+        if (g_prisma && g_view && !g_panelVisible && !g_hudVisible) g_prisma->Hide(g_view);
     }
 
     void SendState(std::string_view a_message = {});
@@ -384,6 +366,8 @@ namespace
             message["current"] = *a_current;
             message["maximum"] = *a_maximum;
         }
+        g_hudVisible = true;
+        g_prisma->Show(g_view);
         const auto script = "window.DurabilityManager && window.DurabilityManager.showHud(" + message.dump() + ");";
         g_prisma->Invoke(g_view, script.c_str());
     }
@@ -577,8 +561,9 @@ namespace
     {
         if (!g_prisma || !g_view) return;
         g_panelVisible = false;
-        SetPanelVisibilityInView(false);
+        g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(false);");
         g_prisma->Unfocus(g_view);
+        UpdateViewVisibility();
         logger::info("Durability Manager panel closed.");
     }
 
@@ -588,6 +573,7 @@ namespace
     void ResetViewForLoad()
     {
         g_panelVisible = false;
+        g_hudVisible = false;
         g_capturingHotkey = false;
     }
 
@@ -600,25 +586,20 @@ namespace
 
     void TogglePanel()
     {
-        if (!g_prisma || !g_view || !g_prisma->IsValid(g_view)) {
-            logger::warn("Durability Manager panel toggle ignored because the Prisma view is invalid.");
-            return;
-        }
-        logger::info(
-            "Durability Manager panel toggle: visible={}, hidden={}, focused={}, order={}.",
-            g_panelVisible,
-            g_prisma->IsHidden(g_view),
-            g_prisma->HasFocus(g_view),
-            g_prisma->GetOrder(g_view));
+        if (!g_prisma || !g_view) return;
         if (g_panelVisible) {
             ClosePanel();
             return;
         }
+        // A death reload can leave Prisma's focus flag alive after our local
+        // panel state was reset. Normalize it here, safely outside load events.
+        if (g_prisma->HasFocus(g_view)) g_prisma->Unfocus(g_view);
         g_panelVisible = true;
-        g_prisma->SetOrder(g_view, kPanelRenderOrder);
-        SetPanelVisibilityInView(true);
+        g_prisma->Show(g_view);
+        g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(true);");
+        g_prisma->Focus(g_view, true);
         SendState();
-        logger::info("Durability Manager requested panel render at order {}; waiting for the web paint handshake.", g_prisma->GetOrder(g_view));
+        logger::info("Durability Manager panel opened through the restored direct Prisma lifecycle.");
     }
 
     [[nodiscard]] bool CaptureHotkey(const std::uint32_t a_key, const bool a_shift, const bool a_ctrl, const bool a_alt)
@@ -644,30 +625,10 @@ namespace
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
             if (type == "ready") {
-                logger::info(
-                    "Durability Manager web bridge {} is ready; restoring panel visibility={}.",
-                    request.value("version", "<unknown>"),
-                    g_panelVisible);
-                if (g_panelVisible) {
-                    SetPanelVisibilityInView(true);
-                    SendState();
-                }
+                logger::info("Durability Manager web bridge {} is ready.", request.value("version", "<unknown>"));
                 return;
             }
-            if (type == "panelRendered") {
-                if (!g_panelVisible) return;
-                // Skyrim 1.5.97 + PrismaUI 1.4.1 can replace the active
-                // Ultralight document when PrismaUI_FocusMenu opens. Keep
-                // Prisma input capture and game pause, but bypass that overlay.
-                if (!g_prisma || !g_view || !g_prisma->IsValid(g_view) || !g_prisma->Focus(g_view, true, true)) {
-                    g_panelVisible = false;
-                    SetPanelVisibilityInView(false);
-                    logger::warn("Durability Manager could not focus its Prisma view after the web paint handshake.");
-                    return;
-                }
-                RequestPanelDOMState();
-                logger::info("Durability Manager received the web paint handshake and queued focus without PrismaUI_FocusMenu.");
-            } else if (type == "close") ClosePanel();
+            if (type == "close") ClosePanel();
             else if (type == "beginHotkeyCapture") {
                 g_capturingHotkey = true;
                 SendState("请按下新的快捷键组合。");
@@ -683,7 +644,12 @@ namespace
                 SendState("配置已保存至 DurabilityManager.ini。");
             } else if (type == "repair") {
                 SendState("修复仅能在锻炉的“修复装备”入口中执行。");
-            } else if (type == "hudHidden") return;
+            } else if (type == "hudHidden") {
+                if (request.value("id", 0U) == g_hudSequence) {
+                    g_hudVisible = false;
+                    UpdateViewVisibility();
+                }
+            }
             else SendState();
         } catch (const std::exception& error) {
             logger::warn("Rejected Durability Manager panel request: {}", error.what());
@@ -783,47 +749,21 @@ namespace
         g_nextGeneratedUniqueID = 0x8000U;
     }
 
-    void RecreatePrismaView(std::string_view a_reason)
-    {
-        if (!g_prisma) return;
-
-        const auto previousView = g_view;
-        g_view = 0;
-        g_panelVisible = false;
-        g_capturingHotkey = false;
-        if (previousView && g_prisma->IsValid(previousView)) {
-            g_prisma->Destroy(previousView);
-            logger::info("Durability Manager destroyed pre-transition Prisma view {}.", previousView);
-        }
-
-        g_view = g_prisma->CreateView("DurabilityManager/index.html", [](const PrismaView a_view) {
-            g_prisma->SetOrder(a_view, kPanelRenderOrder);
-            logger::info("Durability Manager post-transition Prisma DOM is ready: {}.", a_view);
-        });
-        if (!g_view) {
-            logger::critical("Durability Manager Prisma view could not be created after {}.", a_reason);
-            return;
-        }
-        g_prisma->SetOrder(g_view, kPanelRenderOrder);
-        g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
-        logger::info("Durability Manager created Prisma view {} after {}.", g_view, a_reason);
-    }
-
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
         if (a_message->type == SKSE::MessagingInterface::kPreLoadGame) {
-            logger::info("Durability Manager received PreLoadGame; releasing view state.");
             ResetViewForLoad();
+            logger::info("Durability Manager reset local panel state before loading a save.");
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
             ResetViewForLoad();
-            RecreatePrismaView("PostLoadGame");
+            logger::info("Durability Manager reset local panel state after loading a save.");
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kNewGame) {
             ResetViewForLoad();
-            RecreatePrismaView("NewGame");
+            logger::info("Durability Manager reset local panel state for a new game.");
             return;
         }
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
@@ -832,6 +772,13 @@ namespace
             logger::critical("Prisma UI v1 is unavailable; Durability Manager will remain disabled.");
             return;
         }
+        g_view = g_prisma->CreateView("DurabilityManager/index.html");
+        if (!g_view) {
+            logger::critical("Durability Manager Prisma view could not be created.");
+            return;
+        }
+        g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
+        g_prisma->Hide(g_view);
         LoadConfig();
         const auto input = InputHandler::GetSingleton();
         input->SetHotkey(g_settings.hotkey);
@@ -840,7 +787,7 @@ namespace
         input->SetCaptureCallback(CaptureHotkey);
         input->RegisterSink();
         EquipmentEventSink::GetSingleton()->Register();
-        logger::info("Durability Manager loaded; Prisma view creation is deferred until PostLoadGame or NewGame.");
+        logger::info("Durability Manager loaded with the restored direct Prisma lifecycle.");
     }
 }
 
