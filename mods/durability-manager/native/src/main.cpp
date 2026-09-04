@@ -111,7 +111,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.22";
+    constexpr std::string_view kPluginVersion = "0.1.23";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
     constexpr std::uint32_t kBaseCardRefreshCost = 80;
@@ -999,6 +999,8 @@ namespace
             card.requiredMaterials = GetCardMaterials(a_item, card.type, card.tier, durability.enhancementLevel);
             if (card.requiredMaterials.empty() && card.blockedReason.empty()) card.blockedReason = "没有可用的强化材料";
             if (a_key.uniqueID == 0 && card.blockedReason.empty()) card.blockedReason = "请先装备一次以建立独立实例";
+            if (durability.current <= 0.0F && card.blockedReason.empty()) card.blockedReason = "请先修复装备";
+            if (card.type == EnhancementCardType::Enchantment && card.blockedReason.empty()) card.blockedReason = "附魔替换尚未启用";
             cards.push_back(std::move(card));
         }
         logger::info("Generated {} enhancement cards for {:08X}:{:04X} after {} paid refreshes.", cards.size(), a_key.baseFormID, a_key.uniqueID, a_refreshes);
@@ -1134,6 +1136,231 @@ namespace
             first = false;
         }
         return description;
+    }
+
+    void SetNextEnhancementDraft(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        auto cards = GenerateEnhancementCards(a_key, a_item, a_extraList, 0);
+        std::scoped_lock lock(g_forgeLock);
+        g_forgeSelectedItem = a_key;
+        g_forgeRefreshes = 0;
+        g_enhancementCards = std::move(cards);
+    }
+
+    void ClearEnhancementDraft()
+    {
+        std::scoped_lock lock(g_forgeLock);
+        g_forgeSelectedItem.reset();
+        g_forgeRefreshes = 0;
+        g_enhancementCards.clear();
+    }
+
+    [[nodiscard]] DurabilitySnapshot ApplySuccessfulCard(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        const EnhancementCardState& a_card)
+    {
+        std::scoped_lock lock(g_durabilityLock);
+        auto& durability = g_durability[a_key];
+        durability.maximum = (std::max)(1.0F, durability.maximum);
+        durability.current = std::clamp(durability.current, 0.0F, durability.maximum);
+        switch (a_card.type) {
+        case EnhancementCardType::Performance: {
+            const auto increased = static_cast<std::int64_t>(durability.performanceBonus) +
+                                   static_cast<std::int64_t>(std::lround(a_card.rolledValue));
+            durability.performanceBonus = static_cast<std::int32_t>((std::min)(
+                increased,
+                static_cast<std::int64_t>((std::numeric_limits<std::int32_t>::max)())));
+            break;
+        }
+        case EnhancementCardType::Weight:
+            durability.weightReduction = (std::min)(
+                (std::max)(0.0F, EquipmentWeight(a_item) - 0.1F),
+                durability.weightReduction + (std::max)(0.0F, a_card.rolledValue));
+            break;
+        case EnhancementCardType::Speed:
+            durability.attackSpeedBonus = (std::min)(1.0F, durability.attackSpeedBonus + (std::max)(0.0F, a_card.rolledValue));
+            break;
+        case EnhancementCardType::Durability: {
+            const auto missingDurability = durability.maximum - durability.current;
+            durability.maximum += (std::max)(0.0F, a_card.rolledValue);
+            durability.current = (std::max)(0.0F, durability.maximum - missingDurability);
+            break;
+        }
+        case EnhancementCardType::Wear:
+            durability.wearReduction = (std::min)(g_settings.maxWearReduction, durability.wearReduction + (std::max)(0.0F, a_card.rolledValue));
+            break;
+        case EnhancementCardType::Charge:
+            durability.chargeBonus += (std::max)(0.0F, a_card.rolledValue);
+            break;
+        case EnhancementCardType::Enchantment:
+            break;
+        }
+        if (durability.enhancementLevel < (std::numeric_limits<std::uint32_t>::max)()) ++durability.enhancementLevel;
+        g_lowDurabilityWarnings.erase(a_key);
+        return durability;
+    }
+
+    [[nodiscard]] DurabilitySnapshot DowngradeProtectedEquipment(const ItemKey& a_key)
+    {
+        std::scoped_lock lock(g_durabilityLock);
+        auto& durability = g_durability[a_key];
+        const auto oldLevel = durability.enhancementLevel;
+        const auto newLevel = oldLevel > 0 ? oldLevel - 1U : 0U;
+        const auto ratio = oldLevel > 0 ? static_cast<float>(newLevel) / static_cast<float>(oldLevel) : 0.0F;
+        durability.performanceBonus = static_cast<std::int32_t>(std::lround(static_cast<float>(durability.performanceBonus) * ratio));
+        durability.weightReduction *= ratio;
+        durability.attackSpeedBonus *= ratio;
+        durability.wearReduction *= ratio;
+        durability.chargeBonus *= ratio;
+        durability.maximum = 100.0F + (std::max)(0.0F, durability.maximum - 100.0F) * ratio;
+        durability.current = std::clamp(durability.current, 0.0F, durability.maximum);
+        durability.enhancementLevel = newLevel;
+        g_lowDurabilityWarnings.erase(a_key);
+        return durability;
+    }
+
+    void ApplyEnhancementCard(const std::string_view a_equipmentID, const std::string_view a_cardID)
+    {
+        if (!GetForgeContext().active) {
+            SendState("强化失败：请先使用附近的锻造设施。");
+            return;
+        }
+        const auto key = ParseItemKey(a_equipmentID);
+        if (!key || key->uniqueID == 0) {
+            SendState("强化失败：请先装备该物品一次，以建立可独立追踪的装备实例。");
+            return;
+        }
+
+        EnhancementCardState card;
+        bool foundCard = false;
+        bool selectionMatches = false;
+        {
+            std::scoped_lock lock(g_forgeLock);
+            selectionMatches = g_forgeSelectedItem == key;
+            if (selectionMatches) {
+                const auto found = std::find_if(g_enhancementCards.begin(), g_enhancementCards.end(), [a_cardID](const auto& a_candidate) {
+                    return a_candidate.id == a_cardID;
+                });
+                if (found != g_enhancementCards.end()) {
+                    card = *found;
+                    foundCard = true;
+                }
+            }
+        }
+        if (!selectionMatches) {
+            SendState("强化失败：所选装备与当前卡片不匹配。");
+            return;
+        }
+        if (!foundCard) {
+            SendState("强化失败：该卡片已经失效，请重新选择。");
+            return;
+        }
+        if (!card.blockedReason.empty()) {
+            SendState("强化失败：" + card.blockedReason + "。");
+            return;
+        }
+        if (card.type == EnhancementCardType::Enchantment) {
+            SendState("附魔替换将在建立兼容附魔池后启用，本次没有消耗材料。");
+            return;
+        }
+
+        const auto instance = ResolveEquipmentInstance(*key);
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!instance || !player) {
+            SendState("强化失败：所选装备已不在背包中。");
+            return;
+        }
+        const auto durability = GetDurability(*key);
+        if (durability.current <= 0.0F) {
+            SendState("强化失败：请先修复已经损坏的装备。");
+            return;
+        }
+
+        std::vector<std::pair<RE::TESBoundObject*, std::int32_t>> materials;
+        materials.reserve(card.requiredMaterials.size());
+        for (const auto& requirement : card.requiredMaterials) {
+            auto* material = RE::TESForm::LookupByID<RE::TESBoundObject>(requirement.formID);
+            if (!material || requirement.count <= 0) {
+                SendState("强化失败：卡片材料已经失效，请刷新卡片。");
+                return;
+            }
+            if (player->GetItemCount(material) < requirement.count) {
+                SendState("强化失败：缺少" + DisplayName(material) + "，需要 " + std::to_string(requirement.count) + " 个。");
+                return;
+            }
+            materials.emplace_back(material, requirement.count);
+        }
+        for (const auto& [material, count] : materials) {
+            player->RemoveItem(material, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+        }
+
+        const auto seed = static_cast<std::uint32_t>(
+            std::chrono::steady_clock::now().time_since_epoch().count() ^
+            (static_cast<std::uint64_t>(key->baseFormID) << 16U) ^ key->uniqueID ^ std::hash<std::string_view>{}(a_cardID));
+        std::mt19937 random(seed);
+        const auto roll = std::uniform_int_distribution<std::uint32_t>(1, 100)(random);
+        const auto itemName = InstanceDisplayName(instance->item, instance->extraList);
+        if (roll <= card.successChance) {
+            const auto result = ApplySuccessfulCard(*key, instance->item, card);
+            SetNextEnhancementDraft(*key, instance->item, instance->extraList);
+            logger::info(
+                "Enhancement succeeded for {:08X}:{:04X}; card={}, roll={}, chance={}, newLevel={}.",
+                key->baseFormID,
+                key->uniqueID,
+                CardTypeID(card.type),
+                roll,
+                card.successChance,
+                result.enhancementLevel);
+            SendState(itemName + "强化成功，当前等级 +" + std::to_string(result.enhancementLevel) + "。");
+            return;
+        }
+
+        const auto protectedItem = instance->extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(instance->item);
+        if (protectedItem) {
+            const auto result = DowngradeProtectedEquipment(*key);
+            SetNextEnhancementDraft(*key, instance->item, instance->extraList);
+            logger::info(
+                "Protected enhancement failed for {:08X}:{:04X}; roll={}, chance={}, downgradedTo={}.",
+                key->baseFormID,
+                key->uniqueID,
+                roll,
+                card.successChance,
+                result.enhancementLevel);
+            SendState(itemName + "强化失败，但受保护未被分解；强化等级降至 +" + std::to_string(result.enhancementLevel) + "。");
+            return;
+        }
+
+        const auto salvage = GetSalvageMaterials(instance->item);
+        player->RemoveItem(instance->item, 1, RE::ITEM_REMOVE_REASON::kRemove, instance->extraList, nullptr);
+        if (IsUniqueIDInPlayerInventory(key->baseFormID, key->uniqueID)) {
+            const auto retainedInstance = ResolveEquipmentInstance(*key);
+            if (retainedInstance) SetNextEnhancementDraft(*key, retainedInstance->item, retainedInstance->extraList);
+            else ClearEnhancementDraft();
+            logger::error("Could not remove failed enhancement item {:08X}:{:04X}.", key->baseFormID, key->uniqueID);
+            SendState(itemName + "强化失败，但装备移除失败；装备已保留，尝试材料仍然消耗。");
+            return;
+        }
+        for (const auto& [material, count] : salvage) player->AddObjectToContainer(material, nullptr, count, nullptr);
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            g_durability.erase(*key);
+            g_lowDurabilityWarnings.erase(*key);
+            g_pendingBreaks.erase(*key);
+            g_weaponNotificationTimes.erase(*key);
+        }
+        ClearEnhancementDraft();
+        logger::info(
+            "Enhancement failed and dismantled {:08X}:{:04X}; roll={}, chance={}, salvageTypes={}.",
+            key->baseFormID,
+            key->uniqueID,
+            roll,
+            card.successChance,
+            salvage.size());
+        SendState(itemName + "强化失败，装备已分解。" + (salvage.empty() ? "" : SalvageDescription(salvage)));
     }
 
     void ResolveZeroDurability(const ItemKey a_key, const std::uint64_t a_epoch)
@@ -1606,7 +1833,7 @@ namespace
             } else if (type == "refreshEnhancements") {
                 RefreshEnhancementCards(request.value("id", ""));
             } else if (type == "applyEnhancement") {
-                SendState("强化卡片结算将在下一阶段启用；当前版本不会扣除材料或改变装备。");
+                ApplyEnhancementCard(request.value("equipmentId", ""), request.value("cardId", ""));
             } else if (type == "hudHidden") {
                 if (request.value("id", 0U) == g_hudSequence) {
                     g_hudVisible = false;

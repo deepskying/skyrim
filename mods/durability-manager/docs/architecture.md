@@ -9,7 +9,7 @@
 | Current forge station, selected equipment and three drafted cards | Native plugin | Session only |
 | UI selection and active tab | Prisma view | Session only |
 
-Durability and reinforcement must be recorded against a stable **item-instance identity**, never solely a base FormID. A base FormID is shared by every steel sword, while an enchanted sword, a renamed sword, and a unique sword may need distinct state. The persisted record is versioned and consists of `ItemKey`, reinforcement rank, durability values, permanent card results, and optional replacement-enchantment reference. The `ItemKey` is backed by Skyrim extra-data / a generated persistent ID, with form-ID resolution during co-save load.
+Durability and reinforcement must be recorded against a stable **item-instance identity**, never solely a base FormID. A base FormID is shared by every steel sword, while an enchanted sword, a renamed sword, and a unique sword may need distinct state. The current persisted record is versioned and consists of `ItemKey`, reinforcement rank, durability values, and permanent numeric card results. The `ItemKey` is backed by Skyrim extra-data / a generated persistent ID, with form-ID resolution during co-save load. A future replacement-enchantment reference requires an explicit record migration rather than silently changing this layout.
 
 ## Card contract
 
@@ -25,6 +25,7 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 - Quest equipment and items carrying Skyrim's standard `DaedricArtifact` or `MagicDisallowEnchanting` keyword always become `broken`; they are unequipped and cannot be used until repaired, regardless of the enchanted-item setting.
 - Broken retained items are collected from their persistent instance IDs into `repairQueue`, so they remain selectable after being unequipped. Zero-durability records loaded from older saves enter the same resolution path after load.
 - Repair costs are calculated by missing-durability band and recipe material, then shown before consuming anything.
+- Numeric enhancement cards consume their displayed materials before the native roll. Success stores the bounded value and increments the exact instance's rank. Ordinary failure removes only that instance and returns half of its forge-recipe materials; quest and recognized unique items remain and lose one rank with proportional bonus reduction.
 - HUD warnings fire on a threshold crossing with a cooldown, rather than once per hit.
 
 ## Event flow
@@ -58,7 +59,10 @@ activate forge
   -> refresh consumes 80, 160, 240... gold and replaces all three cards
   -> user repairs or selects one card
   -> validate material inventory, outcome and limits again
-  -> apply repair/enhancement result, update co-save
+  -> consume displayed materials and roll natively
+  -> success: apply the bounded numeric result and increase rank
+  -> failure: dismantle ordinary equipment, or downgrade protected equipment
+  -> refresh panel state; persist the changed instance in the next co-save
 ```
 
 ## Native/UI contract
