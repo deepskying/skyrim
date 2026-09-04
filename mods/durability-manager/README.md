@@ -17,9 +17,11 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 - A bow loses durability only when Skyrim emits a completed `TESPlayerBowShotEvent`: drawing then cancelling costs nothing. Bows lose `1.0` by default; crossbows lose `2.0`; bound weapons are excluded. Wear-reduction effects apply after the base cost and are capped at 70% by default.
 - The equipment detail panel displays the effective per-hit or per-shot durability cost after wear reduction. Unsupported equipment shows that a loss rule has not been enabled yet.
 - Equipment state is tracked per carried item instance (`base FormID + ExtraUniqueID`) and saved in the SKSE co-save. Existing saves without Durability Manager records start safely at the default 100 / 100 state.
+- At zero durability, ordinary equipment with a forge recipe is removed and returns half of that recipe's materials (at least one of each component). Quest items, recognized artifacts/unique items, protected enchanted items, and mod equipment without a usable recipe are unequipped and retained as broken; attempts to equip them again are rejected until repair is implemented.
+- Broken retained items remain visible in the panel's combined equipment/repair list. Artifact protection uses Skyrim's standard `DaedricArtifact` and `MagicDisallowEnchanting` keywords in addition to the quest-item flag.
 - The repair queue layout, material details, and forge-only hammer interaction are implemented in the Prisma view and ready for the native durability/forge bridge.
 
-Armor loss, zero-durability break or salvage transactions, and forge activation remain separate from the current weapon-wear slice. Those systems will build on the same per-instance key and co-save state before any item can be removed or altered.
+Armor loss, actual repair transactions, and forge activation remain separate from the current weapon-wear slice. Those systems will build on the same per-instance key and co-save state.
 
 ## Install layout
 

@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.19',
+  version: '0.1.20',
   capturingHotkey: false,
   message: '锻造熔炉 · 装备工坊。选择装备后查看其完整状态。',
   settings: {
@@ -22,7 +22,8 @@ export const demoState: PanelState = {
   equipped: [
     { id: '1:32768', name: '附魔钢弓', slot: '右手武器', category: 'weapon', current: 18, maximum: 100, enhancementLevel: 4, damage: 18, weight: 10, attackSpeed: 1, wearRate: 0.96, wearRateLabel: '每次成功射击', wearReduction: 0.04, enchantment: '火焰伤害', enchanted: true, enchantmentReplaceable: true, quest: false, unique: false, broken: false, repairable: true, material: '钢锭', materialCount: 2 },
     { id: '2:32769', name: '钢制胸甲', slot: '胸甲', category: 'armor', current: 105, maximum: 120, enhancementLevel: 1, armor: 34, weight: 35, wearRate: null, enchanted: false, enchantmentReplaceable: true, quest: false, unique: false, broken: false, repairable: true, material: '钢锭', materialCount: 1 },
+  ],
+  repairQueue: [
     { id: '3:32770', name: '夜莺头盔', slot: '头盔', category: 'armor', current: 0, maximum: 85, enhancementLevel: 8, armor: 18, weight: 2, enchantment: '幻术法术消耗降低', enchanted: true, enchantmentReplaceable: false, quest: true, unique: true, broken: true, repairable: true, material: '乌木锭', materialCount: 3 },
   ],
-  repairQueue: [],
 };

@@ -17,7 +17,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.19',
+  version: '0.1.20',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -180,7 +180,11 @@ export function App() {
     return () => { if (hudTimer) window.clearTimeout(hudTimer); delete window.DurabilityManager; };
   }, []);
 
-  const selected = useMemo(() => state.equipped.find((item) => item.id === selectedId) ?? state.equipped[0], [selectedId, state.equipped]);
+  const visibleEquipment = useMemo(() => {
+    const equippedIds = new Set(state.equipped.map((item) => item.id));
+    return [...state.equipped, ...state.repairQueue.filter((item) => !equippedIds.has(item.id))];
+  }, [state.equipped, state.repairQueue]);
+  const selected = useMemo(() => visibleEquipment.find((item) => item.id === selectedId) ?? visibleEquipment[0], [selectedId, visibleEquipment]);
   const canRepair = Boolean(selected?.repairable && selected.current < selected.maximum && state.forge.active);
   const selectedWearRate = optionalFiniteNumber(selected?.wearRate);
 
@@ -195,8 +199,8 @@ export function App() {
     </header>
 
     {tab === 'workshop' ? <section className="workshop-layout">
-      <aside className="equipment-list"><div className="list-heading"><div><p>EQUIPMENT</p><h2>已装备物品</h2></div><span>{state.equipped.length} 件</span></div>
-        <div className="list-scroll">{state.equipped.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>}</b><small>{item.slot} · 耐久 {item.current}/{item.maximum}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span>{item.enchanted && <span className="enchanted">✦</span>}</button>)}{!state.equipped.length && <p className="empty">尚未发现已装备的物品。</p>}</div>
+      <aside className="equipment-list"><div className="list-heading"><div><p>EQUIPMENT</p><h2>装备与损坏物品</h2></div><span>{visibleEquipment.length} 件</span></div>
+        <div className="list-scroll">{visibleEquipment.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>}</b><small>{item.broken ? '已损坏 · 等待修复' : item.slot} · 耐久 {item.current}/{item.maximum}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span>{item.enchanted && <span className="enchanted">✦</span>}</button>)}{!visibleEquipment.length && <p className="empty">尚未发现装备或损坏物品。</p>}</div>
       </aside>
 
       {selected ? <section className="equipment-detail"><div className="detail-title"><div><p>{selected.slot.toUpperCase()}</p><h2>{selected.name} {selected.enhancementLevel > 0 && <span>+{selected.enhancementLevel}</span>}</h2></div><div className={`condition ${selected.broken ? 'broken' : percentage(selected) < state.settings.lowDurabilityThreshold ? 'warning' : ''}`}>{selected.broken ? '已破损' : `${Math.round(percentage(selected))}%`}</div></div>

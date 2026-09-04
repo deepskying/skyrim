@@ -84,15 +84,17 @@ namespace
 
     std::unordered_map<ItemKey, DurabilitySnapshot, ItemKeyHash> g_durability;
     std::unordered_set<ItemKey, ItemKeyHash> g_lowDurabilityWarnings;
+    std::unordered_set<ItemKey, ItemKeyHash> g_pendingBreaks;
     std::unordered_map<ItemKey, std::chrono::steady_clock::time_point, ItemKeyHash> g_weaponNotificationTimes;
     std::mutex g_durabilityLock;
     std::uint16_t g_nextGeneratedUniqueID = 1;
+    std::uint64_t g_stateEpoch = 0;
 
     constexpr std::uint32_t kSerializationID = 0x4455524DU;  // "DURM"
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 1;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.19";
+    constexpr std::string_view kPluginVersion = "0.1.20";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -277,11 +279,39 @@ namespace
         return name && name[0] ? name : "";
     }
 
+    [[nodiscard]] bool IsProtectedUniqueItem(RE::TESBoundObject* a_item)
+    {
+        if (!a_item) return false;
+        // Skyrim has no universal "unique item" bit for weapons and armor.
+        // These standard keywords cover artifacts and items deliberately
+        // excluded from generic enchanting without treating every enchanted
+        // leveled-list item as unique.
+        return a_item->HasKeywordByEditorID("DaedricArtifact") || a_item->HasKeywordByEditorID("MagicDisallowEnchanting");
+    }
+
+    [[nodiscard]] bool IsInstanceEnchanted(RE::TESBoundObject* a_item, const RE::ExtraDataList* a_extraList)
+    {
+        const auto* enchantable = a_item ? a_item->As<RE::TESEnchantableForm>() : nullptr;
+        if (enchantable && enchantable->formEnchanting) return true;
+        const auto* extraEnchantment = a_extraList ? a_extraList->GetByType<RE::ExtraEnchantment>() : nullptr;
+        return extraEnchantment && extraEnchantment->enchantment;
+    }
+
     [[nodiscard]] RE::ExtraDataList* FindWornExtraList(const RE::InventoryEntryData* a_entry)
     {
         if (!a_entry || !a_entry->extraLists) return nullptr;
         for (auto* extraList : *a_entry->extraLists) {
             if (extraList && extraList->GetWorn()) return extraList;
+        }
+        return nullptr;
+    }
+
+    [[nodiscard]] RE::ExtraDataList* FindExtraListByKey(const RE::InventoryEntryData* a_entry, const ItemKey& a_key)
+    {
+        if (!a_entry || !a_entry->extraLists) return nullptr;
+        for (auto* extraList : *a_entry->extraLists) {
+            const auto* uniqueID = extraList ? extraList->GetByType<RE::ExtraUniqueID>() : nullptr;
+            if (uniqueID && uniqueID->uniqueID == a_key.uniqueID) return extraList;
         }
         return nullptr;
     }
@@ -409,6 +439,132 @@ namespace
         }
     }
 
+    [[nodiscard]] std::map<RE::TESBoundObject*, std::int32_t> GetSalvageMaterials(RE::TESBoundObject* a_item)
+    {
+        std::map<RE::TESBoundObject*, std::int32_t> materials;
+        auto* dataHandler = RE::TESDataHandler::GetSingleton();
+        if (!dataHandler || !a_item) return materials;
+
+        const auto& recipes = dataHandler->GetFormArray<RE::BGSConstructibleObject>();
+        const RE::BGSConstructibleObject* bestRecipe = nullptr;
+        std::uint32_t bestIngredientCount = 0;
+        for (const auto* recipe : recipes) {
+            if (!recipe || recipe->createdItem != a_item || recipe->requiredItems.numContainerObjects == 0) continue;
+            if (recipe->requiredItems.numContainerObjects > bestIngredientCount) {
+                bestRecipe = recipe;
+                bestIngredientCount = recipe->requiredItems.numContainerObjects;
+            }
+        }
+        if (!bestRecipe) return materials;
+
+        bestRecipe->requiredItems.ForEachContainerObject([&materials](RE::ContainerObject& a_ingredient) {
+            if (!a_ingredient.obj || a_ingredient.count <= 0) return RE::BSContainer::ForEachResult::kContinue;
+            materials[a_ingredient.obj] += (std::max)(1, a_ingredient.count / 2);
+            return RE::BSContainer::ForEachResult::kContinue;
+        });
+        return materials;
+    }
+
+    [[nodiscard]] std::string SalvageDescription(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
+    {
+        std::string description = "已损毁并分解：";
+        bool first = true;
+        for (const auto& [material, count] : a_materials) {
+            if (!first) description += "，";
+            description += DisplayName(material) + " ×" + std::to_string(count);
+            first = false;
+        }
+        return description;
+    }
+
+    void ResolveZeroDurability(const ItemKey a_key, const std::uint64_t a_epoch)
+    {
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            if (a_epoch != g_stateEpoch) return;
+        }
+        const auto finish = [&a_key] {
+            std::scoped_lock lock(g_durabilityLock);
+            g_pendingBreaks.erase(a_key);
+        };
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* item = RE::TESForm::LookupByID<RE::TESBoundObject>(a_key.baseFormID);
+        if (!player || !item) {
+            finish();
+            return;
+        }
+
+        const auto inventory = player->GetInventory();
+        const auto found = inventory.find(item);
+        auto* entry = found != inventory.end() && found->second.second ? found->second.second.get() : nullptr;
+        auto* extraList = FindExtraListByKey(entry, a_key);
+        if (!entry || !extraList) {
+            std::scoped_lock lock(g_durabilityLock);
+            g_durability.erase(a_key);
+            g_lowDurabilityWarnings.erase(a_key);
+            g_pendingBreaks.erase(a_key);
+            return;
+        }
+
+        const auto questItem = extraList->HasQuestObjectAlias();
+        const auto uniqueItem = IsProtectedUniqueItem(item);
+        const auto preserveEnchanted = IsInstanceEnchanted(item, extraList) && !g_settings.allowEnchantedItemsToBreak;
+        auto materials = GetSalvageMaterials(item);
+        const auto preserve = questItem || uniqueItem || preserveEnchanted || materials.empty();
+        if (preserve) {
+            if (auto* equipManager = RE::ActorEquipManager::GetSingleton()) equipManager->UnequipObject(player, item, extraList);
+            const auto reason = questItem || uniqueItem ? "受保护物品已损坏，需要在装备工坊修复。" : preserveEnchanted ? "附魔物品已损坏，需要在装备工坊修复。" : "未找到可用的锻造配方，物品已保留为损坏状态。";
+            ShowHUD("warning", DisplayName(item), reason, g_settings.weaponDisplaySeconds, 0, static_cast<std::uint32_t>(std::lround(GetDurability(a_key).maximum)));
+            logger::info("Preserved broken item {:08X}:{:04X} (quest={}, unique={}, enchanted-protected={}, recipe-missing={}).", a_key.baseFormID, a_key.uniqueID, questItem, uniqueItem, preserveEnchanted, materials.empty());
+        } else {
+            player->RemoveItem(item, 1, RE::ITEM_REMOVE_REASON::kRemove, extraList, nullptr);
+            if (IsUniqueIDInPlayerInventory(a_key.baseFormID, a_key.uniqueID)) {
+                const auto refreshedInventory = player->GetInventory();
+                const auto refreshed = refreshedInventory.find(item);
+                auto* refreshedEntry = refreshed != refreshedInventory.end() && refreshed->second.second ? refreshed->second.second.get() : nullptr;
+                auto* refreshedExtraList = FindExtraListByKey(refreshedEntry, a_key);
+                if (auto* equipManager = RE::ActorEquipManager::GetSingleton(); equipManager && refreshedExtraList) equipManager->UnequipObject(player, item, refreshedExtraList);
+                ShowHUD("warning", DisplayName(item), "物品移除失败，已保留为损坏状态。", g_settings.weaponDisplaySeconds, 0, static_cast<std::uint32_t>(std::lround(GetDurability(a_key).maximum)));
+                logger::error("Could not remove destroyed item {:08X}:{:04X}; preserved it as broken.", a_key.baseFormID, a_key.uniqueID);
+            } else {
+                for (const auto& [material, count] : materials) player->AddObjectToContainer(material, nullptr, count, nullptr);
+                {
+                    std::scoped_lock lock(g_durabilityLock);
+                    g_durability.erase(a_key);
+                    g_lowDurabilityWarnings.erase(a_key);
+                }
+                ShowHUD("warning", DisplayName(item), SalvageDescription(materials), g_settings.weaponDisplaySeconds);
+                logger::info("Destroyed and salvaged item {:08X}:{:04X} into {} material types.", a_key.baseFormID, a_key.uniqueID, materials.size());
+            }
+        }
+        finish();
+        if (g_panelVisible) SendState();
+    }
+
+    void QueueZeroDurabilityResolution(const ItemKey& a_key)
+    {
+        std::uint64_t epoch = 0;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            if (!g_pendingBreaks.insert(a_key).second) return;
+            epoch = g_stateEpoch;
+        }
+        if (const auto* tasks = SKSE::GetTaskInterface()) tasks->AddTask([a_key, epoch] { ResolveZeroDurability(a_key, epoch); });
+        else ResolveZeroDurability(a_key, epoch);
+    }
+
+    void QueueStoredZeroDurabilityResolutions()
+    {
+        std::vector<ItemKey> brokenItems;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            for (const auto& [key, durability] : g_durability) {
+                if (durability.current <= 0.0F) brokenItems.push_back(key);
+            }
+        }
+        for (const auto& key : brokenItems) QueueZeroDurabilityResolution(key);
+    }
+
     void ShowWeaponDurability(const RE::TESObjectWEAP* a_weapon, RE::InventoryEntryData* a_entry = nullptr)
     {
         if (!a_weapon) return;
@@ -476,6 +632,7 @@ namespace
         }
         logger::debug("{} wore {:08X}:{:04X} by {:.2F}; now {:.2F}/{:.2F}.", a_action, key->baseFormID, key->uniqueID, appliedWear, durability.current, durability.maximum);
         UpdateLowDurabilityWarning(a_weapon, *key, durability);
+        if (durability.current <= 0.0F) QueueZeroDurabilityResolution(*key);
         if (g_panelVisible) SendState();
     }
 
@@ -502,7 +659,14 @@ namespace
         {
             const auto* player = RE::PlayerCharacter::GetSingleton();
             if (!a_event || !a_event->equipped || !player || a_event->actor.get() != player) return RE::BSEventNotifyControl::kContinue;
-            ShowWeaponDurability(RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject));
+            const auto* weapon = RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject);
+            auto* entry = FindEquippedWeaponEntry(weapon);
+            const auto key = EnsureItemKey(entry, weapon);
+            if (key && GetDurability(*key).current <= 0.0F) {
+                QueueZeroDurabilityResolution(*key);
+                return RE::BSEventNotifyControl::kContinue;
+            }
+            ShowWeaponDurability(weapon, entry);
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -548,6 +712,45 @@ namespace
         bool registered_ = false;
     };
 
+    [[nodiscard]] json BuildEquipmentItem(RE::TESBoundObject* a_item, RE::InventoryEntryData* a_entry, const ItemKey& a_key, const DurabilitySnapshot& a_durability)
+    {
+        const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
+        const auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr;
+        const auto enchantment = EnchantmentName(a_entry);
+        const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
+        const auto isMeleeWeapon = weapon && weapon->IsMelee() && !weapon->IsHandToHandMelee() && !weapon->IsBound();
+        const auto baseWeaponWear = BaseWeaponWear(weapon);
+        const auto effectiveWearReduction = std::clamp(a_durability.wearReduction, 0.0F, g_settings.maxWearReduction);
+        const auto effectiveWeaponWear = baseWeaponWear ? (std::max)(0.1F, *baseWeaponWear * (1.0F - effectiveWearReduction)) : 0.0F;
+        const auto questItem = a_entry && a_entry->IsQuestObject();
+        const auto uniqueItem = IsProtectedUniqueItem(a_item);
+        const auto broken = a_durability.current <= 0.0F;
+        auto equipmentItem = json{
+            { "id", std::to_string(a_key.baseFormID) + ":" + std::to_string(a_key.uniqueID) },
+            { "name", DisplayName(a_item) },
+            { "slot", EquipmentType(a_item) },
+            { "category", EquipmentCategory(a_item) },
+            { "current", static_cast<std::uint32_t>(std::lround(a_durability.current)) },
+            { "maximum", static_cast<std::uint32_t>(std::lround(a_durability.maximum)) },
+            { "enhancementLevel", a_durability.enhancementLevel },
+            { "damage", weapon ? static_cast<std::int32_t>(weapon->GetAttackDamage()) + a_durability.performanceBonus : 0 },
+            { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
+            { "weight", (std::max)(0.1F, EquipmentWeight(a_item) - a_durability.weightReduction) },
+            { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + a_durability.attackSpeedBonus)) : 0.0F },
+            { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : "尚未启用" },
+            { "wearReduction", effectiveWearReduction },
+            { "enchantment", enchantment },
+            { "enchanted", a_entry && a_entry->IsEnchanted() },
+            { "enchantmentReplaceable", !questItem && !uniqueItem },
+            { "quest", questItem },
+            { "unique", uniqueItem },
+            { "broken", broken },
+            { "repairable", broken }
+        };
+        if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
+        return equipmentItem;
+    }
+
     [[nodiscard]] json CollectEquippedItems()
     {
         json equipment = json::array();
@@ -560,38 +763,29 @@ namespace
             const auto key = EnsureItemKey(entry.second.get(), item);
             if (!key) continue;
             const auto durability = GetDurability(*key);
-            const auto* weapon = item->As<RE::TESObjectWEAP>();
-            const auto* armor = item->As<RE::TESObjectARMO>();
-            const auto enchantment = EnchantmentName(entry.second.get());
-            const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
-            const auto isMeleeWeapon = weapon && weapon->IsMelee() && !weapon->IsHandToHandMelee() && !weapon->IsBound();
-            const auto baseWeaponWear = BaseWeaponWear(weapon);
-            const auto effectiveWearReduction = std::clamp(durability.wearReduction, 0.0F, g_settings.maxWearReduction);
-            const auto effectiveWeaponWear = baseWeaponWear ? (std::max)(0.1F, *baseWeaponWear * (1.0F - effectiveWearReduction)) : 0.0F;
-            auto equipmentItem = json{
-                { "id", std::to_string(key->baseFormID) + ":" + std::to_string(key->uniqueID) },
-                { "name", DisplayName(item) },
-                { "slot", EquipmentType(item) },
-                { "category", EquipmentCategory(item) },
-                { "current", static_cast<std::uint32_t>(std::lround(durability.current)) },
-                { "maximum", static_cast<std::uint32_t>(std::lround(durability.maximum)) },
-                { "enhancementLevel", durability.enhancementLevel },
-                { "damage", weapon ? static_cast<std::int32_t>(weapon->GetAttackDamage()) + durability.performanceBonus : 0 },
-                { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + durability.performanceBonus : 0 },
-                { "weight", (std::max)(0.1F, EquipmentWeight(item) - durability.weightReduction) },
-                { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + durability.attackSpeedBonus)) : 0.0F },
-                { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : "尚未启用" },
-                { "wearReduction", effectiveWearReduction },
-                { "enchantment", enchantment },
-                { "enchanted", entry.second->IsEnchanted() },
-                { "enchantmentReplaceable", !entry.second->IsQuestObject() },
-                { "quest", entry.second->IsQuestObject() },
-                { "unique", false },
-                { "broken", false },
-                { "repairable", false }
-            };
-            if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
-            equipment.push_back(std::move(equipmentItem));
+            equipment.push_back(BuildEquipmentItem(item, entry.second.get(), *key, durability));
+        }
+        return equipment;
+    }
+
+    [[nodiscard]] json CollectRepairQueue()
+    {
+        json equipment = json::array();
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return equipment;
+        const auto inventory = player->GetInventory();
+        for (const auto& [item, entry] : inventory) {
+            if (!item || entry.first <= 0 || !entry.second || !entry.second->extraLists) continue;
+            if (item->GetFormType() != RE::FormType::Weapon && item->GetFormType() != RE::FormType::Armor) continue;
+            for (auto* extraList : *entry.second->extraLists) {
+                if (!extraList || extraList->GetWorn()) continue;
+                const auto* uniqueID = extraList->GetByType<RE::ExtraUniqueID>();
+                if (!uniqueID) continue;
+                const ItemKey key{ item->GetFormID(), uniqueID->uniqueID };
+                const auto durability = GetDurability(key);
+                if (durability.current > 0.0F) continue;
+                equipment.push_back(BuildEquipmentItem(item, entry.second.get(), key, durability));
+            }
         }
         return equipment;
     }
@@ -601,7 +795,7 @@ namespace
         return {
             { "version", kPluginVersion },
             { "equipped", CollectEquippedItems() },
-            { "repairQueue", json::array() },
+            { "repairQueue", CollectRepairQueue() },
             { "forge", {
                 { "active", false },
                 { "station", "" },
@@ -646,6 +840,9 @@ namespace
         g_panelVisible = false;
         g_hudVisible = false;
         g_capturingHotkey = false;
+        std::scoped_lock lock(g_durabilityLock);
+        ++g_stateEpoch;
+        g_pendingBreaks.clear();
     }
 
     [[nodiscard]] bool CloseFocusedPanel()
@@ -809,6 +1006,7 @@ namespace
             std::scoped_lock lock(g_durabilityLock);
             g_durability = std::move(restored);
             g_lowDurabilityWarnings.clear();
+            g_pendingBreaks.clear();
             g_weaponNotificationTimes.clear();
             restoredCount = g_durability.size();
         }
@@ -820,8 +1018,10 @@ namespace
         std::scoped_lock lock(g_durabilityLock);
         g_durability.clear();
         g_lowDurabilityWarnings.clear();
+        g_pendingBreaks.clear();
         g_weaponNotificationTimes.clear();
         g_nextGeneratedUniqueID = 0x8000U;
+        ++g_stateEpoch;
     }
 
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
@@ -833,6 +1033,7 @@ namespace
         }
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
             ResetViewForLoad();
+            QueueStoredZeroDurabilityResolutions();
             logger::info("Durability Manager reset local panel state after loading a save.");
             return;
         }
