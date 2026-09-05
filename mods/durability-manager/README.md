@@ -4,6 +4,12 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- Version 0.1.38 places equipped instances first in the combined inventory/repair list while preserving the original order within each group. Sorting does not mutate the received state or change the selected instance; it is recalculated whenever equipment state is received.
+
+- Version 0.1.37 displays current and maximum durability with one decimal place in the list, details, weapon HUD and enhancement previews (for example, `98.6 / 100.0`). HUD messages preserve fractional values. Internal durability, save precision and per-action wear-rate display are unchanged.
+
+- Version 0.1.36 adds a bordered green `✓ 已装备` badge in inventory rows and equipment details. It uses each item's existing extra-data worn state (including left-hand equipment), independently of selection, enchantment, and broken status. No save format or equipment behavior changes.
+
 - **Shift+F** opens the PrismaUI panel; it can be rebound in the **配置** tab.
 - The panel reads the player’s currently equipped weapons and armour, including quest and enchantment markers.
 - The panel provides the agreed two tabs: **耐久状态** and **配置**. The settings tab uses a full-width card layout with clearly labelled sliders, a custom warning switch, current hotkey keycaps, and inline hotkey rebinding.

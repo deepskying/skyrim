@@ -4,6 +4,9 @@ import type { EquipmentItem, MaterialRequirement, PanelState, Settings } from '.
 import { EnhancementPage, MaterialList } from './EnhancementPage';
 import { normalizeCards } from './enhancement';
 import { createHudReceiver, type HudMessage } from './hud';
+import { EquippedBadge } from './EquippedBadge';
+import { formatDurability } from './format';
+import { equippedFirst } from './equipment';
 
 type Tab = 'workshop' | 'settings';
 
@@ -19,7 +22,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.35',
+  version: '0.1.38',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -193,7 +196,7 @@ export function App() {
 
   const visibleEquipment = useMemo(() => {
     const equippedIds = new Set(state.equipped.map((item) => item.id));
-    return [...state.equipped, ...state.repairQueue.filter((item) => !equippedIds.has(item.id))];
+    return equippedFirst([...state.equipped, ...state.repairQueue.filter((item) => !equippedIds.has(item.id))]);
   }, [state.equipped, state.repairQueue]);
   const selected = useMemo(() => visibleEquipment.find((item) => item.id === selectedId) ?? visibleEquipment[0], [selectedId, visibleEquipment]);
   const hasRepairMaterials = Boolean(selected?.repairMaterials.every((material) => material.owned >= material.required));
@@ -213,7 +216,7 @@ export function App() {
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
-  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{hud.current} / {hud.maximum}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
+  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{formatDurability(hud.current)} / {formatDurability(hud.maximum)}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
     <header className="forge-header">
       <div className="brand"><span className="brand-rune">ᛏ</span><div><p>{state.forge.active ? `${state.forge.station} · EQUIPMENT WORKSHOP` : 'SKYRIM FORGE LEDGER'}</p><h1>{state.forge.active ? '装备工坊' : '装备耐久'}</h1></div></div>
       <nav className="tabs" aria-label="装备耐久分页"><button className={tab === 'workshop' ? 'active' : ''} onClick={() => { setTab('workshop'); setEnhancingId(undefined); }} type="button">⌁ 装备</button><button className={tab === 'settings' ? 'active' : ''} onClick={() => { setTab('settings'); setEnhancingId(undefined); }} type="button">⚙ 配置</button></nav>
@@ -223,12 +226,12 @@ export function App() {
 
     {tab === 'workshop' ? enhancing && state.forge.active ? <EnhancementPage key={enhancing.id} item={enhancing} forge={state.forge} revision={revision} onBack={() => setEnhancingId(undefined)} onAction={send} /> : <section className="workshop-layout">
       <aside className="equipment-list"><div className="list-heading"><div><p>INVENTORY EQUIPMENT</p><h2>背包装备</h2></div><span>{visibleEquipment.length} 件</span></div>
-        <div className="list-scroll">{visibleEquipment.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>} {item.quantity > 1 && <em>×{item.quantity}</em>}</b><small>{item.broken ? '已损坏 · 等待修复' : `${item.equipped ? '已装备 · ' : ''}${item.slot}`} · 耐久 {item.current}/{item.maximum}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span>{item.enchanted && <span className="enchanted">✦</span>}</button>)}{!visibleEquipment.length && <p className="empty">背包中没有可用的武器或装备。</p>}</div>
+        <div className="list-scroll">{visibleEquipment.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>} {item.quantity > 1 && <em>×{item.quantity}</em>}</b><small>{item.broken ? '已损坏 · 等待修复' : item.slot} · 耐久 {formatDurability(item.current)}/{formatDurability(item.maximum)}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span><span className="row-status"><EquippedBadge equipped={item.equipped} />{item.enchanted && <span className="enchanted" title="已附魔">✦</span>}</span></button>)}{!visibleEquipment.length && <p className="empty">背包中没有可用的武器或装备。</p>}</div>
       </aside>
 
       {selected ? <section className="equipment-detail"><div className="detail-title"><div><p>{selected.slot.toUpperCase()}</p><h2>{selected.name} {selected.enhancementLevel > 0 && <span>+{selected.enhancementLevel}</span>}</h2></div><div className={`condition ${selected.broken ? 'broken' : percentage(selected) < state.settings.lowDurabilityThreshold ? 'warning' : ''}`}>{selected.broken ? '已破损' : `${Math.round(percentage(selected))}%`}</div></div>
-        <div className="detail-tags"><span>{selected.category === 'weapon' ? '武器' : selected.category === 'armor' ? '护甲' : '服装'}</span>{selected.enchanted && <span>✦ 已附魔</span>}{selected.unique && <span>唯一物品</span>}{selected.quest && <span>任务物品</span>}</div>
-        <div className="stat-grid"><div><small>耐久</small><b>{selected.current} <span>/ {selected.maximum}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}{selected.chargeCapacity !== undefined && <div><small>附魔充能</small><b>{Math.round(selected.chargeCurrent ?? selected.chargeCapacity)} <span>/ {Math.round(selected.chargeCapacity)}</span></b>{(selected.chargeBonus ?? 0) > 0 && <i>容量强化 +{Math.round((selected.chargeBonus ?? 0) * 100)}%</i>}</div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
+        <div className="detail-tags"><EquippedBadge equipped={selected.equipped} /><span>{selected.category === 'weapon' ? '武器' : selected.category === 'armor' ? '护甲' : '服装'}</span>{selected.enchanted && <span>✦ 已附魔</span>}{selected.unique && <span>唯一物品</span>}{selected.quest && <span>任务物品</span>}</div>
+        <div className="stat-grid"><div><small>耐久</small><b>{formatDurability(selected.current)} <span>/ {formatDurability(selected.maximum)}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}{selected.chargeCapacity !== undefined && <div><small>附魔充能</small><b>{Math.round(selected.chargeCurrent ?? selected.chargeCapacity)} <span>/ {Math.round(selected.chargeCapacity)}</span></b>{(selected.chargeBonus ?? 0) > 0 && <i>容量强化 +{Math.round((selected.chargeBonus ?? 0) * 100)}%</i>}</div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
         <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? '材料不足' : '⚒ 修复'}</button></section>
