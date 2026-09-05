@@ -54,8 +54,11 @@ namespace
         float performanceAppliedHealth = 1.0F;
         std::uint16_t chargeBaselineCapacity = 0;
         std::uint16_t chargeAppliedCapacity = 0;
+        std::string displayNameBaseline;
+        std::string displayNameApplied;
         bool performanceBridgeInitialized = false;
         bool chargeBridgeInitialized = false;
+        bool displayNameBridgeInitialized = false;
     };
 
     // A base FormID identifies an item definition, not a specific copy.  The
@@ -132,9 +135,10 @@ namespace
 
     constexpr std::uint32_t kSerializationID = 0x4455524DU;  // "DURM"
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
-    constexpr std::uint32_t kDurabilityRecordVersion = 2;
+    constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.26";
+    constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
+    constexpr std::string_view kPluginVersion = "0.1.27";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
     constexpr std::uint32_t kBaseCardRefreshCost = 80;
@@ -937,6 +941,90 @@ namespace
         return true;
     }
 
+    [[nodiscard]] std::string LimitPersistedDisplayName(std::string a_value)
+    {
+        if (a_value.size() <= kMaxPersistedDisplayNameBytes) return a_value;
+        std::size_t boundary = kMaxPersistedDisplayNameBytes;
+        while (boundary > 0 && (static_cast<unsigned char>(a_value[boundary]) & 0xC0U) == 0x80U) --boundary;
+        a_value.resize(boundary);
+        return a_value;
+    }
+
+    [[nodiscard]] std::string ReinforcedDisplayName(
+        const std::string_view a_baseline,
+        const std::uint32_t a_level)
+    {
+        if (a_level == 0) return std::string(a_baseline);
+        return std::string(a_baseline) + " +" + std::to_string(a_level);
+    }
+
+    bool SyncDisplayNameRuntimeEffect(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        if (!a_item || !a_extraList) return false;
+        const auto currentName = LimitPersistedDisplayName(InstanceDisplayName(a_item, a_extraList));
+        auto* textData = a_extraList->GetByType<RE::ExtraTextDisplayData>();
+        const auto playerNamed = textData && textData->IsPlayerSet();
+        std::string targetName;
+        bool clearBridgeAfterSync = false;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            const auto found = g_durability.find(a_key);
+            if (found == g_durability.end()) return false;
+            auto& durability = found->second;
+            if (durability.enhancementLevel == 0 && !durability.displayNameBridgeInitialized) return false;
+
+            if (!durability.displayNameBridgeInitialized) {
+                durability.displayNameBaseline = LimitPersistedDisplayName(
+                    playerNamed ? currentName : DisplayName(a_item));
+                durability.displayNameApplied.clear();
+                durability.displayNameBridgeInitialized = true;
+            } else if (playerNamed && !durability.displayNameApplied.empty() &&
+                       currentName != durability.displayNameApplied) {
+                // A different explicit name was applied after our last sync.
+                // Treat it as the new player-authored baseline.
+                durability.displayNameBaseline = currentName;
+            }
+            if (durability.displayNameBaseline.empty()) durability.displayNameBaseline = DisplayName(a_item);
+            targetName = ReinforcedDisplayName(durability.displayNameBaseline, durability.enhancementLevel);
+            clearBridgeAfterSync = durability.enhancementLevel == 0;
+        }
+
+        if (textData && (textData->displayNameText || textData->ownerQuest)) {
+            logger::warn(
+                "Skipped native +N name for {:08X}:{:04X}; its display name is owned by a quest or message.",
+                a_key.baseFormID,
+                a_key.uniqueID);
+            return false;
+        }
+        if (currentName != targetName || !playerNamed) {
+            if (textData) textData->SetName(targetName.c_str());
+            else a_extraList->Add(new RE::ExtraTextDisplayData(targetName.c_str()));
+        }
+
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            const auto found = g_durability.find(a_key);
+            if (found == g_durability.end()) return false;
+            auto& durability = found->second;
+            if (clearBridgeAfterSync) {
+                durability.displayNameBaseline.clear();
+                durability.displayNameApplied.clear();
+                durability.displayNameBridgeInitialized = false;
+            } else {
+                durability.displayNameApplied = targetName;
+            }
+        }
+        logger::debug(
+            "Synced native display name for {:08X}:{:04X} to '{}'.",
+            a_key.baseFormID,
+            a_key.uniqueID,
+            targetName);
+        return true;
+    }
+
     void SyncInstanceRuntimeEffects(
         const ItemKey& a_key,
         RE::TESBoundObject* a_item,
@@ -945,6 +1033,7 @@ namespace
         if (!a_extraList) return;
         SyncPerformanceRuntimeEffect(a_key, a_item, a_extraList);
         SyncChargeRuntimeEffect(a_key, a_item, a_extraList);
+        SyncDisplayNameRuntimeEffect(a_key, a_item, a_extraList);
     }
 
     void SyncAllRuntimeEffects()
@@ -955,6 +1044,7 @@ namespace
             keys.reserve(g_durability.size());
             for (const auto& [key, durability] : g_durability) {
                 if (durability.performanceBonus != 0 || durability.chargeBonus > 0.0F ||
+                    durability.enhancementLevel > 0 || durability.displayNameBridgeInitialized ||
                     durability.performanceBridgeInitialized || durability.chargeBridgeInitialized) {
                     keys.push_back(key);
                 }
@@ -2191,9 +2281,12 @@ namespace
         const auto broken = a_durability.current <= 0.0F;
         const auto repairMaterials = GetRepairMaterials(a_item, a_durability);
         const auto repairable = a_durability.current < a_durability.maximum && !repairMaterials.empty();
+        const auto panelDisplayName = a_durability.displayNameBridgeInitialized && !a_durability.displayNameBaseline.empty() ?
+                                          a_durability.displayNameBaseline :
+                                          InstanceDisplayName(a_item, a_extraList);
         auto equipmentItem = json{
             { "id", std::to_string(a_key.baseFormID) + ":" + std::to_string(a_key.uniqueID) },
-            { "name", InstanceDisplayName(a_item, a_extraList) },
+            { "name", panelDisplayName },
             { "slot", EquipmentType(a_item) },
             { "category", EquipmentCategory(a_item) },
             { "equipped", a_extraList && a_extraList->GetWorn() },
@@ -2419,6 +2512,30 @@ namespace
         }
     }
 
+    [[nodiscard]] bool WritePersistedString(
+        SKSE::SerializationInterface* a_serialization,
+        const std::string& a_value)
+    {
+        if (!a_serialization) return false;
+        const auto value = LimitPersistedDisplayName(a_value);
+        const auto length = static_cast<std::uint32_t>(value.size());
+        return a_serialization->WriteRecordData(length) &&
+               (length == 0 || a_serialization->WriteRecordData(value.data(), length));
+    }
+
+    [[nodiscard]] bool ReadPersistedString(
+        SKSE::SerializationInterface* a_serialization,
+        std::string& a_value)
+    {
+        if (!a_serialization) return false;
+        std::uint32_t length = 0;
+        if (a_serialization->ReadRecordData(length) != sizeof(length) || length > kMaxPersistedDisplayNameBytes) {
+            return false;
+        }
+        a_value.resize(length);
+        return length == 0 || a_serialization->ReadRecordData(a_value.data(), length) == length;
+    }
+
     void SaveState(SKSE::SerializationInterface* a_serialization)
     {
         if (!a_serialization) return;
@@ -2436,6 +2553,7 @@ namespace
         for (const auto& [key, durability] : saved) {
             const auto performanceBridgeInitialized = static_cast<std::uint8_t>(durability.performanceBridgeInitialized);
             const auto chargeBridgeInitialized = static_cast<std::uint8_t>(durability.chargeBridgeInitialized);
+            const auto displayNameBridgeInitialized = static_cast<std::uint8_t>(durability.displayNameBridgeInitialized);
             if (!a_serialization->WriteRecordData(key.baseFormID) ||
                 !a_serialization->WriteRecordData(key.uniqueID) ||
                 !a_serialization->WriteRecordData(durability.current) ||
@@ -2451,7 +2569,10 @@ namespace
                 !a_serialization->WriteRecordData(durability.chargeBaselineCapacity) ||
                 !a_serialization->WriteRecordData(durability.chargeAppliedCapacity) ||
                 !a_serialization->WriteRecordData(performanceBridgeInitialized) ||
-                !a_serialization->WriteRecordData(chargeBridgeInitialized)) {
+                !a_serialization->WriteRecordData(chargeBridgeInitialized) ||
+                !a_serialization->WriteRecordData(displayNameBridgeInitialized) ||
+                !WritePersistedString(a_serialization, durability.displayNameBaseline) ||
+                !WritePersistedString(a_serialization, durability.displayNameApplied)) {
                 logger::warn("Could not finish saving durability state.");
                 return;
             }
@@ -2466,7 +2587,8 @@ namespace
         std::uint32_t version = 0;
         std::uint32_t length = 0;
         while (a_serialization->GetNextRecordInfo(type, version, length)) {
-            if (type != kDurabilityRecordType || (version != 1 && version != kDurabilityRecordVersion)) {
+            if (type != kDurabilityRecordType ||
+                (version != 1 && version != 2 && version != kDurabilityRecordVersion)) {
                 std::vector<std::byte> ignored(length);
                 a_serialization->ReadRecordData(ignored.data(), length);
                 continue;
@@ -2506,6 +2628,16 @@ namespace
                     durability.performanceBridgeInitialized = performanceBridgeInitialized != 0;
                     durability.chargeBridgeInitialized = chargeBridgeInitialized != 0;
                 }
+                if (version >= 3) {
+                    std::uint8_t displayNameBridgeInitialized = 0;
+                    if (a_serialization->ReadRecordData(displayNameBridgeInitialized) != sizeof(displayNameBridgeInitialized) ||
+                        !ReadPersistedString(a_serialization, durability.displayNameBaseline) ||
+                        !ReadPersistedString(a_serialization, durability.displayNameApplied)) {
+                        logger::warn("Could not finish loading native display-name bridge state.");
+                        break;
+                    }
+                    durability.displayNameBridgeInitialized = displayNameBridgeInitialized != 0;
+                }
                 RE::FormID resolvedBaseFormID = 0;
                 if (!a_serialization->ResolveFormID(savedBaseFormID, resolvedBaseFormID)) continue;
                 durability.maximum = std::isfinite(durability.maximum) ? (std::max)(1.0F, durability.maximum) : 100.0F;
@@ -2532,6 +2664,12 @@ namespace
                 if (!std::isfinite(durability.performanceAppliedHealth) || durability.performanceAppliedHealth <= 0.0F) {
                     durability.performanceAppliedHealth = durability.performanceBaselineHealth;
                     durability.performanceBridgeInitialized = false;
+                }
+                durability.displayNameBaseline = LimitPersistedDisplayName(durability.displayNameBaseline);
+                durability.displayNameApplied = LimitPersistedDisplayName(durability.displayNameApplied);
+                if (!durability.displayNameBridgeInitialized) {
+                    durability.displayNameBaseline.clear();
+                    durability.displayNameApplied.clear();
                 }
                 restored[ItemKey{ resolvedBaseFormID, uniqueID }] = durability;
             }

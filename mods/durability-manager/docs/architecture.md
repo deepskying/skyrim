@@ -5,11 +5,11 @@
 | State | Owner | Persistence |
 | --- | --- | --- |
 | Hotkey, warning threshold, HUD preference, display duration | Native plugin | `DurabilityManager.ini` |
-| Equipment state: reinforcement rank, current/max durability, permanent card effects, runtime bridge baselines and protection flags | Native plugin | SKSE co-save |
+| Equipment state: reinforcement rank, current/max durability, permanent card effects, stat/name bridge baselines and protection flags | Native plugin | SKSE co-save |
 | Current forge station, selected equipment and three drafted cards | Native plugin | Session only |
 | UI selection and active tab | Prisma view | Session only |
 
-Durability and reinforcement must be recorded against a stable **item-instance identity**, never solely a base FormID. A base FormID is shared by every steel sword, while an enchanted sword, a renamed sword, and a unique sword may need distinct state. The current persisted record is versioned and consists of `ItemKey`, reinforcement rank, durability values, and permanent numeric card results. The `ItemKey` is backed by Skyrim extra-data / a generated persistent ID, with form-ID resolution during co-save load. A future replacement-enchantment reference requires an explicit record migration rather than silently changing this layout.
+Durability and reinforcement must be recorded against a stable **item-instance identity**, never solely a base FormID. A base FormID is shared by every steel sword, while an enchanted sword, a renamed sword, and a unique sword may need distinct state. The current persisted record is versioned and consists of `ItemKey`, reinforcement rank, durability values, permanent numeric card results, and runtime bridge state. The `ItemKey` is backed by Skyrim extra-data / a generated persistent ID, with form-ID resolution during co-save load. A future replacement-enchantment reference requires an explicit record migration rather than silently changing this layout.
 
 ## Card contract
 
@@ -32,7 +32,8 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 - Charge capacity uses the instance's native `ExtraEnchantment` charge value. Capacity changes preserve the weapon's current charge percentage and never modify the shared base enchantment form.
 - Weight reduction is summed from matching `ExtraUniqueID` instances and subtracted from freshly recalculated player inventory and worn-armor weight caches. Container and equipment events queue a next-frame resynchronization, avoiding shared base-form edits.
 - Attack speed is synchronized per hand through `weaponSpeedMult` and `leftWeaponSpeedMult`. The bridge remembers its previous target and removes only its own prior bonus when the graph has not been externally changed; a changed graph value is accepted as the new baseline. The saved card value is capped at +1.00.
-- Co-save record version 2 adds the two runtime-bridge baselines and applied values. Version-1 records are accepted as an explicit migration path; their current native extra data becomes the baseline before the saved bonus is applied once.
+- Reinforcement rank is written to the instance's `ExtraTextDisplayData` as `baseline +N`. The bridge persists the player-authored baseline and its last applied value, so upgrades replace the suffix, external renames become a new baseline, and `+0` restores the name. Quest/message-owned display data is never forcibly replaced.
+- Co-save record version 3 adds the display-name bridge strings and initialized flag. Version-1 and version-2 records are accepted as explicit migration paths; their current native data becomes the relevant bridge baseline before saved effects are synchronized.
 - HUD warnings fire on a threshold crossing with a cooldown, rather than once per hit.
 
 ## Event flow
