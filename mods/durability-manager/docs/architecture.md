@@ -94,6 +94,16 @@ activate forge
 
 ## Native/UI contract
 
+### Compatibility cache (v0.1.33)
+
+`enchantment_cache.h` defines an engine-independent, owner-locked LRU cache. Each key is a base equipment FormID; its entry includes an exact vector signature of weapon class/bound/fist flags and keyword FormIDs, an immutable shared vector of compatible ENCH FormIDs, creation time and an LRU position. No engine pointers, instance IDs, current enchantment, protection status, materials or card offers are retained. Immutable ID snapshots stay valid if another callback clears/evicts an entry; lookups resolve current engine objects before using them. Existing native checks still resolve and fully validate the chosen enchantment before payment and mutation.
+
+Entries (including empty results) expire after five seconds from creation; cache hits never extend expiry. Runtime item-keyword/class edits invalidate the entry immediately. Foreign edits to enchantment effects or nested restriction lists may leave UI eligibility/candidate lists stale until expiry, but cannot bypass the uncached payment check. The cache does not promise immediate detection of arbitrary third-party hooks or dynamic record edits. Limits are 512 entries and 262144 combined signature/candidate IDs (approximately 1 MiB of stored ID payload, plus containers; caller-owned temporary snapshots are separate). Oversized results are returned without caching or flushing the working set. Least-recently-used entries are evicted to satisfy both bounds.
+
+`HasCompatibleEnchantment` answers boolean UI/eligibility queries without allocating the full result-pointer vector; the full vector is only needed for drafting. Current instance enchantments are excluded after cache lookup, so replacing one copy's enchantment does not corrupt another copy's candidate set. Rules reload, pool rebuild, save transitions and serialization revert clear the cache under its own mutex, outside durability/draft locks; no Prisma APIs or serialization records are involved. Clear logs summarize hits, full scans, evictions, entry count and retained ID count; individual scans use debug logging.
+
+`tests/enchantment_cache_tests.h` is run by `DurabilityRulesTests`: exact signatures, non-sliding TTL, empty-to-nonempty expiry, bounded LRU eviction, oversized bypass, resets, exception recovery and snapshot lifetime. A synthetic 5000-query / 20-base-item / 500-candidate workload asserts 20 scans and 4980 hits while checking candidate equality; this is a scan-count regression test, not a Skyrim FPS benchmark.
+
 The view receives `{ equipped, repairQueue, forge, settings }`. Equipment rows include their visible combat stats, weight, enchantment, protection flags and reinforcement rank. `forge` contains the station context and the current three card offers. The native side remains authoritative and revalidates all requests. The UI never decides whether an item is protected, broken, repairable, affordable, eligible for a card, or allowed to replace its enchantment.
 
 ### Enhancement review (v0.1.32)

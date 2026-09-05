@@ -3,6 +3,7 @@
 #include "enhancement_rules.h"
 #include "enhancement_drafts.h"
 #include "enchantment_ranking.h"
+#include "enchantment_cache.h"
 
 #include <nlohmann/json.hpp>
 
@@ -42,6 +43,18 @@ namespace
     std::unordered_set<RE::FormID> g_enchantmentPool;
     std::unordered_set<RE::FormID> g_deniedEnchantments;
     std::unordered_map<RE::FormID, enhancement::EnchantmentRank> g_enchantmentRanks;
+    enhancement::EnchantmentCache g_enchantmentCache;
+    std::mutex g_enchantmentCacheLock;
+
+    void ClearEnchantmentCache(const std::string_view a_reason)
+    {
+        std::scoped_lock lock(g_enchantmentCacheLock);
+        const auto stats = g_enchantmentCache.Stats();
+        if (stats.hits || stats.misses) logger::info(
+            "Enchantment compatibility cache cleared ({}): hits={}, scans={}, evictions={}, entries={}, retainedIDs={}.",
+            a_reason, stats.hits, stats.misses, stats.evictions, g_enchantmentCache.Size(), g_enchantmentCache.RetainedIDs());
+        g_enchantmentCache.Clear();
+    }
     bool g_capturingHotkey = false;
     bool g_panelVisible = false;
     bool g_hudVisible = false;
@@ -147,7 +160,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.32";
+    constexpr std::string_view kPluginVersion = "0.1.33";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
 
@@ -216,6 +229,7 @@ namespace
 
     void LoadEnhancementRules()
     {
+        ClearEnchantmentCache("rules reload");
         const auto path = ConfigPath().parent_path() / "DurabilityManager.rules.json";
         std::ifstream input(path);
         g_enhancementRules = {};
@@ -953,6 +967,7 @@ namespace
 
     void BuildEnchantmentPool()
     {
+        ClearEnchantmentCache("pool rebuild");
         g_enchantmentPool.clear();
         g_deniedEnchantments.clear();
         g_enchantmentRanks.clear();
@@ -1049,17 +1064,61 @@ namespace
         std::uint16_t charge = 0;
     };
 
+    [[nodiscard]] enhancement::EnchantmentCache::Snapshot CachedCompatibleEnchantmentIDs(RE::TESBoundObject* a_item)
+    {
+        if (!a_item || !RE::TESDataHandler::GetSingleton()) return {};
+        // All item-specific inputs to IsCompatibleEnchantment: exact base identity,
+        // weapon class/bound flags and the current keyword list. Per-instance state
+        // deliberately stays outside this cache. Foreign restriction/effect edits
+        // expire within five seconds, and payment always performs a fresh check.
+        enhancement::EnchantmentCache::IDs signature;
+        const RE::BGSKeywordForm* keywords = nullptr;
+        if (const auto* weapon = a_item->As<RE::TESObjectWEAP>()) {
+            signature = { 1U, static_cast<std::uint32_t>(weapon->IsBound()), static_cast<std::uint32_t>(weapon->IsHandToHandMelee()), static_cast<std::uint32_t>(weapon->IsStaff()) };
+            keywords = weapon;
+        } else if (const auto* armor = a_item->As<RE::TESObjectARMO>()) {
+            signature = { 2U };
+            keywords = armor;
+        } else return {};
+        keywords->ForEachKeyword([&signature](RE::BGSKeyword* keyword) {
+            signature.push_back(keyword ? keyword->GetFormID() : 0U);
+            return RE::BSContainer::ForEachResult::kContinue;
+        });
+        std::scoped_lock lock(g_enchantmentCacheLock);
+        return g_enchantmentCache.Get(a_item->GetFormID(), signature, enhancement::EnchantmentCache::Clock::now(), [a_item] {
+            enhancement::EnchantmentCache::IDs ids;
+            for (const auto id : g_enchantmentPool) {
+                auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(id);
+                if (IsCompatibleEnchantment(a_item, enchantment)) ids.push_back(id);
+            }
+            logger::debug("Enchantment compatibility scan for {:08X}: {} / {} candidates.", a_item->GetFormID(), ids.size(), g_enchantmentPool.size());
+            return ids;
+        });
+    }
+
+    [[nodiscard]] bool HasCompatibleEnchantment(RE::TESBoundObject* a_item, RE::ExtraDataList* a_extraList)
+    {
+        const auto ids = CachedCompatibleEnchantmentIDs(a_item);
+        if (!ids) return false;
+        const auto* current = InstanceEnchantment(a_item, a_extraList);
+        for (const auto id : *ids) {
+            const auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(id);
+            if (enchantment && enchantment != current && !enchantment->IsDeleted() && !enchantment->IsIgnored()) return true;
+        }
+        return false;
+    }
+
     [[nodiscard]] std::vector<RE::EnchantmentItem*> CompatibleEnchantments(
         RE::TESBoundObject* a_item,
         RE::ExtraDataList* a_extraList)
     {
         std::vector<RE::EnchantmentItem*> result;
-        auto* dataHandler = RE::TESDataHandler::GetSingleton();
-        if (!dataHandler || !a_item) return result;
+        const auto ids = CachedCompatibleEnchantmentIDs(a_item);
+        if (!ids) return result;
         const auto* current = InstanceEnchantment(a_item, a_extraList);
-        for (const auto id : g_enchantmentPool) {
+        for (const auto id : *ids) {
             auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(id);
-            if (!enchantment || enchantment == current || !IsCompatibleEnchantment(a_item, enchantment)) continue;
+            if (!enchantment || enchantment == current || enchantment->IsDeleted() || enchantment->IsIgnored()) continue;
             result.push_back(enchantment);
         }
         return result;
@@ -1812,7 +1871,7 @@ namespace
             types.push_back(EnhancementCardType::Charge);
         }
         const auto protectedItem = IsProtectedUniqueItem(a_item) || (a_extraList && a_extraList->HasQuestObjectAlias());
-        if (!protectedItem && !CompatibleEnchantments(a_item, a_extraList).empty()) {
+        if (!protectedItem && HasCompatibleEnchantment(a_item, a_extraList)) {
             types.push_back(EnhancementCardType::Enchantment);
         }
         return types;
@@ -2831,7 +2890,7 @@ namespace
             { "wearReduction", effectiveWearReduction },
             { "enchantment", enchantment },
             { "enchanted", IsInstanceEnchanted(a_item, a_extraList) },
-            { "enchantmentReplaceable", !questItem && !uniqueItem && !CompatibleEnchantments(a_item, a_extraList).empty() },
+            { "enchantmentReplaceable", !questItem && !uniqueItem && HasCompatibleEnchantment(a_item, a_extraList) },
             { "quest", questItem },
             { "unique", uniqueItem },
             { "broken", broken },
@@ -2944,6 +3003,7 @@ namespace
     // notification can leave Prisma's render and focus states out of sync.
     void ResetViewForLoad()
     {
+        ClearEnchantmentCache("load/new-game transition");
         g_panelVisible = false;
         g_hudVisible = false;
         g_capturingHotkey = false;
@@ -3223,6 +3283,7 @@ namespace
 
     void RevertState(SKSE::SerializationInterface*)
     {
+        ClearEnchantmentCache("serialization revert");
         {
             std::scoped_lock lock(g_forgeLock);
             g_enhancementDrafts.Clear();

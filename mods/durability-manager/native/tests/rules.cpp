@@ -1,6 +1,7 @@
 #include "enhancement_rules.h"
 #include "enhancement_drafts.h"
 #include "enchantment_ranking.h"
+#include "enchantment_cache_tests.h"
 #include <fstream>
 #include <iostream>
 
@@ -8,6 +9,7 @@ int main(int argc, char** argv)
 {
     const auto require = [](bool condition) { if (!condition) throw std::runtime_error("Rule test failed"); };
     try {
+        TestEnchantmentCache();
         enhancement::Rules rules;
         // No-magnitude/no-duration flags prevent irrelevant record fields from
         // inflating utility effects; hidden helpers contribute no score.
@@ -110,7 +112,7 @@ int main(int argc, char** argv)
         const auto packaged = enhancement::ParseRules(nlohmann::json::parse(file));
         require(packaged.ranges == rules.ranges && packaged.catalysts == rules.catalysts);
         require(packaged.growth == rules.growth && packaged.lateMaterials == rules.lateMaterials);
-        std::cout << "Rules tests passed: utility ranking/tiers, cap boundaries, drafts/fees, cost/configuration validation.\n";
+        std::cout << "Rules tests passed: bounded compatibility cache (5000 queries / 20 scans), utility ranking/tiers, cap boundaries, drafts/fees, cost/configuration validation.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

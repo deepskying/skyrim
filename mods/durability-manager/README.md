@@ -46,6 +46,8 @@ Version 0.1.31 improves utility enchantment ranking: hidden helpers and no-magni
 
 ## Install layout
 
+Version 0.1.33 adds a bounded, session-only enchantment compatibility cache shared by copies of the same base equipment. Keyword/weapon-class changes invalidate the entry immediately; entries expire five seconds after creation (hits do not extend that deadline). The cache retains at most 512 equipment entries and 262144 combined signature/candidate IDs, evicting least-recently-used entries. Current enchantment exclusion, quest/unique protection, worn status and material counts remain per-instance/live. Payment and enchantment mutation still run the original complete compatibility check, never trusting cached eligibility as authority. Load/new-game/revert and rules/pool rebuilds clear the cache without calling Prisma. Native tests include a synthetic 5000-query workload with 20 full scans and unchanged candidate results; actual in-game performance still needs measurement.
+
 Version 0.1.32 moves enhancement into a dedicated full-width page opened from equipment details. Cards include native before/after comparisons, owned/required materials, success chance and failure rules. An explicit review and unchecked risk acknowledgement are required before applying a card; cancelling costs nothing. Card data is normalized defensively, bound to the exact equipment instance and invalidated for review when the item or offer changes. The existing Prisma lifecycle and save format are unchanged. This stage has build, helper-test and browser-demo verification; game-runtime validation remains pending.
 
 ```text
