@@ -27,11 +27,12 @@ export function normalizeCards(value: unknown): EnhancementCard[] {
       if (!record(row)) { invalid = true; return []; }
       const required = count(row.required), owned = count(row.owned);
       if (!string(row.name) || required === undefined || required === 0 || owned === undefined) { invalid = true; return []; }
-      return [{ name: string(row.name), required, owned }];
+      return [{ name: string(row.name), required, owned, isGold: typeof row.isGold === 'boolean' ? row.isGold : undefined }];
     }) : [];
     const chance = count(entry.successChance);
     const blockedReason = string(entry.blockedReason) ||
       (invalid || !preview.length || !materials.length || chance === undefined || chance > 100 ? '卡片数据不完整，请重新打开面板' :
+        materials.some((row) => row.isGold && row.owned < row.required) ? '金币不足' :
         materials.some((row) => row.owned < row.required) ? '材料不足' : undefined);
     return [{ id: string(entry.id), equipmentId: string(entry.equipmentId), type: entry.type as CardType, tier: entry.tier as EnhancementTier,
       title: string(entry.title), description: string(entry.description), value: string(entry.value), successChance: Math.min(100, chance ?? 0),

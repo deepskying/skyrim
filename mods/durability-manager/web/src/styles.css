@@ -100,4 +100,16 @@
 .enhancement-review .confirm-enhancement { border-color: #d59e72; background: #653b29; }
 .enhancement-review button:disabled { cursor: not-allowed; opacity: .4; }
 .enhancement-page button:focus-visible, .risk-acknowledgement input:focus-visible { outline: 3px solid #c1edf4; outline-offset: 3px; }
+.refresh-feedback { margin: 12px 0 18px; padding: 12px 16px; border: 1px solid #75b79d; border-radius: 6px; background: #17392f; color: #d2f5df; font-size: 16px; }
+.refresh-feedback.failed { border-color: #c17b64; background: #382b28; color: #ffd1b9; }
+.refresh-waiting .enhancement-card { animation: cards-out 140ms ease-out both; pointer-events: none; }
+.refresh-revealing .enhancement-card { animation: cards-in 260ms ease-out both; }
+.refresh-revealing .enhancement-card:nth-child(2) { animation-delay: 70ms; }
+.refresh-revealing .enhancement-card:nth-child(3) { animation-delay: 140ms; }
+@keyframes cards-out { to { opacity: .2; transform: translateY(6px) scale(.98); } }
+@keyframes cards-in { from { opacity: .2; transform: perspective(900px) rotateY(-16deg) translateY(8px); } to { opacity: 1; transform: none; } }
+.action-strip button { max-width: 50%; white-space: normal; line-height: 1.5; }
+.enhancement-heading button:disabled, .enhancement-page .enhancement-card button:disabled { opacity: .5; cursor: not-allowed; }
+.enhancement-page .enhancement-card button, .enhancement-review button { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) { .refresh-waiting .enhancement-card, .refresh-revealing .enhancement-card { animation: none; transform: none; } }
 @media (max-width: 1250px) { .enhancement-page { padding: 20px; }.enhancement-page .enhancement-cards { grid-template-columns: 1fr; }.enhancement-page .enhancement-card { padding: 20px; } }

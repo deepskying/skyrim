@@ -7,6 +7,8 @@ import { createHudReceiver, type HudMessage } from './hud';
 import { EquippedBadge } from './EquippedBadge';
 import { formatDurability } from './format';
 import { equippedFirst } from './equipment';
+import { costLabel, missingCost } from './cost';
+import { normalizeRefreshResult } from './refresh';
 
 type Tab = 'workshop' | 'settings';
 
@@ -22,7 +24,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.38',
+  version: '0.1.39',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -57,7 +59,7 @@ function normalizeMaterials(value: unknown): MaterialRequirement[] {
     const name = text(entry.name);
     const required = Math.max(0, Math.floor(finiteNumber(entry.required, 0)));
     const owned = Math.max(0, Math.floor(finiteNumber(entry.owned, 0)));
-    return name && required > 0 ? [{ name, required, owned }] : [];
+    return name && required > 0 ? [{ name, required, owned, isGold: typeof entry.isGold === 'boolean' ? entry.isGold : undefined }] : [];
   });
 }
 
@@ -114,6 +116,7 @@ function normalizeState(value: unknown): PanelState {
     repairQueue,
     capturingHotkey: flag(value.capturingHotkey),
     message: text(value.message) || undefined,
+    refreshResult: normalizeRefreshResult(value.refreshResult),
     forge: {
       active: flag(rawForge.active),
       station: text(rawForge.station),
@@ -180,7 +183,7 @@ export function App() {
     window.DurabilityManager = {
       receiveState: (next) => {
         const normalized = normalizeState(next);
-        setState(normalized);
+        setState((previous) => ({ ...normalized, refreshResult: normalized.refreshResult ?? previous.refreshResult }));
         setRevision((previous) => previous + 1);
         setDraft(normalized.settings);
       },
@@ -224,7 +227,7 @@ export function App() {
       <button className="close" onClick={() => send('close')} title="关闭 (Esc)" type="button">×</button>
     </header>
 
-    {tab === 'workshop' ? enhancing && state.forge.active ? <EnhancementPage key={enhancing.id} item={enhancing} forge={state.forge} revision={revision} onBack={() => setEnhancingId(undefined)} onAction={send} /> : <section className="workshop-layout">
+    {tab === 'workshop' ? enhancing && state.forge.active ? <EnhancementPage key={enhancing.id} item={enhancing} forge={state.forge} revision={revision} refreshResult={state.refreshResult} onBack={() => setEnhancingId(undefined)} onAction={send} /> : <section className="workshop-layout">
       <aside className="equipment-list"><div className="list-heading"><div><p>INVENTORY EQUIPMENT</p><h2>背包装备</h2></div><span>{visibleEquipment.length} 件</span></div>
         <div className="list-scroll">{visibleEquipment.map((item) => <button className={`equipment-row ${selected?.id === item.id ? 'selected' : ''} ${item.broken ? 'broken' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)} type="button"><span className="item-icon">{itemIcon(item)}</span><span className="row-main"><b>{item.name} {item.enhancementLevel > 0 && <em>+{item.enhancementLevel}</em>} {item.quantity > 1 && <em>×{item.quantity}</em>}</b><small>{item.broken ? '已损坏 · 等待修复' : item.slot} · 耐久 {formatDurability(item.current)}/{formatDurability(item.maximum)}</small><i><i style={{ width: `${percentage(item)}%` }} /></i></span><span className="row-status"><EquippedBadge equipped={item.equipped} />{item.enchanted && <span className="enchanted" title="已附魔">✦</span>}</span></button>)}{!visibleEquipment.length && <p className="empty">背包中没有可用的武器或装备。</p>}</div>
       </aside>
@@ -234,7 +237,7 @@ export function App() {
         <div className="stat-grid"><div><small>耐久</small><b>{formatDurability(selected.current)} <span>/ {formatDurability(selected.maximum)}</span></b></div>{selected.category === 'weapon' && <div><small>攻击</small><b>{selected.damage ?? 0}</b></div>}{selected.category === 'armor' && <div><small>防御</small><b>{selected.armor ?? 0}</b></div>}<div><small>重量</small><b>{selected.weight.toFixed(1)}</b></div>{selected.category === 'weapon' && <div><small>攻速</small><b>{(selected.attackSpeed ?? 0).toFixed(2)}×</b></div>}{selected.chargeCapacity !== undefined && <div><small>附魔充能</small><b>{Math.round(selected.chargeCurrent ?? selected.chargeCapacity)} <span>/ {Math.round(selected.chargeCapacity)}</span></b>{(selected.chargeBonus ?? 0) > 0 && <i>容量强化 +{Math.round((selected.chargeBonus ?? 0) * 100)}%</i>}</div>}<div className="wear-stat"><small>耐久损耗</small><b>{selectedWearRate === undefined ? '—' : `-${selectedWearRate.toFixed(2)}`}<span>{selectedWearRate === undefined ? ' 尚未启用' : ` / ${selected.wearRateLabel}`}</span></b>{selectedWearRate !== undefined && <i>耐磨减免 {Math.round((selected.wearReduction ?? 0) * 100)}%</i>}</div></div>
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
-        <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? '材料不足' : '⚒ 修复'}</button></section>
+        <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? missingCost(selected.repairMaterials) ?? '材料不足' : '⚒ 修复'}{selected.repairable && <> · {costLabel(selected.repairMaterials)}</>}</button></section>
         {state.forge.active ? <section className="action-strip enhancement-entry"><div><p>卡片强化</p><small>已检测到附近的锻造设施，无需先操作工作台。进入强化页查看方案与材料代价。</small></div><button disabled={selected.broken} onClick={() => setEnhancingId(selected.id)} type="button">{selected.broken ? '请先修复装备' : '✦ 进入强化'}</button></section> : <p className="forge-hint">靠近锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，重新打开面板即可直接修复或强化，无需先操作设施。</p>}
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page">

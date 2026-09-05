@@ -4,6 +4,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- Version 0.1.39 adds actual-cost labels to repair and enhancement buttons (`仅材料`, `N 金币`, or `N 金币 + 材料`), using the native Gold001 record flag rather than translated names. Prices and payment rules are unchanged. Card refresh fades old offers, waits for a matching native receipt, then reveals the three cards in sequence (~0.54 seconds minimum). Failure retains the offer and displays its reason; unknown outcomes never auto-retry. Update both DLL and frontend together.
+
 - Version 0.1.38 places equipped instances first in the combined inventory/repair list while preserving the original order within each group. Sorting does not mutate the received state or change the selected instance; it is recalculated whenever equipment state is received.
 
 - Version 0.1.37 displays current and maximum durability with one decimal place in the list, details, weapon HUD and enhancement previews (for example, `98.6 / 100.0`). HUD messages preserve fractional values. Internal durability, save precision and per-action wear-rate display are unchanged.

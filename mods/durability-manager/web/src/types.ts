@@ -1,7 +1,9 @@
 export type EnhancementTier = '微弱' | '标准' | '强效' | '极强';
 export type CardType = 'performance' | 'weight' | 'speed' | 'durability' | 'wear' | 'charge' | 'enchantment';
 
-export type MaterialRequirement = { name: string; required: number; owned: number };
+export type MaterialRequirement = { name: string; required: number; owned: number; isGold?: boolean };
+
+export type RefreshResult = { requestId: string; equipmentId: string; success: boolean; goldSpent: number; message: string };
 
 export type EquipmentItem = {
   // Native emits the stable `baseFormID:uniqueID` instance key. It must not
@@ -69,6 +71,7 @@ export type Settings = {
 };
 
 export type PanelState = {
+  refreshResult?: RefreshResult;
   version: string;
   equipped: EquipmentItem[];
   repairQueue: EquipmentItem[];

@@ -1,5 +1,15 @@
 # Durability Manager architecture
 
+## Cost display and refresh feedback (0.1.39)
+
+Material rows have an optional `isGold` flag, emitted by native repair and card serializers using FormID `0x0000000F`. UI labels sum existing gold requirements, including custom recipes, without adding a payment. Missing flags display `费用见材料清单`. Native pre-payment checks remain authoritative.
+
+`refreshEnhancements` carries a UI-generated `requestId`. Each normal native exit emits a one-shot `refreshResult` with `{ requestId, equipmentId, success, goldSpent, message }` alongside the complete state. Success follows payment and draft storage; failures report zero spent. Selection mismatch fails without creating another draft or charging. Save records are unchanged.
+
+The UI retains the latest valid receipt across unrelated state updates and consumes only one matching the pending request and instance. A tested controller snapshots old cards, locks repeated submissions, enforces a 140 ms minimum fade and a 400 ms staggered reveal. Failure restores normal presentation without a success cue. After 10 seconds without a receipt, it reports an unknown outcome, keeps refresh locked, permits returning to details and never retries automatically. A matching late response can still finish. Unmount clears timers and invalidates queued callbacks; reduced-motion CSS suppresses transforms.
+
+`web/tests/refresh-preview.html` is a development-only browser fixture for immediate, delayed, failed and absent replies; it is not packaged. Automated tests cover cost identification, native wiring, duplicate clicks/replies, stale receipts, same-type offers, failure, timeout and disposal. Game-engine behavior still requires in-game verification.
+
 ## State ownership
 
 | State | Owner | Persistence |

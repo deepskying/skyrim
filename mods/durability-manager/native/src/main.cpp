@@ -158,7 +158,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.38";
+    constexpr std::string_view kPluginVersion = "0.1.39";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -556,7 +556,7 @@ namespace
         return name && name[0] ? name : DisplayName(a_item);
     }
 
-    void SendState(std::string_view a_message = {});
+    void SendState(std::string_view a_message = {}, const json& a_refreshResult = nullptr);
 
     struct ForgeContext
     {
@@ -751,6 +751,7 @@ namespace
         for (const auto& [material, required] : a_materials) {
             result.push_back({
                 { "name", DisplayName(material) },
+                { "isGold", material && material->GetFormID() == 0xFU },
                 { "required", required },
                 { "owned", player ? (std::max)(0, player->GetItemCount(material)) : 0 }
             });
@@ -1961,7 +1962,7 @@ namespace
                     continue;
                 }
                 const auto owned = player ? (std::max)(0, player->GetItemCount(material)) : 0;
-                materials.push_back({ { "name", DisplayName(material) }, { "required", requirement.count }, { "owned", owned } });
+                materials.push_back({ { "name", DisplayName(material) }, { "isGold", requirement.formID == 0xFU }, { "required", requirement.count }, { "owned", owned } });
                 if (blockedReason.empty() && owned < requirement.count) blockedReason = "缺少：" + DisplayName(material);
             }
             auto item = json{
@@ -2036,20 +2037,26 @@ namespace
         SendState(reused ? "已恢复该装备的卡片和刷新费用。" : "已为" + InstanceDisplayName(instance->item, instance->extraList) + "生成三张强化卡片。");
     }
 
-    void RefreshEnhancementCards(const std::string_view a_equipmentID)
+    void SendRefreshResult(std::string_view a_equipmentID, std::string_view a_requestID, bool a_success, std::uint32_t a_goldSpent, std::string_view a_message)
+    {
+        SendState(a_message, { { "requestId", a_requestID }, { "equipmentId", a_equipmentID },
+            { "success", a_success }, { "goldSpent", a_goldSpent }, { "message", a_message } });
+    }
+
+    void RefreshEnhancementCards(const std::string_view a_equipmentID, const std::string_view a_requestID)
     {
         if (!GetForgeContext().active) {
-            SendState("刷新失败：附近没有可用的锻造设施，请靠近后重试。");
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：附近没有可用的锻造设施，请靠近后重试。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
         if (!key) {
-            SendState("刷新失败：装备实例标识无效。");
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：装备实例标识无效。");
             return;
         }
         const auto instance = ResolveEquipmentInstance(*key);
         if (!instance) {
-            SendState("刷新失败：所选装备已不在背包中。");
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：所选装备已不在背包中。");
             return;
         }
 
@@ -2065,7 +2072,7 @@ namespace
             }
         }
         if (!selectionMatches) {
-            SelectEquipmentForForge(a_equipmentID);
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：所选装备已变化，请返回装备详情后重试。本次未扣费。");
             return;
         }
 
@@ -2073,7 +2080,7 @@ namespace
         auto* gold = GoldRecord();
         const auto cost = CardRefreshCost(refreshes);
         if (!player || !gold || PlayerGoldCount(player) < static_cast<std::int32_t>(cost)) {
-            SendState("刷新失败：需要 " + std::to_string(cost) + " 金币。");
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：需要 " + std::to_string(cost) + " 金币。");
             return;
         }
         const auto nextRefreshes = (std::min)(refreshes, (std::numeric_limits<std::uint32_t>::max)() - 1U) + 1U;
@@ -2084,7 +2091,7 @@ namespace
             // Record the paid result for the item even if UI selection changes.
             g_enhancementDrafts.Store(*key, std::move(cards), nextRefreshes);
         }
-        SendState("已支付 " + std::to_string(cost) + " 金币并刷新强化卡片。");
+        SendRefreshResult(a_equipmentID, a_requestID, true, cost, "已支付 " + std::to_string(cost) + " 金币并刷新强化卡片。");
     }
 
     [[nodiscard]] std::string SalvageDescription(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
@@ -2978,10 +2985,12 @@ namespace
         };
     }
 
-    void SendState(std::string_view a_message)
+    void SendState(std::string_view a_message, const json& a_refreshResult)
     {
         if (!g_prisma || !g_view) return;
-        const auto script = "window.DurabilityManager && window.DurabilityManager.receiveState(" + CollectState(a_message).dump() + ");";
+        auto state = CollectState(a_message);
+        if (!a_refreshResult.is_null()) state["refreshResult"] = a_refreshResult;
+        const auto script = "window.DurabilityManager && window.DurabilityManager.receiveState(" + state.dump() + ");";
         g_prisma->Invoke(g_view, script.c_str());
     }
 
@@ -3084,7 +3093,7 @@ namespace
             } else if (type == "selectEquipment") {
                 SelectEquipmentForForge(request.value("id", ""));
             } else if (type == "refreshEnhancements") {
-                RefreshEnhancementCards(request.value("id", ""));
+                RefreshEnhancementCards(request.value("id", ""), request.value("requestId", ""));
             } else if (type == "applyEnhancement") {
                 ApplyEnhancementCard(request.value("equipmentId", ""), request.value("cardId", ""));
             } else if (type == "hudHidden") {
