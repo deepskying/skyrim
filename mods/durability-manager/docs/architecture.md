@@ -1,5 +1,13 @@
 # Durability Manager architecture
 
+## Equipped enhancement, fees and feedback (0.1.40)
+
+`WorkshopEquipmentRestore` keeps only the instance key and original equip-slot FormID across immediate, non-forced engine calls. Each call is followed by a fresh inventory lookup; no extra-data pointer is retained across unequip/equip. Worn stacks with shared counts or ambiguous hand flags are rejected. Original weapon hands and armor slot conflicts are checked before restoration so another mod's new equipment is not displaced. A failed restoration retains the successfully enhanced item and reports manual recovery. Ordinary roll failure leaves the target unequipped before removal; protected failure leaves it unequipped and downgraded. Enchantment writes retain their unequipped-only guard, and protected items still cannot replace enchantments. This flow requires engine acceptance with both hands, two-handed weapons, shields, clothing and identical copies.
+
+`cost.baseGold` is optional in schema 1 (default 100, finite range 1–100000). `GoldFee` combines base gold multiplied by existing level/tier cost scale with the existing post-50 quadratic gold fee. Native card material aggregation merges Gold001 with any recipe gold, checks int32 bounds, and the existing single payment/refund ledger handles both gold and other materials. Displayed prices are authoritative card requirements; no client fee is charged. Probability failure spends the attempt; recognized precondition failures do not charge, and recognized post-payment write/state failures refund the ledger. Repair pricing is unchanged.
+
+`EnableWorkshopSounds` is a persisted display setting, default true, also exposed through the UI settings contract. Native `WorkshopFeedback` plays a throttled click and one result cue for repair, refresh or enhancement; early exits default to cancellation. `playWorkshopClick` provides page/card-review feedback only while the panel is visible and deliberately sends no state update. Audio uses existing game UI sound IDs, not web audio/assets. Seven CSS type colors and four depth/border levels preserve textual type/tier labels. No Prisma view lifecycle, save record or persistent draft format changes are introduced. Source guards verify call ordering, a single gold fee, audio wiring and distinct colors; they cannot verify actual engine equipment or audio behavior.
+
 ## Cost display and refresh feedback (0.1.39)
 
 Material rows have an optional `isGold` flag, emitted by native repair and card serializers using FormID `0x0000000F`. UI labels sum existing gold requirements, including custom recipes, without adding a payment. Missing flags display `费用见材料清单`. Native pre-payment checks remain authoritative.

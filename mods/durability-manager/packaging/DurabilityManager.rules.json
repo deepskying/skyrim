@@ -18,6 +18,7 @@
     "enchantment": ["SoulGemGrandFilled", "VoidSalts"]
   },
   "cost": {
+    "baseGold": 100,
     "growth": 1.16,
     "lateGold": 200,
     "lateMaterials": ["IngotEbony", "DaedraHeart", "DragonBone"]

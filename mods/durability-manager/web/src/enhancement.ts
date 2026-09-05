@@ -47,6 +47,6 @@ export function confirmationKey(item: EquipmentItem, card: EnhancementCard) {
 
 export function failureDescription(item: EquipmentItem) {
   return item.quest || item.unique
-    ? `失败不会分解此装备；等级降至 +${Math.max(0, item.enhancementLevel - 1)}，已有强化加值按比例回退。`
-    : '失败会分解这件装备，该装备实例及其强化、附魔将丢失；可用的分解材料按现有配方返还。';
+    ? `失败不会分解此装备；会卸下并将等级降至 +${Math.max(0, item.enhancementLevel - 1)}，已有强化加值按比例回退。`
+    : '失败会分解这件装备；若正在装备会先卸下，该装备实例及其强化、附魔将丢失；可用的分解材料按现有配方返还。';
 }

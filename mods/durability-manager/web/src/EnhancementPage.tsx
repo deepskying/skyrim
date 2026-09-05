@@ -52,8 +52,8 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
   };
 
   return <section className="enhancement-page">
-    <header className="enhancement-heading"><button type="button" disabled={locked && refresh.phase !== 'timeout'} onClick={onBack}>← 返回装备详情</button><div><p>ENHANCEMENT WORKSHOP</p><h2>{item.name} <span>+{item.enhancementLevel}</span></h2></div><span>{item.quest || item.unique ? '受保护 · 失败降级' : '普通装备 · 失败分解'}</span></header>
-    <p className="enhancement-help">三选一，每次只应用一张卡片。查看变化后再确认；取消不会消耗材料，也不会更换卡片。</p>
+    <header className="enhancement-heading"><button type="button" disabled={locked && refresh.phase !== 'timeout'} onClick={() => { onAction('playWorkshopClick', {}); onBack(); }}>← 返回装备详情</button><div><p>ENHANCEMENT WORKSHOP</p><h2>{item.name} <span>+{item.enhancementLevel}</span></h2></div><span>{item.quest || item.unique ? '受保护 · 失败降级' : '普通装备 · 失败分解'}</span></header>
+    <p className="enhancement-help">三选一，每次只应用一张卡片。查看变化后再确认；取消不会消耗金币或材料，也不会更换卡片。已装备物品会临时卸下，成功后恢复原槽位。</p>
     <div className="card-heading"><div><h3>本轮强化方案</h3><p>已刷新 {forge.refreshes} 次 · 持有 {forge.gold} 金币</p></div><button disabled={locked || !cards.length || Boolean(reviewed) || forge.gold < forge.refreshCost} onClick={() => {
       if (busy || transition.isPending()) return;
       const requestId = `refresh-${Date.now()}-${++refreshSequence}`;
@@ -65,7 +65,7 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
       <Comparison card={reviewed} />
       <p>{reviewed.description}</p>
       <h4>本次消耗 <small>持有 / 需要</small></h4><MaterialList materials={reviewed.materials} />
-      <div className="enhancement-risk"><strong>成功率 {reviewed.successChance}% · 失败率 {100 - reviewed.successChance}%</strong><p>{failureDescription(item)}</p><p>成功或失败都会消耗上列材料。{reviewed.type === 'enchantment' && '成功后原附魔被整体覆盖，不能通过本面板恢复；需重新装备生效。'}</p></div>
+      <div className="enhancement-risk"><strong>成功率 {reviewed.successChance}% · 失败率 {100 - reviewed.successChance}%</strong><p>{failureDescription(item)}</p><p>成功或失败都会消耗上列金币和材料。{reviewed.type === 'enchantment' && '成功后原附魔被整体覆盖，不能通过本面板恢复；成功后自动恢复原装备槽位；恢复失败时请手动装备。'}</p></div>
       <label className="risk-acknowledgement"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />我已了解材料消耗、失败后果{reviewed.type === 'enchantment' ? '及附魔覆盖规则' : ''}</label>
       <footer><button ref={cancelButton} onClick={() => { setReview(undefined); setAcknowledged(false); }} type="button">取消，返回卡片</button><button className="confirm-enhancement" disabled={!acknowledged || locked || Boolean(missingCost(reviewed.materials))} onClick={() => {
         if (acknowledged && reviewed) dispatch('applyEnhancement', { equipmentId: item.id, cardId: reviewed.id });
@@ -73,7 +73,7 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
     </section> : <div className={`enhancement-cards refresh-${refresh.phase}`} aria-busy={refreshing}>{displayedCards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={`${refresh.phase === 'revealing' ? refreshResult?.requestId : 'card'}-${card.id}`}>
       <header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p>
       <Comparison card={card} /><h5>本次材料 · 持有 / 需要</h5><MaterialList materials={card.materials} />
-      <footer><span>成功率 {card.successChance}%<small>失败：{item.quest || item.unique ? '降级' : '分解'}</small></span><button disabled={locked || Boolean(card.blockedReason) || Boolean(missingCost(card.materials))} onClick={() => { if (transition.isPending()) return; setAcknowledged(false); setReview({ id: card.id, key: confirmationKey(item, card) }); }} type="button">{missingCost(card.materials) ?? card.blockedReason ?? '查看并确认'} · {costLabel(card.materials)}</button></footer>
+      <footer><span>成功率 {card.successChance}%<small>失败：{item.quest || item.unique ? '降级' : '分解'}</small></span><button disabled={locked || Boolean(card.blockedReason) || Boolean(missingCost(card.materials))} onClick={() => { if (transition.isPending()) return; onAction('playWorkshopClick', {}); setAcknowledged(false); setReview({ id: card.id, key: confirmationKey(item, card) }); }} type="button">{missingCost(card.materials) ?? card.blockedReason ?? '查看并确认'} · {costLabel(card.materials)}</button></footer>
     </article>)}</div>}
     {busy && <p className="card-loading" role="status">正在等待游戏处理，请勿重复操作……</p>}
     {!cards.length && <p className="card-loading">正在同步所选装备的强化卡片……</p>}

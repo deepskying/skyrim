@@ -36,6 +36,7 @@ namespace enhancement
             {"IngotDwarven"}, {"SoulGemCommonFilled"}, {"SoulGemGrandFilled", "VoidSalts"}
         }};
         double growth = 1.16;
+        double baseGold = 100.0;
         double lateGold = 200.0;
         std::vector<std::string> lateMaterials{"IngotEbony", "DaedraHeart", "DragonBone"};
         std::vector<std::string> allowEnchantments;
@@ -91,8 +92,10 @@ namespace enhancement
             const auto& cost = value.at("cost");
             if (!cost.is_object()) throw std::runtime_error("cost must be an object");
             result.growth = cost.value("growth", result.growth);
+            result.baseGold = cost.value("baseGold", result.baseGold);
             result.lateGold = cost.value("lateGold", result.lateGold);
             if (!std::isfinite(result.growth) || result.growth < 1.01 || result.growth > 1.5 ||
+                !std::isfinite(result.baseGold) || result.baseGold < 1 || result.baseGold > 100000 ||
                 !std::isfinite(result.lateGold) || result.lateGold < 1 || result.lateGold > 100000) {
                 throw std::runtime_error("Invalid cost curve");
             }
@@ -143,6 +146,11 @@ namespace enhancement
         // than freezing costs at +50 or overflowing an unbounded exponential.
         const double extra = level > 50 ? static_cast<double>(level - 50) : 0.0;
         return tier * std::pow(rules.growth, level < 50 ? level : 50) * std::pow(1.0 + extra / 25.0, 2.0);
+    }
+    inline double GoldFee(const Rules& rules, std::uint32_t level, double tier)
+    {
+        const double extra = level > 50 ? static_cast<double>(level - 50) : 0.0;
+        return rules.baseGold * CostScale(rules, level, tier) + rules.lateGold * extra * extra * tier;
     }
     inline std::optional<std::int32_t> RequiredCount(double value)
     {

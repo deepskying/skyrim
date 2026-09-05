@@ -24,10 +24,10 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.39',
+  version: '0.1.40',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
-  settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
+  settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, enableWorkshopSounds: true, allowEnchantedItemsToBreak: true },
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -136,6 +136,7 @@ function normalizeState(value: unknown): PanelState {
       lowDurabilityThreshold: finiteNumber(rawSettings.lowDurabilityThreshold, emptyState.settings.lowDurabilityThreshold),
       weaponDisplaySeconds: finiteNumber(rawSettings.weaponDisplaySeconds, emptyState.settings.weaponDisplaySeconds),
       enableLowDurabilityWarning: flag(rawSettings.enableLowDurabilityWarning, emptyState.settings.enableLowDurabilityWarning),
+      enableWorkshopSounds: flag(rawSettings.enableWorkshopSounds, true),
       allowEnchantedItemsToBreak: flag(rawSettings.allowEnchantedItemsToBreak, emptyState.settings.allowEnchantedItemsToBreak),
     },
   };
@@ -238,7 +239,7 @@ export function App() {
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
         <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? missingCost(selected.repairMaterials) ?? '材料不足' : '⚒ 修复'}{selected.repairable && <> · {costLabel(selected.repairMaterials)}</>}</button></section>
-        {state.forge.active ? <section className="action-strip enhancement-entry"><div><p>卡片强化</p><small>已检测到附近的锻造设施，无需先操作工作台。进入强化页查看方案与材料代价。</small></div><button disabled={selected.broken} onClick={() => setEnhancingId(selected.id)} type="button">{selected.broken ? '请先修复装备' : '✦ 进入强化'}</button></section> : <p className="forge-hint">靠近锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，重新打开面板即可直接修复或强化，无需先操作设施。</p>}
+        {state.forge.active ? <section className="action-strip enhancement-entry"><div><p>卡片强化</p><small>已检测到附近的锻造设施，无需先操作工作台。进入强化页查看方案与材料代价。</small></div><button disabled={selected.broken} onClick={() => { send('playWorkshopClick'); setEnhancingId(selected.id); }} type="button">{selected.broken ? '请先修复装备' : '✦ 进入强化'}</button></section> : <p className="forge-hint">靠近锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，重新打开面板即可直接修复或强化，无需先操作设施。</p>}
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page">
       <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>界面与耐久提示</h2></div><span className="settings-status"><i />保存后立即生效</span></div>
@@ -259,6 +260,11 @@ export function App() {
             <span className="setting-icon notification-icon">⌁</span>
             <span className="setting-copy"><small>LOW DURABILITY ALERT</small><h3>启用低耐久 HUD 预警</h3><p>关闭后仍会记录耐久，但不会弹出低耐久提示。</p></span>
             <span className="toggle-control"><input checked={draft.enableLowDurabilityWarning} onChange={(event) => setDraft({ ...draft, enableLowDurabilityWarning: event.target.checked })} type="checkbox" /><span className="toggle-track"><i /></span><b>{draft.enableLowDurabilityWarning ? '已启用' : '已关闭'}</b></span>
+          </label>
+          <label className="setting toggle-setting">
+            <span className="setting-icon">♪</span>
+            <span className="setting-copy"><small>WORKSHOP AUDIO</small><h3>工坊操作音效</h3><p>播放按钮点击、修复完成、强化成功或失败及卡片刷新音效。</p></span>
+            <span className="toggle-control"><input aria-label="工坊操作音效" checked={draft.enableWorkshopSounds} onChange={(event) => setDraft({ ...draft, enableWorkshopSounds: event.target.checked })} type="checkbox" /><span className="toggle-track"><i /></span><b>{draft.enableWorkshopSounds ? '已启用' : '已关闭'}</b></span>
           </label>
           <footer className="setting-actions"><span>配置将写入 <code>DurabilityManager.ini</code></span><button className="save" onClick={() => send('saveSettings', draft)} type="button">保存配置</button></footer>
         </section>

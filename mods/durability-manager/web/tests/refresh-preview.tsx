@@ -8,7 +8,8 @@ import '../src/styles.css';
 let mode = 'success';
 let requestCount = 0;
 let state = structuredClone(demoState);
-state.forge.cards[0].materials.push({ name: 'Septims', isGold: true, required: 200, owned: state.forge.gold });
+const goldRow = state.forge.cards[0].materials.find((row) => row.isGold);
+if (goldRow) goldRow.name = 'Septims'; // Currency detection must not depend on the localized name.
 let report = (_count: number) => {};
 window.durabilityManagerAction = (raw) => {
   const action = JSON.parse(raw);

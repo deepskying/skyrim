@@ -29,6 +29,18 @@ int main(int argc, char** argv)
         require(!workshop::IsNearby(std::numeric_limits<float>::infinity(), outside, outside, true));
         require(!workshop::IsNearby(std::numeric_limits<float>::quiet_NaN(), outside, outside, true));
         enhancement::Rules rules;
+        // Every card carries one merged gold fee; late-game surcharge is added once.
+        require(enhancement::RequiredCount(enhancement::GoldFee(rules, 0, .75)) == 75);
+        require(enhancement::RequiredCount(enhancement::GoldFee(rules, 0, 1.0)) == 100);
+        require(enhancement::RequiredCount(enhancement::GoldFee(rules, 0, 1.5)) == 150);
+        require(enhancement::RequiredCount(enhancement::GoldFee(rules, 0, 2.25)) == 225);
+        require(enhancement::RequiredCount(enhancement::GoldFee(rules, 4, 1.0)) == 182);
+        require(enhancement::RequiredCount(enhancement::GoldFee(rules, 4, 1.5)) == 272);
+        require(std::abs(enhancement::GoldFee(rules, 51, 1.5) -
+            (100.0 * enhancement::CostScale(rules, 51, 1.5) + 300.0)) < 1e-6);
+        require(!enhancement::RequiredCount(enhancement::GoldFee(rules, UINT32_MAX, 2.25)));
+        require(enhancement::ParseRules({{"schemaVersion", 1}}).baseGold == 100.0);
+        require(enhancement::ParseRules({{"schemaVersion", 1}, {"cost", {{"baseGold", 50}}}}).baseGold == 50.0);
         // No-magnitude/no-duration flags prevent irrelevant record fields from
         // inflating utility effects; hidden helpers contribute no score.
         require(enhancement::EffectPower(999, 999, 4, true, true, false, false) == 2.0);
@@ -115,6 +127,10 @@ int main(int argc, char** argv)
             R"({"schemaVersion":1,"ranges":{"weight":[[1,2]]}})",
             R"({"schemaVersion":1,"ranges":{"speed":[[2,1],[3,4],[5,6],[7,8]]}})",
             R"({"schemaVersion":1,"cost":{"growth":0.9}})",
+            R"({"schemaVersion":1,"cost":{"baseGold":0}})",
+            R"({"schemaVersion":1,"cost":{"baseGold":-10}})",
+            R"({"schemaVersion":1,"cost":{"baseGold":100001}})",
+            R"({"schemaVersion":1,"cost":{"baseGold":"100"}})",
             R"({"schemaVersion":1,"cost":{"lateMaterials":[]}})",
             R"({"schemaVersion":1,"enchantments":{"deny":[null]}})",
             R"({"schemaVersion":1,"catalysts":{"enchantment":[]}})"
@@ -129,7 +145,7 @@ int main(int argc, char** argv)
         std::ifstream file(argv[1]);
         const auto packaged = enhancement::ParseRules(nlohmann::json::parse(file));
         require(packaged.ranges == rules.ranges && packaged.catalysts == rules.catalysts);
-        require(packaged.growth == rules.growth && packaged.lateMaterials == rules.lateMaterials);
+        require(packaged.growth == rules.growth && packaged.baseGold == rules.baseGold && packaged.lateMaterials == rules.lateMaterials);
         std::cout << "Rules tests passed: nearby forge access, bounded compatibility cache (5000 queries / 20 scans), utility ranking/tiers, cap boundaries, drafts/fees, cost/configuration validation.\n";
         return 0;
     } catch (const std::exception& error) {

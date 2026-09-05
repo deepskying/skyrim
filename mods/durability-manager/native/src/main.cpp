@@ -8,6 +8,11 @@
 
 #include <nlohmann/json.hpp>
 
+// Windows multimedia headers define PlaySound as a macro; use Skyrim's UI sound helper.
+#ifdef PlaySound
+#undef PlaySound
+#endif
+
 namespace
 {
     using json = nlohmann::json;
@@ -21,6 +26,7 @@ namespace
         std::uint32_t lowDurabilityThreshold = 30;
         float weaponDisplaySeconds = 3.0F;
         bool enableLowDurabilityWarning = true;
+        bool enableWorkshopSounds = true;
         bool allowEnchantedItemsToBreak = true;
         float daggerHitWear = 0.35F;
         float swordHitWear = 0.50F;
@@ -158,7 +164,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.39";
+    constexpr std::string_view kPluginVersion = "0.1.40";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -270,7 +276,8 @@ namespace
                    << "\nCtrl=" << (g_settings.hotkey.requireCtrl ? "true" : "false") << "\nAlt=" << (g_settings.hotkey.requireAlt ? "true" : "false");
         configFile << "\n\n[Display]\nLowDurabilityThreshold=" << g_settings.lowDurabilityThreshold
                    << "\nWeaponDisplaySeconds=" << g_settings.weaponDisplaySeconds
-                   << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false");
+                   << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false")
+                   << "\nEnableWorkshopSounds=" << (g_settings.enableWorkshopSounds ? "true" : "false");
         configFile << "\n\n[Breakage]\nAllowEnchantedItemsToBreak=" << (g_settings.allowEnchantedItemsToBreak ? "true" : "false") << '\n';
         configFile << "\n[Wear]\nDaggerHitWear=" << g_settings.daggerHitWear
                    << "\nSwordHitWear=" << g_settings.swordHitWear
@@ -321,6 +328,7 @@ namespace
                     if (key == "LOWDURABILITYTHRESHOLD") g_settings.lowDurabilityThreshold = std::clamp<std::uint32_t>(std::stoul(value), 1, 99);
                     else if (key == "WEAPONDISPLAYSECONDS") g_settings.weaponDisplaySeconds = std::clamp(std::stof(value), 0.5F, 10.0F);
                     else if (key == "ENABLELOWDURABILITYWARNING") g_settings.enableLowDurabilityWarning = ParseBool(value, g_settings.enableLowDurabilityWarning);
+                    else if (key == "ENABLEWORKSHOPSOUNDS") g_settings.enableWorkshopSounds = ParseBool(value, g_settings.enableWorkshopSounds);
                 } catch (const std::exception&) {
                     logger::warn("Ignoring invalid DurabilityManager.ini value for {}.", key);
                 }
@@ -775,8 +783,31 @@ namespace
         return ItemKey{ static_cast<RE::FormID>(baseFormID), static_cast<std::uint16_t>(uniqueID) };
     }
 
+    void PlayWorkshopSound(const char* a_editorID)
+    {
+        if (g_settings.enableWorkshopSounds) RE::PlaySound(a_editorID);
+    }
+
+    void PlayWorkshopClick()
+    {
+        static auto previous = std::chrono::steady_clock::time_point{};
+        const auto now = std::chrono::steady_clock::now();
+        if (now - previous < std::chrono::milliseconds(80)) return;
+        previous = now;
+        PlayWorkshopSound("UIMenuOK");
+    }
+
+    // Result cues are native-only: early validation exits cannot sound like success.
+    struct WorkshopFeedback
+    {
+        const char* resultSound = "UIMenuCancel";
+        WorkshopFeedback() { PlayWorkshopClick(); }
+        ~WorkshopFeedback() { PlayWorkshopSound(resultSound); }
+    };
+
     void RepairEquipment(const std::string_view a_equipmentID)
     {
+        WorkshopFeedback feedback;
         if (!GetForgeContext().active) {
             SendState("修复失败：请靠近锻造熔炉、冶炼熔炉、砂轮或护甲工作台。");
             return;
@@ -829,6 +860,7 @@ namespace
             g_pendingBreaks.erase(*key);
         }
         logger::info("Repaired item {:08X}:{:04X} to full durability using {} material types.", key->baseFormID, key->uniqueID, materials.size());
+        feedback.resultSound = item->As<RE::TESObjectWEAP>() ? "UISmithingImproveWeapon" : "UISmithingImproveArmor";
         SendState(DisplayName(item) + "已修复至满耐久。");
     }
 
@@ -1658,7 +1690,7 @@ namespace
         case EnhancementCardType::Durability: return "永久提高该装备实例的耐久上限。";
         case EnhancementCardType::Wear: return "降低每次战斗动作造成的耐久损耗。";
         case EnhancementCardType::Charge: return "提高已附魔武器可容纳的充能。";
-        case EnhancementCardType::Enchantment: return "覆盖原附魔，不叠加；请先卸下装备，替换后重新装备生效。挡位为估算强度，具体效果见预览。";
+        case EnhancementCardType::Enchantment: return "覆盖原附魔，不叠加；已装备物品会自动临时卸下，成功后恢复原槽位。挡位为估算强度，具体效果见预览。";
         }
         return {};
     }
@@ -1825,9 +1857,10 @@ namespace
             auto* form = ResolveRuleForm(reference);
             add(form ? form->As<RE::TESBoundObject>() : nullptr, std::ceil(costScale));
         }
+        // Merge into the existing material ledger, including any recipe gold.
+        // Payment and refunds still use the single validated material loop.
+        add(RE::TESForm::LookupByID<RE::TESBoundObject>(0xFU), enhancement::GoldFee(g_enhancementRules, a_level, TierMultiplier(a_tier)));
         if (a_level > 50) {
-            const auto extra = static_cast<double>(a_level - 50U);
-            add(RE::TESForm::LookupByID<RE::TESBoundObject>(0xFU), g_enhancementRules.lateGold * extra * extra * TierMultiplier(a_tier));
             static constexpr std::array<std::uint32_t, 3> unlocks{51, 75, 100};
             for (std::size_t index = 0; index < unlocks.size(); ++index) {
                 if (a_level < unlocks[index]) continue;
@@ -1952,9 +1985,6 @@ namespace
             std::string blockedReason = card.blockedReason;
             if (blockedReason.empty() && (!instance || durability.current <= 0.0F)) blockedReason = instance ? "请先修复装备" : "装备已不在背包中";
             if (blockedReason.empty() && std::find(eligible.begin(), eligible.end(), card.type) == eligible.end()) blockedReason = "属性已达上限或不再适用";
-            if (card.type == EnhancementCardType::Enchantment && instance && instance->extraList && instance->extraList->GetWorn()) {
-                blockedReason = "请先卸下装备";
-            }
             for (const auto& requirement : card.requiredMaterials) {
                 auto* material = RE::TESForm::LookupByID<RE::TESBoundObject>(requirement.formID);
                 if (!material) {
@@ -2045,6 +2075,7 @@ namespace
 
     void RefreshEnhancementCards(const std::string_view a_equipmentID, const std::string_view a_requestID)
     {
+        WorkshopFeedback feedback;
         if (!GetForgeContext().active) {
             SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：附近没有可用的锻造设施，请靠近后重试。");
             return;
@@ -2091,6 +2122,7 @@ namespace
             // Record the paid result for the item even if UI selection changes.
             g_enhancementDrafts.Store(*key, std::move(cards), nextRefreshes);
         }
+        feedback.resultSound = "UIEnchantRecharge";
         SendRefreshResult(a_equipmentID, a_requestID, true, cost, "已支付 " + std::to_string(cost) + " 金币并刷新强化卡片。");
     }
 
@@ -2194,8 +2226,87 @@ namespace
         g_lowDurabilityWarnings.erase(a_key);
     }
 
+    // Holds only an instance key and slot ID across engine equip calls, never ExtraDataList pointers.
+    // Every engine call is immediate, non-forced and followed by a fresh inventory lookup.
+    class WorkshopEquipmentRestore
+    {
+    public:
+        explicit WorkshopEquipmentRestore(ItemKey a_key) : key_(a_key) {}
+        ~WorkshopEquipmentRestore() { if (!finished_) Restore(); }
+
+        bool Prepare()
+        {
+            const auto instance = ResolveEquipmentInstance(key_);
+            if (!instance || !instance->extraList) return false;
+            wasEquipped_ = instance->extraList->GetWorn();
+            if (!wasEquipped_) return true;
+            // A shared worn stack cannot safely represent the one item being enhanced.
+            if (instance->extraList->GetCount() > 1) return false;
+            if (auto* weapon = instance->item->As<RE::TESObjectWEAP>()) {
+                const auto left = instance->extraList->HasType<RE::ExtraWornLeft>();
+                const auto right = instance->extraList->HasType<RE::ExtraWorn>();
+                if (left && right) return false;
+                const auto* baseSlot = weapon->GetEquipSlot();
+                // Master EQUP records: RightHand 13F42, LeftHand 13F43, BothHands 13F45.
+                slotID_ = baseSlot && baseSlot->GetFormID() == 0x13F45 ? 0x13F45 : left ? 0x13F43 : 0x13F42;
+            }
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            auto* manager = RE::ActorEquipManager::GetSingleton();
+            auto* slot = slotID_ ? RE::TESForm::LookupByID<RE::BGSEquipSlot>(slotID_) : nullptr;
+            if (!player || !manager || (slotID_ && !slot)) return false;
+            manager->UnequipObject(player, instance->item, instance->extraList, 1, slot, false, false, false, true);
+            const auto refreshed = ResolveEquipmentInstance(key_);
+            return refreshed && refreshed->extraList && !refreshed->extraList->GetWorn();
+        }
+
+        bool Restore()
+        {
+            finished_ = true;
+            if (!wasEquipped_) return true;
+            const auto instance = ResolveEquipmentInstance(key_);
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            auto* manager = RE::ActorEquipManager::GetSingleton();
+            if (!instance || !instance->extraList || !player || !manager || GetDurability(key_).current <= 0) return false;
+            if (instance->extraList->GetWorn()) return MatchesSlot(instance->extraList);
+            // Do not displace something another mod equipped in the meantime.
+            if ((slotID_ == 0x13F42 || slotID_ == 0x13F45) && player->GetEquippedObject(false)) return false;
+            if ((slotID_ == 0x13F43 || slotID_ == 0x13F45) && player->GetEquippedObject(true)) return false;
+            if (const auto* armor = instance->item->As<RE::TESObjectARMO>()) {
+                if (armor->IsShield() && player->GetEquippedObject(true)) return false;
+                const auto mask = static_cast<std::uint32_t>(armor->GetSlotMask());
+                const auto inventory = player->GetInventory();
+                for (const auto& [other, entry] : inventory) {
+                    const auto* otherArmor = other ? other->As<RE::TESObjectARMO>() : nullptr;
+                    if (!otherArmor || entry.first <= 0 || !entry.second || !entry.second->extraLists ||
+                        !(mask & static_cast<std::uint32_t>(otherArmor->GetSlotMask()))) continue;
+                    for (const auto* extra : *entry.second->extraLists) if (extra && extra->GetWorn()) return false;
+                }
+            }
+            auto* slot = slotID_ ? RE::TESForm::LookupByID<RE::BGSEquipSlot>(slotID_) : nullptr;
+            if (slotID_ && !slot) return false;
+            manager->EquipObject(player, instance->item, instance->extraList, 1, slot, false, false, false, true);
+            const auto refreshed = ResolveEquipmentInstance(key_);
+            return refreshed && refreshed->extraList && MatchesSlot(refreshed->extraList);
+        }
+
+        void LeaveUnequipped() { finished_ = true; }
+
+    private:
+        bool MatchesSlot(RE::ExtraDataList* a_extra) const
+        {
+            if (slotID_ == 0x13F43) return a_extra->HasType<RE::ExtraWornLeft>();
+            if (slotID_ == 0x13F42 || slotID_ == 0x13F45) return a_extra->HasType<RE::ExtraWorn>();
+            return a_extra->GetWorn();
+        }
+        ItemKey key_;
+        RE::FormID slotID_ = 0;
+        bool wasEquipped_ = false;
+        bool finished_ = false;
+    };
+
     void ApplyEnhancementCard(const std::string_view a_equipmentID, const std::string_view a_cardID)
     {
+        WorkshopFeedback feedback;
         if (!GetForgeContext().active) {
             SendState("强化失败：附近没有可用的锻造设施，请靠近后重试。");
             return;
@@ -2236,7 +2347,7 @@ namespace
             SendState("强化失败：" + card.blockedReason + "。");
             return;
         }
-        const auto instance = ResolveEquipmentInstance(*key);
+        auto instance = ResolveEquipmentInstance(*key);
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!instance || !player) {
             SendState("强化失败：所选装备已不在背包中。");
@@ -2255,10 +2366,6 @@ namespace
             return;
         }
         if (card.type == EnhancementCardType::Enchantment) {
-            if (instance->extraList->GetWorn()) {
-                SendState("请先卸下该装备再替换附魔，替换后重新装备生效。本次未消耗材料。");
-                return;
-            }
             if (instance->extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(instance->item)) {
                 SendState("附魔替换失败：唯一物品与任务物品不能替换附魔。");
                 return;
@@ -2286,8 +2393,32 @@ namespace
             }
             materials.emplace_back(material, requirement.count);
         }
+        WorkshopEquipmentRestore equipment(*key);
+        if (!equipment.Prepare()) {
+            const auto restored = equipment.Restore();
+            SendState(restored ? "无法安全卸下目标装备，本次未扣费。若为同名堆叠装备，请先手动卸下并拆分。" :
+                "无法安全处理装备，本次未扣费；请检查背包和装备槽后重试。");
+            return;
+        }
+        instance = ResolveEquipmentInstance(*key);
+        const auto canPay = std::all_of(materials.begin(), materials.end(), [player](const auto& cost) {
+            return player->GetItemCount(cost.first) >= cost.second;
+        });
+        if (!instance || !instance->extraList || instance->extraList->GetWorn() || !GetForgeContext().active || !canPay) {
+            equipment.Restore();
+            SendState("装备或材料状态已变化，强化已取消，本次未扣费；请检查装备状态。");
+            return;
+        }
         for (const auto& [material, count] : materials) {
             player->RemoveItem(material, count, RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
+        }
+
+        instance = ResolveEquipmentInstance(*key);
+        if (!instance || !instance->extraList || instance->extraList->GetWorn()) {
+            for (const auto& [material, count] : materials) player->AddObjectToContainer(material, nullptr, count, nullptr);
+            equipment.Restore();
+            SendState("装备状态意外变化，已退还本次金币和材料；请检查装备状态。");
+            return;
         }
 
         const auto seed = static_cast<std::uint32_t>(
@@ -2307,14 +2438,17 @@ namespace
                 for (const auto& [material, count] : materials) {
                     player->AddObjectToContainer(material, nullptr, count, nullptr);
                 }
-                SendState("附魔替换失败：无法写入装备实例，消耗的材料已退还。");
+                equipment.Restore();
+                SendState("附魔替换失败：无法写入装备实例，金币和材料已退还；请检查装备状态。");
                 return;
             }
             ApplySuccessfulCard(*key, instance->item, card);
             SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
+            const auto restored = equipment.Restore();
             QueuePlayerRuntimeEffectsSync();
             const auto result = GetDurability(*key);
-            SetNextEnhancementDraft(*key, instance->item, instance->extraList);
+            if (const auto refreshed = ResolveEquipmentInstance(*key)) SetNextEnhancementDraft(*key, refreshed->item, refreshed->extraList);
+            else ClearEnhancementDraft(*key);
             logger::info(
                 "Enhancement succeeded for {:08X}:{:04X}; card={}, roll={}, chance={}, newLevel={}.",
                 key->baseFormID,
@@ -2326,10 +2460,13 @@ namespace
             const auto enchantmentResult = card.type == EnhancementCardType::Enchantment && replacementEnchantment ?
                                                "，附魔已替换为“" + EnchantmentLabel(replacementEnchantment) + "”" :
                                                std::string{};
-            SendState(itemName + "强化成功" + enchantmentResult + "，当前等级 +" + std::to_string(result.enhancementLevel) + "。");
+            feedback.resultSound = "UIEnchantingItemCreate";
+            SendState(itemName + "强化成功" + enchantmentResult + "，当前等级 +" + std::to_string(result.enhancementLevel) +
+                (restored ? "。" : "。未能恢复原装备槽位，请在背包中手动装备。"));
             return;
         }
 
+        equipment.LeaveUnequipped();
         const auto protectedItem = instance->extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(instance->item);
         if (protectedItem) {
             DowngradeProtectedEquipment(*key);
@@ -2344,7 +2481,7 @@ namespace
                 roll,
                 card.successChance,
                 result.enhancementLevel);
-            SendState(itemName + "强化失败，但受保护未被分解；强化等级降至 +" + std::to_string(result.enhancementLevel) + "。");
+            SendState(itemName + "强化失败，已卸下并保留；强化等级降至 +" + std::to_string(result.enhancementLevel) + "。");
             return;
         }
 
@@ -2376,6 +2513,7 @@ namespace
             roll,
             card.successChance,
             salvage.size());
+        feedback.resultSound = "UIEnchantingItemDestroy";
         SendState(itemName + "强化失败，装备已分解。" + (salvage.empty() ? "" : SalvageDescription(salvage)));
     }
 
@@ -2978,6 +3116,7 @@ namespace
                 { "lowDurabilityThreshold", g_settings.lowDurabilityThreshold },
                 { "weaponDisplaySeconds", g_settings.weaponDisplaySeconds },
                 { "enableLowDurabilityWarning", g_settings.enableLowDurabilityWarning },
+                { "enableWorkshopSounds", g_settings.enableWorkshopSounds },
                 { "allowEnchantedItemsToBreak", g_settings.allowEnchantedItemsToBreak }
             } },
             { "capturingHotkey", g_capturingHotkey },
@@ -3085,9 +3224,12 @@ namespace
                 g_settings.lowDurabilityThreshold = std::clamp(request.value("lowDurabilityThreshold", g_settings.lowDurabilityThreshold), 1U, 99U);
                 g_settings.weaponDisplaySeconds = std::clamp(request.value("weaponDisplaySeconds", g_settings.weaponDisplaySeconds), 0.5F, 10.0F);
                 g_settings.enableLowDurabilityWarning = request.value("enableLowDurabilityWarning", g_settings.enableLowDurabilityWarning);
+                g_settings.enableWorkshopSounds = request.value("enableWorkshopSounds", g_settings.enableWorkshopSounds);
                 g_settings.allowEnchantedItemsToBreak = request.value("allowEnchantedItemsToBreak", g_settings.allowEnchantedItemsToBreak);
                 WriteConfig();
                 SendState("配置已保存至 DurabilityManager.ini。");
+            } else if (type == "playWorkshopClick") {
+                if (g_panelVisible) PlayWorkshopClick();
             } else if (type == "repair") {
                 RepairEquipment(request.value("id", ""));
             } else if (type == "selectEquipment") {

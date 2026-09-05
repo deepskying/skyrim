@@ -67,6 +67,7 @@ export type Settings = {
   lowDurabilityThreshold: number;
   weaponDisplaySeconds: number;
   enableLowDurabilityWarning: boolean;
+  enableWorkshopSounds: boolean;
   allowEnchantedItemsToBreak: boolean;
 };
 
