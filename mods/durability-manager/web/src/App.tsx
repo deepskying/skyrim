@@ -3,23 +3,23 @@ import { demoState } from './demo';
 import type { EquipmentItem, MaterialRequirement, PanelState, Settings } from './types';
 import { EnhancementPage, MaterialList } from './EnhancementPage';
 import { normalizeCards } from './enhancement';
+import { createHudReceiver, type HudMessage } from './hud';
 
 type Tab = 'workshop' | 'settings';
-type HudMessage = { id: number; kind: 'weapon' | 'warning'; title: string; detail: string; durationMilliseconds: number; current?: number; maximum?: number };
 
 declare global {
   interface Window {
     DurabilityManager?: {
       receiveState: (next: PanelState) => void;
       setPanelVisible: (visible: boolean) => void;
-      showHud: (message: HudMessage) => void;
+      showHud: (message: unknown) => void;
     };
     durabilityManagerAction?: (data: string) => void;
   }
 }
 
 const emptyState: PanelState = {
-  version: '0.1.33',
+  version: '0.1.35',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, allowEnchantedItemsToBreak: true },
@@ -170,7 +170,10 @@ export function App() {
   const [hud, setHud] = useState<HudMessage>();
 
   useEffect(() => {
-    let hudTimer: number | undefined;
+    const hudReceiver = createHudReceiver(setHud, (id) => send('hudHidden', { id }), {
+      set: (callback, delay) => window.setTimeout(callback, delay),
+      clear: (id) => window.clearTimeout(id),
+    });
     window.DurabilityManager = {
       receiveState: (next) => {
         const normalized = normalizeState(next);
@@ -182,14 +185,10 @@ export function App() {
         setPanelVisible(visible);
         if (!visible) setEnhancingId(undefined);
       },
-      showHud: (message) => {
-        if (hudTimer) window.clearTimeout(hudTimer);
-        setHud(message);
-        hudTimer = window.setTimeout(() => { setHud(undefined); send('hudHidden', { id: message.id }); }, message.durationMilliseconds);
-      },
+      showHud: hudReceiver.receive,
     };
     send('ready', { version: emptyState.version });
-    return () => { if (hudTimer) window.clearTimeout(hudTimer); delete window.DurabilityManager; };
+    return () => { hudReceiver.dispose(); delete window.DurabilityManager; };
   }, []);
 
   const visibleEquipment = useMemo(() => {
@@ -218,7 +217,7 @@ export function App() {
     <header className="forge-header">
       <div className="brand"><span className="brand-rune">ᛏ</span><div><p>{state.forge.active ? `${state.forge.station} · EQUIPMENT WORKSHOP` : 'SKYRIM FORGE LEDGER'}</p><h1>{state.forge.active ? '装备工坊' : '装备耐久'}</h1></div></div>
       <nav className="tabs" aria-label="装备耐久分页"><button className={tab === 'workshop' ? 'active' : ''} onClick={() => { setTab('workshop'); setEnhancingId(undefined); }} type="button">⌁ 装备</button><button className={tab === 'settings' ? 'active' : ''} onClick={() => { setTab('settings'); setEnhancingId(undefined); }} type="button">⚙ 配置</button></nav>
-      <span className={`forge-context ${state.forge.active ? 'active' : ''}`}>{state.forge.active ? '⚒ 可修复与强化' : '按快捷键查看状态'}</span>
+      <span className={`forge-context ${state.forge.active ? 'active' : ''}`}>{state.forge.active ? `⚒ 附近：${state.forge.station}` : '附近无可用锻造设施'}</span>
       <button className="close" onClick={() => send('close')} title="关闭 (Esc)" type="button">×</button>
     </header>
 
@@ -233,7 +232,7 @@ export function App() {
         <div className="detail-bar"><i style={{ width: `${percentage(selected)}%` }} /></div>
         <section className="enchantment-info"><small>当前附魔</small><b>{selected.enchantment ?? '无'}</b>{!selected.enchantmentReplaceable && <span>此物品不可替换附魔</span>}</section>
         <section className="action-strip"><div className="repair-summary"><p>修复装备</p>{selected.current >= selected.maximum ? <small>耐久已满</small> : selected.repairMaterials.length ? <MaterialList materials={selected.repairMaterials} /> : <small>没有找到可用的锻造或强化配方</small>}</div><button disabled={!canRepair} onClick={() => send('repair', { id: selected.id })} type="button">{!state.forge.active ? '需锻造设施' : !selected.repairable ? '无法修复' : !hasRepairMaterials ? '材料不足' : '⚒ 修复'}</button></section>
-        {state.forge.active ? <section className="action-strip enhancement-entry"><div><p>卡片强化</p><small>进入独立页面，比较三种方案与材料代价；确认后才会消耗材料。</small></div><button disabled={selected.broken} onClick={() => setEnhancingId(selected.id)} type="button">{selected.broken ? '请先修复装备' : '✦ 进入强化'}</button></section> : <p className="forge-hint">使用锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，可在两分钟内于附近打开装备工坊。</p>}
+        {state.forge.active ? <section className="action-strip enhancement-entry"><div><p>卡片强化</p><small>已检测到附近的锻造设施，无需先操作工作台。进入强化页查看方案与材料代价。</small></div><button disabled={selected.broken} onClick={() => setEnhancingId(selected.id)} type="button">{selected.broken ? '请先修复装备' : '✦ 进入强化'}</button></section> : <p className="forge-hint">靠近锻造熔炉、冶炼熔炉、砂轮或护甲工作台后，重新打开面板即可直接修复或强化，无需先操作设施。</p>}
       </section> : <section className="detail-empty">选择一件装备以查看详情。</section>}
     </section> : <section className="settings-page">
       <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>界面与耐久提示</h2></div><span className="settings-status"><i />保存后立即生效</span></div>

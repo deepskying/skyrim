@@ -76,16 +76,17 @@ weapon equip / switch / `weaponDraw` animation
   -> show non-blocking HUD card with current / maximum durability
   -> if it is below the configured threshold, show the one-time low-durability warning
 
-activate forge
-  -> remember the workstation for two minutes while the player stays nearby
-  -> close the original crafting menu, then open PrismaUI with the panel hotkey
+open panel near a forge
+  -> scan loaded references within a 600-unit 3D radius for four crafting keywords
+  -> exclude disabled/deleted/unloaded facilities and separate interiors/worldspaces
+  -> enable workshop using the nearest eligible facility, without activation or timeout
   -> show all carried equipment and full selected-item details
   -> draft three eligible enhancement-card previews
   -> refresh consumes 80, 160, 240... gold and replaces all three cards
   -> user repairs, or enters the full-width enhancement page
   -> compare native before/after rows, select one card, review costs and failure risk
   -> explicit acknowledgement enables the confirm button (cancel costs nothing)
-  -> validate material inventory, outcome and limits again
+  -> revalidate nearby facilities, material inventory, outcome and limits again
   -> consume displayed materials and roll natively
   -> success: apply the bounded numeric result or selected instance enchantment, then increase rank
   -> failure: dismantle ordinary equipment, or downgrade protected equipment
@@ -113,3 +114,17 @@ Each card now includes `equipmentId` (the exact `baseFormID:uniqueID`) and `prev
 The full-width page only displays offers belonging to its selected instance. Review is local UI state: clicking a card or cancelling sends no mutation request. Confirmation requires an unchecked-by-default acknowledgement; changes to the item, card, costs or protection invalidate it. A synchronous submit guard suppresses repeated clicks until a new native state arrives. Leaving the page, hiding the panel, losing workshop access, or losing the item clears review. Native request names and payment-time validations remain unchanged. No Prisma view lifecycle, serialization version or draft persistence changes were made.
 
 Frontend helper regressions run with `node --test tests/*.test.mjs` from `web`. They cover malformed/null input, material gating, instance-bound cards, stale confirmations and protected-item failure wording. Browser demo verification covers page navigation, before/after tables, disabled confirmation, acknowledgement and cancellation. Real game testing is still required for native payment/outcomes, death/load and third-party enchantments.
+
+### Panel-open crash fix / HUD boundary (v0.1.34)
+
+The v0.1.33 crash at RVA `0x6C4A6` occurred in the native `GetGoldAmount` path called by `CollectState`, before that state reached `receiveState`. The bundled `BGSDefaultObjectManager::GetObject(DefaultObjectID)` treats an inline object array as a pointer in `RelocateMember<TESForm**>`; the shipped binary dereferenced `0x160000` as a TESForm. `PlayerGoldCount` now bypasses that helper via typed lookup of Gold001 and `GetItemCount`. Both state collection and refresh affordability use it, and refresh payment resolves the same fixed record. This is a plugin-local workaround, not a shared-library edit. No save cleanup or Prisma lifecycle change is required by this fix.
+
+`web/src/hud.ts` owns a pure message normalizer and a timer-backed receiver with injected display/acknowledgement/timer functions. Null/malformed messages are ignored before affecting an existing HUD. Valid uint32 IDs (including wrapped zero) and known kinds are required; text is sanitized, duration bounded to 500–10000 ms (default 3000), and invalid progress values become text-only messages. Message replacement/disposal invalidates previous callbacks, preventing an old timer from clearing a newer notification. `App` wires this receiver to the existing `showHud` bridge and disposes it during effect cleanup. No native bridge action names changed.
+
+`web/tests/hud.test.mjs` tests normalization and the actual receiver with deterministic timers, plus a source-level guard against reintroducing unsafe native gold calls. The source guard is not an engine test. Game acceptance: open/close the panel outside a forge, open it at a forge, compare the displayed gold with inventory, pay for one refresh and check the deducted amount, then repeat after death/load and verify weapon/low-durability HUD timeouts.
+
+### Nearby workshop access (v0.1.35)
+
+`GetForgeContext` now performs an on-demand `TES::ForEachReferenceInRange` traversal; it no longer stores a station handle, activation timestamp or expiring permission. Facilities use `CraftingSmithingForge`, `CraftingSmelter`, `CraftingSmithingSharpeningWheel` or `CraftingSmithingArmorTable`. References must be enabled, not deleted, have loaded 3D, belong to an attached cell and use a non-deleted/non-ignored base. `forge_access.h` checks finite squared distance <= 600² and spatial identity: same interior cell, or same non-null exterior worldspace (allowing adjacent cells). The nearest match supplies the existing `forge.active` / `forge.station` contract; no engine pointer is retained beyond traversal. Distance does not check occlusion or walkability, so a nearby same-cell facility behind a wall may qualify.
+
+The activation event sink and notification are removed. State collection and native action validation both query current surroundings; there is no background polling. Losing access clears forge selection but preserves item-owned drafts. The frontend already switches operation availability on `forge.active`, and now describes proximity instead of prior interaction. The normal focused panel pauses the game; after moving closer, reopening refreshes access. Tests cover interior/exterior separation, different worldspaces, adjacent cells, range edges, unavailable references and invalid distances, plus source guards for activation removal and pre-payment checks. Native loaded-reference discovery still requires game testing.

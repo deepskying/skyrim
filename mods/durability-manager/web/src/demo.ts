@@ -1,9 +1,9 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.33',
+  version: '0.1.35',
   capturingHotkey: false,
-  message: '锻造熔炉 · 装备工坊。选择装备后查看其完整状态。',
+  message: '已检测到附近的锻造熔炉，可直接选择装备进行修复或强化。',
   settings: {
     hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false },
     lowDurabilityThreshold: 30,

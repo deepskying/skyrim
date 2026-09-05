@@ -4,6 +4,7 @@
 #include "enhancement_drafts.h"
 #include "enchantment_ranking.h"
 #include "enchantment_cache.h"
+#include "forge_access.h"
 
 #include <nlohmann/json.hpp>
 
@@ -135,9 +136,6 @@ namespace
     std::uint64_t g_stateEpoch = 0;
     std::uint64_t g_armorHitSequence = 0;
 
-    RE::ObjectRefHandle g_forgeStation;
-    std::string g_forgeStationName;
-    std::chrono::steady_clock::time_point g_forgeActivatedAt{};
     std::optional<ItemKey> g_forgeSelectedItem;
     enhancement::DraftLedger<ItemKey, EnhancementCardState, ItemKeyHash> g_enhancementDrafts;
     std::uint64_t g_cardSequence = 0;
@@ -160,9 +158,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.33";
-    constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
-    constexpr float kForgeContextMaximumDistance = 600.0F;
+    constexpr std::string_view kPluginVersion = "0.1.35";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -581,49 +577,46 @@ namespace
     void ClearForgeContext()
     {
         std::scoped_lock lock(g_forgeLock);
-        g_forgeStation.reset();
-        g_forgeStationName.clear();
-        g_forgeActivatedAt = {};
         g_forgeSelectedItem.reset();
-        // Leaving a workstation changes access, not the item-owned draft.
+        // Leaving the vicinity changes access, not the item-owned draft.
     }
 
     [[nodiscard]] ForgeContext GetForgeContext()
     {
-        RE::ObjectRefHandle stationHandle;
-        std::string stationName;
-        std::chrono::steady_clock::time_point activatedAt;
-        {
-            std::scoped_lock lock(g_forgeLock);
-            stationHandle = g_forgeStation;
-            stationName = g_forgeStationName;
-            activatedAt = g_forgeActivatedAt;
-        }
-
-        const auto now = std::chrono::steady_clock::now();
-        auto station = stationHandle.get();
         auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!station || !player || activatedAt == std::chrono::steady_clock::time_point{} ||
-            now - activatedAt > kForgeContextLifetime || player->GetDistance(station.get()) > kForgeContextMaximumDistance) {
+        auto* cell = player ? player->GetParentCell() : nullptr;
+        auto* world = player ? player->GetWorldspace() : nullptr;
+        auto* tes = RE::TES::GetSingleton();
+        if (!player || !cell || !cell->IsAttached() || !tes) {
             ClearForgeContext();
             return {};
         }
-        return { true, std::move(stationName) };
-    }
-
-    void ActivateForgeContext(RE::TESObjectREFR* a_station, std::string a_stationName)
-    {
-        if (!a_station || a_stationName.empty()) return;
-        {
-            std::scoped_lock lock(g_forgeLock);
-            g_forgeStation = a_station->GetHandle();
-            g_forgeStationName = a_stationName;
-            g_forgeActivatedAt = std::chrono::steady_clock::now();
-        }
-        const auto notification = a_stationName + "已启用装备工坊；关闭原菜单后按面板快捷键打开。";
-        RE::DebugNotification(notification.c_str());
-        logger::info("Equipment workshop context activated at {}.", a_stationName);
-        if (g_panelVisible) SendState("已进入" + a_stationName + "的装备工坊范围。");
+        const workshop::Location playerLocation{ cell->GetFormID(), world ? world->GetFormID() : 0U, cell->IsInteriorCell() };
+        const auto position = player->GetPosition();
+        auto nearestDistance = workshop::kRadius * workshop::kRadius;
+        ForgeContext result;
+        // Scan loaded local references on demand, not the global form database.
+        // Exterior grid traversal includes adjacent cells at the radius boundary.
+        // No raw reference is kept after traversal; every action checks again.
+        tes->ForEachReferenceInRange(player, workshop::kRadius, [&](RE::TESObjectREFR* station) {
+            if (!station || station->IsDeleted() || station->IsDisabled() || !station->Is3DLoaded()) return RE::BSContainer::ForEachResult::kContinue;
+            auto* stationCell = station->GetParentCell();
+            if (!stationCell || !stationCell->IsAttached()) return RE::BSContainer::ForEachResult::kContinue;
+            auto* stationWorld = station->GetWorldspace();
+            const workshop::Location stationLocation{ stationCell->GetFormID(), stationWorld ? stationWorld->GetFormID() : 0U, stationCell->IsInteriorCell() };
+            const auto distance = position.GetSquaredDistance(station->GetPosition());
+            if (!workshop::IsNearby(distance, playerLocation, stationLocation, true) || distance > nearestDistance) return RE::BSContainer::ForEachResult::kContinue;
+            auto* base = station->GetBaseObject();
+            if (!base || base->IsDeleted() || base->IsIgnored()) return RE::BSContainer::ForEachResult::kContinue;
+            auto name = ForgeStationName(base);
+            if (!name.empty()) {
+                nearestDistance = distance;
+                result = { true, std::move(name) };
+            }
+            return RE::BSContainer::ForEachResult::kContinue;
+        });
+        if (!result.active) ClearForgeContext();
+        return result;
     }
 
     void UpdateViewVisibility()
@@ -784,7 +777,7 @@ namespace
     void RepairEquipment(const std::string_view a_equipmentID)
     {
         if (!GetForgeContext().active) {
-            SendState("修复失败：请先使用附近的锻造熔炉、冶炼熔炉、砂轮或护甲工作台。");
+            SendState("修复失败：请靠近锻造熔炉、冶炼熔炉、砂轮或护甲工作台。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -1995,6 +1988,21 @@ namespace
         return result;
     }
 
+    [[nodiscard]] RE::TESObjectMISC* GoldRecord()
+    {
+        return RE::TESForm::LookupByID<RE::TESObjectMISC>(0x0000000FU);
+    }
+
+    [[nodiscard]] std::int32_t PlayerGoldCount(RE::PlayerCharacter* a_player)
+    {
+        if (!a_player) return 0;
+        // Avoid Actor::GetGoldAmount: this bundled CommonLib's DefaultObjectID
+        // lookup misinterprets the inline default-object array as a pointer.
+        // Gold001 is a fixed master record; count the same record we remove.
+        auto* gold = GoldRecord();
+        return gold ? (std::max)(0, a_player->GetItemCount(gold)) : 0;
+    }
+
     [[nodiscard]] std::uint32_t CardRefreshCost(const std::uint32_t a_refreshes)
     {
         return enhancement::RefreshCost(a_refreshes);
@@ -2031,7 +2039,7 @@ namespace
     void RefreshEnhancementCards(const std::string_view a_equipmentID)
     {
         if (!GetForgeContext().active) {
-            SendState("刷新失败：请先使用附近的锻造设施。");
+            SendState("刷新失败：附近没有可用的锻造设施，请靠近后重试。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -2062,9 +2070,9 @@ namespace
         }
 
         auto* player = RE::PlayerCharacter::GetSingleton();
-        auto* gold = RE::TESForm::LookupByID<RE::TESBoundObject>(0x0000000FU);
+        auto* gold = GoldRecord();
         const auto cost = CardRefreshCost(refreshes);
-        if (!player || !gold || player->GetGoldAmount() < static_cast<std::int32_t>(cost)) {
+        if (!player || !gold || PlayerGoldCount(player) < static_cast<std::int32_t>(cost)) {
             SendState("刷新失败：需要 " + std::to_string(cost) + " 金币。");
             return;
         }
@@ -2182,7 +2190,7 @@ namespace
     void ApplyEnhancementCard(const std::string_view a_equipmentID, const std::string_view a_cardID)
     {
         if (!GetForgeContext().active) {
-            SendState("强化失败：请先使用附近的锻造设施。");
+            SendState("强化失败：附近没有可用的锻造设施，请靠近后重试。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -2643,7 +2651,7 @@ namespace
             blocked ? "Blocked physical hit" : "Incoming physical hit");
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESActivateEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -2658,20 +2666,9 @@ namespace
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESEquipEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESHitEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
-            if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESActivateEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESContainerChangedEvent>(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
-        }
-
-        RE::BSEventNotifyControl ProcessEvent(const RE::TESActivateEvent* a_event, RE::BSTEventSource<RE::TESActivateEvent>*) override
-        {
-            auto* player = RE::PlayerCharacter::GetSingleton();
-            auto* station = a_event ? a_event->objectActivated.get() : nullptr;
-            if (!a_event || !player || a_event->actionRef.get() != player || !station) return RE::BSEventNotifyControl::kContinue;
-            auto stationName = ForgeStationName(station->GetBaseObject());
-            if (!stationName.empty()) ActivateForgeContext(station, std::move(stationName));
-            return RE::BSEventNotifyControl::kContinue;
         }
 
         RE::BSEventNotifyControl ProcessEvent(const RE::TESEquipEvent* a_event, RE::BSTEventSource<RE::TESEquipEvent>*) override
@@ -2964,7 +2961,7 @@ namespace
             { "forge", {
                 { "active", forge.active },
                 { "station", forge.station },
-                { "gold", player ? (std::max)(0, player->GetGoldAmount()) : 0 },
+                { "gold", PlayerGoldCount(player) },
                 { "refreshCost", forge.active ? CardRefreshCost(refreshes) : 0 },
                 { "refreshes", refreshes },
                 { "cards", forge.active ? EnhancementCardsJson() : json::array() }

@@ -2,6 +2,7 @@
 #include "enhancement_drafts.h"
 #include "enchantment_ranking.h"
 #include "enchantment_cache_tests.h"
+#include "forge_access.h"
 #include <fstream>
 #include <iostream>
 
@@ -10,6 +11,23 @@ int main(int argc, char** argv)
     const auto require = [](bool condition) { if (!condition) throw std::runtime_error("Rule test failed"); };
     try {
         TestEnchantmentCache();
+        const workshop::Location outside{1, 10, false}, adjacent{2, 10, false}, otherWorld{3, 11, false};
+        const workshop::Location inside{4, 0, true}, otherRoom{5, 0, true};
+        require(workshop::IsNearby(0, outside, outside, true));
+        require(workshop::IsNearby(600.0F * 600.0F, outside, adjacent, true));
+        require(!workshop::IsNearby(600.1F * 600.1F, outside, adjacent, true));
+        require(!workshop::IsNearby(1, outside, otherWorld, true));
+        require(workshop::IsNearby(100, inside, inside, true));
+        require(!workshop::IsNearby(1, inside, otherRoom, true));
+        require(!workshop::IsNearby(1, inside, outside, true));
+        require(!workshop::IsNearby(1, outside, inside, true));
+        require(!workshop::IsNearby(1, outside, outside, false));
+        require(!workshop::IsNearby(1, {}, outside, true));
+        require(!workshop::IsNearby(1, outside, {}, true));
+        require(!workshop::IsNearby(1, {1, 0, false}, {2, 0, false}, true));
+        require(!workshop::IsNearby(-1, outside, outside, true));
+        require(!workshop::IsNearby(std::numeric_limits<float>::infinity(), outside, outside, true));
+        require(!workshop::IsNearby(std::numeric_limits<float>::quiet_NaN(), outside, outside, true));
         enhancement::Rules rules;
         // No-magnitude/no-duration flags prevent irrelevant record fields from
         // inflating utility effects; hidden helpers contribute no score.
@@ -112,7 +130,7 @@ int main(int argc, char** argv)
         const auto packaged = enhancement::ParseRules(nlohmann::json::parse(file));
         require(packaged.ranges == rules.ranges && packaged.catalysts == rules.catalysts);
         require(packaged.growth == rules.growth && packaged.lateMaterials == rules.lateMaterials);
-        std::cout << "Rules tests passed: bounded compatibility cache (5000 queries / 20 scans), utility ranking/tiers, cap boundaries, drafts/fees, cost/configuration validation.\n";
+        std::cout << "Rules tests passed: nearby forge access, bounded compatibility cache (5000 queries / 20 scans), utility ranking/tiers, cap boundaries, drafts/fees, cost/configuration validation.\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
