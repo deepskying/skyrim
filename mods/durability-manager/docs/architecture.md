@@ -9,11 +9,11 @@
 | Current forge station, selected equipment and three drafted cards | Native plugin | Session only |
 | UI selection and active tab | Prisma view | Session only |
 
-Durability and reinforcement must be recorded against a stable **item-instance identity**, never solely a base FormID. A base FormID is shared by every steel sword, while an enchanted sword, a renamed sword, and a unique sword may need distinct state. The current persisted record is versioned and consists of `ItemKey`, reinforcement rank, durability values, permanent numeric card results, and runtime bridge state. The `ItemKey` is backed by Skyrim extra-data / a generated persistent ID, with form-ID resolution during co-save load. A future replacement-enchantment reference requires an explicit record migration rather than silently changing this layout.
+Durability and reinforcement must be recorded against a stable **item-instance identity**, never solely a base FormID. A base FormID is shared by every steel sword, while an enchanted sword, a renamed sword, and a unique sword may need distinct state. The current persisted record is versioned and consists of `ItemKey`, reinforcement rank, durability values, permanent numeric card results, and runtime bridge state. The `ItemKey` is backed by Skyrim extra-data / a generated persistent ID, with form-ID resolution during co-save load. Replacement enchantments are written to Skyrim's native per-instance `ExtraEnchantment`, so Skyrim persists the selected form with the item and the co-save layout does not need to duplicate that reference.
 
 ## Card contract
 
-Each generated card is data, never frontend behaviour: `{ type, tier, rolledValue, successChance, requiredMaterials }`. The seven initial types are `performance`, `weight`, `speed`, `durability`, `wear`, `charge`, and `enchantment`. Type determines eligibility and hard limits; tier (`微弱`, `标准`, `强效`, `极强`) determines the random-value subrange and the card border treatment. The native side validates the item, resource counts, success roll, and every stat limit before applying a card.
+Each generated card is data, never frontend behaviour: `{ type, tier, rolledValue, enchantmentFormID, enchantmentCharge, enchantmentPower, successChance, requiredMaterials }`. The seven initial types are `performance`, `weight`, `speed`, `durability`, `wear`, `charge`, and `enchantment`. Type determines eligibility and hard limits; tier (`微弱`, `标准`, `强效`, `极强`) determines the random-value subrange and the card border treatment. Enchantment offers resolve a concrete compatible loaded form when drafted. The native side validates the item, resource counts, selected enchantment, success roll, and every stat limit before applying a card.
 
 ## Gameplay rules
 
@@ -33,6 +33,7 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 - Weight reduction is summed from matching `ExtraUniqueID` instances and subtracted from freshly recalculated player inventory and worn-armor weight caches. Container and equipment events queue a next-frame resynchronization, avoiding shared base-form edits.
 - Attack speed is synchronized per hand through `weaponSpeedMult` and `leftWeaponSpeedMult`. The bridge remembers its previous target and removes only its own prior bonus when the graph has not been externally changed; a changed graph value is accepted as the new baseline. The saved card value is capped at +1.00.
 - Reinforcement rank is written to the instance's `ExtraTextDisplayData` as `baseline +N`. The bridge persists the player-authored baseline and its last applied value, so upgrades replace the suffix, external renames become a new baseline, and `+0` restores the name. Quest/message-owned display data is never forcibly replaced.
+- Enchantment replacement scans the loaded `EnchantmentItem` forms, which makes it automatically compatible with named Summermyst and other mod enchantment variants. Weapon-contact, staff, and apparel constant effects are kept separate; apparel `wornRestrictions` are matched against item keywords. Offers choose progressively higher-ranked native variants by card tier and reinforcement level, then store the exact form in the session-only card. Success writes only `ExtraEnchantment` on that item instance and rebases/reapplies its saved charge bonus. Shared enchantment forms are never mutated.
 - Co-save record version 3 adds the display-name bridge strings and initialized flag. Version-1 and version-2 records are accepted as explicit migration paths; their current native data becomes the relevant bridge baseline before saved effects are synchronized.
 - HUD warnings fire on a threshold crossing with a cooldown, rather than once per hit.
 
@@ -76,7 +77,7 @@ activate forge
   -> user repairs or selects one card
   -> validate material inventory, outcome and limits again
   -> consume displayed materials and roll natively
-  -> success: apply the bounded numeric result and increase rank
+  -> success: apply the bounded numeric result or selected instance enchantment, then increase rank
   -> failure: dismantle ordinary equipment, or downgrade protected equipment
   -> refresh panel state; persist the changed instance in the next co-save
 ```

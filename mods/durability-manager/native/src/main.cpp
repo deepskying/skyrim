@@ -98,6 +98,9 @@ namespace
         EnhancementCardType type{};
         EnhancementTier tier{};
         float rolledValue = 0.0F;
+        RE::FormID enchantmentFormID = 0;
+        std::uint16_t enchantmentCharge = 0;
+        float enchantmentPower = 0.0F;
         std::uint32_t successChance = 100;
         std::vector<MaterialRequirementState> requiredMaterials;
         std::string blockedReason;
@@ -138,7 +141,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.27";
+    constexpr std::string_view kPluginVersion = "0.1.28";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
     constexpr std::uint32_t kBaseCardRefreshCost = 80;
@@ -825,6 +828,209 @@ namespace
         return enchantable->amountofEnchantment;
     }
 
+    [[nodiscard]] bool MatchesWornRestrictionList(
+        RE::TESBoundObject* a_item,
+        RE::BGSListForm* a_restrictions,
+        const std::uint32_t a_depth = 0)
+    {
+        if (!a_item || !a_restrictions || a_depth > 4) return false;
+        bool matches = false;
+        a_restrictions->ForEachForm([&](RE::TESForm* a_form) {
+            if (!a_form || matches) return RE::BSContainer::ForEachResult::kStop;
+            if (a_form == a_item) {
+                matches = true;
+            } else if (auto* keyword = a_form->As<RE::BGSKeyword>()) {
+                if (const auto* weapon = a_item->As<RE::TESObjectWEAP>()) matches = weapon->HasKeyword(keyword);
+                else if (const auto* armor = a_item->As<RE::TESObjectARMO>()) matches = armor->HasKeyword(keyword);
+            } else if (auto* nested = a_form->As<RE::BGSListForm>()) {
+                matches = MatchesWornRestrictionList(a_item, nested, a_depth + 1U);
+            }
+            return matches ? RE::BSContainer::ForEachResult::kStop : RE::BSContainer::ForEachResult::kContinue;
+        });
+        return matches;
+    }
+
+    [[nodiscard]] bool IsCompatibleEnchantment(
+        RE::TESBoundObject* a_item,
+        RE::EnchantmentItem* a_enchantment)
+    {
+        if (!a_item || !a_enchantment || a_enchantment->IsDeleted() || a_enchantment->IsIgnored() ||
+            !a_enchantment->GetFile() || a_enchantment->effects.empty()) {
+            return false;
+        }
+        const auto* name = a_enchantment->GetFullName();
+        if (!name || !name[0]) return false;
+
+        if (const auto* weapon = a_item->As<RE::TESObjectWEAP>()) {
+            if (weapon->IsStaff()) {
+                return a_enchantment->GetSpellType() == RE::MagicSystem::SpellType::kStaffEnchantment &&
+                       a_enchantment->GetCastingType() != RE::MagicSystem::CastingType::kConstantEffect;
+            }
+            return a_enchantment->GetSpellType() == RE::MagicSystem::SpellType::kEnchantment &&
+                   a_enchantment->GetCastingType() == RE::MagicSystem::CastingType::kFireAndForget &&
+                   a_enchantment->GetDelivery() == RE::MagicSystem::Delivery::kTouch;
+        }
+
+        if (a_item->As<RE::TESObjectARMO>()) {
+            if (a_enchantment->GetSpellType() != RE::MagicSystem::SpellType::kEnchantment ||
+                a_enchantment->GetCastingType() != RE::MagicSystem::CastingType::kConstantEffect ||
+                a_enchantment->GetDelivery() != RE::MagicSystem::Delivery::kSelf) {
+                return false;
+            }
+            // A null restriction list is treated as an intentionally universal
+            // apparel enchantment. When a list exists, at least one item keyword
+            // (or nested restriction list entry) must match.
+            return !a_enchantment->data.wornRestrictions ||
+                   MatchesWornRestrictionList(a_item, a_enchantment->data.wornRestrictions);
+        }
+        return false;
+    }
+
+    [[nodiscard]] float EnchantmentPower(const RE::EnchantmentItem* a_enchantment)
+    {
+        if (!a_enchantment) return 0.0F;
+        double total = 0.0;
+        for (const auto* effect : a_enchantment->effects) {
+            if (!effect || !effect->baseEffect) continue;
+            const auto magnitude = (std::max)(1.0, std::abs(static_cast<double>(effect->effectItem.magnitude)));
+            const auto duration = 1.0 + static_cast<double>((std::min)(effect->effectItem.duration, 300U)) / 30.0;
+            const auto baseCost = (std::max)(0.1, std::abs(static_cast<double>(effect->baseEffect->data.baseCost)));
+            total += magnitude * duration * std::sqrt(baseCost);
+        }
+        return static_cast<float>(std::clamp(total, 0.0, 100000000.0));
+    }
+
+    [[nodiscard]] std::string EnchantmentEffectSummary(const RE::EnchantmentItem* a_enchantment)
+    {
+        if (!a_enchantment) return {};
+        std::size_t effectCount = 0;
+        float firstMagnitude = 0.0F;
+        std::uint32_t firstDuration = 0;
+        for (const auto* effect : a_enchantment->effects) {
+            if (!effect || !effect->baseEffect) continue;
+            if (effectCount == 0) {
+                firstMagnitude = std::abs(effect->effectItem.magnitude);
+                firstDuration = effect->effectItem.duration;
+            }
+            ++effectCount;
+        }
+        if (effectCount == 0) return "效果由附魔本身决定";
+        if (effectCount > 1) return std::to_string(effectCount) + " 项原生效果";
+        const auto magnitudeText = [firstMagnitude] {
+            std::ostringstream stream;
+            stream << std::fixed << std::setprecision(firstMagnitude < 10.0F ? 1 : 0) << firstMagnitude;
+            return stream.str();
+        }();
+        if (firstMagnitude > 0.001F && firstDuration > 0) {
+            return "强度 " + magnitudeText + " / " + std::to_string(firstDuration) + " 秒";
+        }
+        if (firstMagnitude > 0.001F) return "强度 " + magnitudeText;
+        if (firstDuration > 0) return "持续 " + std::to_string(firstDuration) + " 秒";
+        return "原生效果";
+    }
+
+    struct EnchantmentOffer
+    {
+        RE::EnchantmentItem* enchantment = nullptr;
+        float power = 0.0F;
+        std::uint16_t charge = 0;
+    };
+
+    [[nodiscard]] std::vector<RE::EnchantmentItem*> CompatibleEnchantments(
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList)
+    {
+        std::vector<RE::EnchantmentItem*> result;
+        auto* dataHandler = RE::TESDataHandler::GetSingleton();
+        if (!dataHandler || !a_item) return result;
+        const auto* current = InstanceEnchantment(a_item, a_extraList);
+        for (auto* enchantment : dataHandler->GetFormArray<RE::EnchantmentItem>()) {
+            if (!enchantment || enchantment == current || !IsCompatibleEnchantment(a_item, enchantment)) continue;
+            result.push_back(enchantment);
+        }
+        return result;
+    }
+
+    [[nodiscard]] std::optional<EnchantmentOffer> RollEnchantmentOffer(
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList,
+        const EnhancementTier a_tier,
+        const DurabilitySnapshot& a_durability,
+        std::mt19937& a_random)
+    {
+        auto candidates = CompatibleEnchantments(a_item, a_extraList);
+        if (candidates.empty()) return std::nullopt;
+        std::shuffle(candidates.begin(), candidates.end(), a_random);
+        std::stable_sort(candidates.begin(), candidates.end(), [](const auto* a_left, const auto* a_right) {
+            return EnchantmentPower(a_left) < EnchantmentPower(a_right);
+        });
+
+        static constexpr std::array<float, 4> tierCenters{ 0.14F, 0.39F, 0.66F, 0.88F };
+        const auto tierIndex = static_cast<std::size_t>(a_tier);
+        const auto levelBias = (std::min)(0.10F, static_cast<float>((std::min)(a_durability.enhancementLevel, 50U)) * 0.002F);
+        const auto jitter = std::uniform_real_distribution<float>(-0.10F, 0.10F)(a_random);
+        const auto percentile = std::clamp(tierCenters[tierIndex] + levelBias + jitter, 0.0F, 1.0F);
+        const auto candidateIndex = static_cast<std::size_t>(std::lround(
+            percentile * static_cast<float>(candidates.size() - 1U)));
+        auto* selected = candidates[candidateIndex];
+
+        std::uint16_t charge = 0;
+        if (a_item->As<RE::TESObjectWEAP>()) {
+            static constexpr std::array<std::uint32_t, 4> baseCharge{ 1200U, 1800U, 2600U, 3600U };
+            const auto chargeScale = 1.0 + static_cast<double>((std::min)(a_durability.enhancementLevel, 30U)) * 0.02;
+            charge = static_cast<std::uint16_t>(std::clamp<long long>(
+                std::llround(static_cast<double>(baseCharge[tierIndex]) * chargeScale),
+                1LL,
+                static_cast<long long>((std::numeric_limits<std::uint16_t>::max)())));
+        }
+        return EnchantmentOffer{ selected, EnchantmentPower(selected), charge };
+    }
+
+    bool ApplyReplacementEnchantment(
+        const ItemKey& a_key,
+        RE::TESBoundObject* a_item,
+        RE::ExtraDataList* a_extraList,
+        RE::EnchantmentItem* a_enchantment,
+        const std::uint16_t a_charge)
+    {
+        if (!a_extraList || !IsCompatibleEnchantment(a_item, a_enchantment) ||
+            InstanceEnchantment(a_item, a_extraList) == a_enchantment) {
+            return false;
+        }
+        if (auto* extraEnchantment = a_extraList->GetByType<RE::ExtraEnchantment>()) {
+            extraEnchantment->enchantment = a_enchantment;
+            extraEnchantment->charge = a_item->As<RE::TESObjectWEAP>() ? (std::max)(a_charge, std::uint16_t{ 1 }) : 0;
+            extraEnchantment->removeOnUnequip = false;
+        } else {
+            a_extraList->Add(new RE::ExtraEnchantment(
+                a_enchantment,
+                a_item->As<RE::TESObjectWEAP>() ? (std::max)(a_charge, std::uint16_t{ 1 }) : 0));
+        }
+        if (a_item->As<RE::TESObjectWEAP>()) {
+            if (auto* extraCharge = a_extraList->GetByType<RE::ExtraCharge>()) {
+                extraCharge->charge = static_cast<float>((std::max)(a_charge, std::uint16_t{ 1 }));
+            } else {
+                auto* createdCharge = new RE::ExtraCharge();
+                createdCharge->charge = static_cast<float>((std::max)(a_charge, std::uint16_t{ 1 }));
+                a_extraList->Add(createdCharge);
+            }
+        }
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            auto& durability = g_durability[a_key];
+            durability.chargeBridgeInitialized = false;
+            durability.chargeBaselineCapacity = 0;
+            durability.chargeAppliedCapacity = 0;
+        }
+        logger::info(
+            "Replaced enchantment for {:08X}:{:04X} with {:08X}; charge={}.",
+            a_key.baseFormID,
+            a_key.uniqueID,
+            a_enchantment->GetFormID(),
+            a_charge);
+        return true;
+    }
+
     bool SyncPerformanceRuntimeEffect(
         const ItemKey& a_key,
         RE::TESBoundObject* a_item,
@@ -1256,7 +1462,7 @@ namespace
         case EnhancementCardType::Durability: return "永久提高该装备实例的耐久上限。";
         case EnhancementCardType::Wear: return "降低每次战斗动作造成的耐久损耗。";
         case EnhancementCardType::Charge: return "提高已附魔武器可容纳的充能。";
-        case EnhancementCardType::Enchantment: return "替换当前附魔；唯一物品与任务物品不会抽到此卡。";
+        case EnhancementCardType::Enchantment: return "从当前加载的原版与模组附魔中选择兼容效果；唯一物品与任务物品不会抽到此卡。";
         }
         return {};
     }
@@ -1283,8 +1489,14 @@ namespace
             return "耐久损耗 -" + FixedDecimal(a_card.rolledValue * 100.0F, 0) + "%";
         case EnhancementCardType::Charge:
             return "附魔充能 +" + FixedDecimal(a_card.rolledValue * 100.0F, 0) + "%";
-        case EnhancementCardType::Enchantment:
-            return "随机附魔替换";
+        case EnhancementCardType::Enchantment: {
+            const auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(a_card.enchantmentFormID);
+            const auto* name = enchantment ? enchantment->GetFullName() : nullptr;
+            if (!name || !name[0]) return "附魔候选已失效";
+            auto result = std::string("替换为：") + name + " · " + EnchantmentEffectSummary(enchantment);
+            if (a_card.enchantmentCharge > 0) result += " · 基础充能 " + std::to_string(a_card.enchantmentCharge);
+            return result;
+        }
         }
         return {};
     }
@@ -1434,7 +1646,9 @@ namespace
         types.push_back(EnhancementCardType::Wear);
         if (weapon && InstanceChargeCapacity(a_item, a_extraList)) types.push_back(EnhancementCardType::Charge);
         const auto protectedItem = IsProtectedUniqueItem(a_item) || (a_extraList && a_extraList->HasQuestObjectAlias());
-        if (!protectedItem) types.push_back(EnhancementCardType::Enchantment);
+        if (!protectedItem && !CompatibleEnchantments(a_item, a_extraList).empty()) {
+            types.push_back(EnhancementCardType::Enchantment);
+        }
         return types;
     }
 
@@ -1471,6 +1685,16 @@ namespace
             card.type = eligibleTypes[index];
             card.tier = RollEnhancementTier(random);
             card.rolledValue = RollCardValue(card.type, card.tier, durability, a_item, random, card.blockedReason);
+            if (card.type == EnhancementCardType::Enchantment) {
+                const auto offer = RollEnchantmentOffer(a_item, a_extraList, card.tier, durability, random);
+                if (!offer) {
+                    card.blockedReason = "没有找到适用于该装备的其他附魔";
+                } else {
+                    card.enchantmentFormID = offer->enchantment->GetFormID();
+                    card.enchantmentCharge = offer->charge;
+                    card.enchantmentPower = offer->power;
+                }
+            }
             static constexpr std::array<std::uint32_t, 4> baseSuccess{ 96, 88, 75, 60 };
             const auto levelPenalty = (std::min)(45U, durability.enhancementLevel > 22U ? 45U : durability.enhancementLevel * 2U);
             card.successChance = (std::max)(10U, baseSuccess[static_cast<std::size_t>(card.tier)] - levelPenalty);
@@ -1478,7 +1702,6 @@ namespace
             if (card.requiredMaterials.empty() && card.blockedReason.empty()) card.blockedReason = "没有可用的强化材料";
             if (a_key.uniqueID == 0 && card.blockedReason.empty()) card.blockedReason = "请先装备一次以建立独立实例";
             if (durability.current <= 0.0F && card.blockedReason.empty()) card.blockedReason = "请先修复装备";
-            if (card.type == EnhancementCardType::Enchantment && card.blockedReason.empty()) card.blockedReason = "附魔替换尚未启用";
             cards.push_back(std::move(card));
         }
         logger::info("Generated {} enhancement cards for {:08X}:{:04X} after {} paid refreshes.", cards.size(), a_key.baseFormID, a_key.uniqueID, a_refreshes);
@@ -1741,11 +1964,6 @@ namespace
             SendState("强化失败：" + card.blockedReason + "。");
             return;
         }
-        if (card.type == EnhancementCardType::Enchantment) {
-            SendState("附魔替换将在建立兼容附魔池后启用，本次没有消耗材料。");
-            return;
-        }
-
         const auto instance = ResolveEquipmentInstance(*key);
         auto* player = RE::PlayerCharacter::GetSingleton();
         if (!instance || !player) {
@@ -1756,6 +1974,21 @@ namespace
         if (durability.current <= 0.0F) {
             SendState("强化失败：请先修复已经损坏的装备。");
             return;
+        }
+
+        RE::EnchantmentItem* replacementEnchantment = nullptr;
+        if (card.type == EnhancementCardType::Enchantment) {
+            if (instance->extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(instance->item)) {
+                SendState("附魔替换失败：唯一物品与任务物品不能替换附魔。");
+                return;
+            }
+            replacementEnchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(card.enchantmentFormID);
+            if (!replacementEnchantment ||
+                !IsCompatibleEnchantment(instance->item, replacementEnchantment) ||
+                InstanceEnchantment(instance->item, instance->extraList) == replacementEnchantment) {
+                SendState("附魔替换失败：卡片中的附魔已失效或不再适用于该装备，请刷新卡片。");
+                return;
+            }
         }
 
         std::vector<std::pair<RE::TESBoundObject*, std::int32_t>> materials;
@@ -1783,6 +2016,19 @@ namespace
         const auto roll = std::uniform_int_distribution<std::uint32_t>(1, 100)(random);
         const auto itemName = InstanceDisplayName(instance->item, instance->extraList);
         if (roll <= card.successChance) {
+            if (card.type == EnhancementCardType::Enchantment &&
+                !ApplyReplacementEnchantment(
+                    *key,
+                    instance->item,
+                    instance->extraList,
+                    replacementEnchantment,
+                    card.enchantmentCharge)) {
+                for (const auto& [material, count] : materials) {
+                    player->AddObjectToContainer(material, nullptr, count, nullptr);
+                }
+                SendState("附魔替换失败：无法写入装备实例，消耗的材料已退还。");
+                return;
+            }
             ApplySuccessfulCard(*key, instance->item, card);
             SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
             QueuePlayerRuntimeEffectsSync();
@@ -1796,7 +2042,10 @@ namespace
                 roll,
                 card.successChance,
                 result.enhancementLevel);
-            SendState(itemName + "强化成功，当前等级 +" + std::to_string(result.enhancementLevel) + "。");
+            const auto enchantmentResult = card.type == EnhancementCardType::Enchantment && replacementEnchantment ?
+                                               "，附魔已替换为“" + std::string(replacementEnchantment->GetFullName()) + "”" :
+                                               std::string{};
+            SendState(itemName + "强化成功" + enchantmentResult + "，当前等级 +" + std::to_string(result.enhancementLevel) + "。");
             return;
         }
 
@@ -2302,7 +2551,7 @@ namespace
             { "wearReduction", effectiveWearReduction },
             { "enchantment", enchantment },
             { "enchanted", IsInstanceEnchanted(a_item, a_extraList) },
-            { "enchantmentReplaceable", !questItem && !uniqueItem },
+            { "enchantmentReplaceable", !questItem && !uniqueItem && !CompatibleEnchantments(a_item, a_extraList).empty() },
             { "quest", questItem },
             { "unique", uniqueItem },
             { "broken", broken },
