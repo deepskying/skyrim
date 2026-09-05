@@ -26,13 +26,19 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 - Repair is a native, per-instance transaction: forge context, inventory ownership, current durability, recipe availability, and all ingredient counts are revalidated before materials are removed. A successful repair restores that exact item instance to its full current maximum durability.
 - The workshop list now includes every carried weapon, armor piece, and zero-armor clothing item, not only currently equipped or broken equipment. Existing extra-data instances receive stable IDs; untouched identical copies are shown as one safe quantity group until one has been equipped and becomes an independently trackable instance.
 - Selecting an independently tracked item at a forge drafts three cards from the seven agreed categories, filtered by equipment eligibility and kept distinct whenever at least three types apply. Tiers use `42% / 33% / 18% / 7%` weights for weak, standard, strong, and extreme offers, with tier-colored borders, bounded rolls, level-scaled benefit/cost previews, success chance, and live owned/required material counts.
-- Card refresh starts at 80 gold and rises by 80 gold for every paid refresh. Gold is checked and removed natively, changing equipment resets the refresh counter, and reactivating a workstation starts a fresh session.
+- Card refresh starts at 80 gold and rises by 80 gold per paid refresh (the existing safety cap is 80000 gold). Each equipment instance retains its current draft and refresh counter across equipment selection, workstation reactivation, and leaving/returning to the forge. A resolved enhancement starts that item's next round at 80 gold; other items retain their offers. Drafts are session-only and reset on load/new game.
 - Selecting an affordable numeric card now removes its displayed materials and performs the native success roll. Success applies the bounded value to that exact item instance, increases its visible `+N` reinforcement rank, and drafts three new cards. The rank and accumulated values use the existing co-save record, so older saves remain compatible.
 - Failed reinforcement dismantles an ordinary item instance and returns half of its forge-recipe materials. Quest items and recognized unique/artifact items are retained and lose one reinforcement rank instead; their accumulated numeric bonuses are reduced proportionally. The card footer states the applicable failure rule before selection.
 
 Version 0.1.27 writes the reinforcement rank into each enhanced instance's native Skyrim display name, so inventory, equipment, barter, and other menus can show names such as `Steel Sword +22`. The name bridge stores both the original player-authored name and its last applied name in co-save record version 3, preventing repeated suffixes across upgrades and loads. A later player rename becomes the new baseline, and downgrading to `+0` restores the baseline. Version-1 and version-2 records remain readable and migrate when first synchronized. Quest/message-owned display names are preserved rather than forcibly overwritten.
 
-Version 0.1.28 enables enchantment replacement cards. Their pool is built at runtime from every loaded, named enchantment form, so compatible original-game and mod-provided enchantments—including Summermyst variants—are discovered without a hard plugin dependency. Weapon, staff, and apparel delivery/casting rules are separated; apparel restriction lists are matched against the selected item's keywords. Tier and the item's current reinforcement rank bias selection toward progressively stronger native enchantment variants. The chosen form is attached only to that equipment instance, existing charge reinforcement is reapplied to a new weapon capacity, and shared enchantment records are never edited. Cards show the exact target enchantment before materials are paid. Unique/artifact and quest instances remain ineligible and are checked again when the card is applied.
+Version 0.1.29 refines the enchantment replacement introduced in 0.1.28. The default pool now comes from enchantments actually referenced by playable, non-protected weapons/apparel, with explicit allow/deny rules and plugin exclusions. Restrictions are checked along the base-enchantment chain; invalid effects and wholly hidden effects are rejected. Records without an independent name use their visible effect name. The card shows each visible effect's native magnitude/duration and the source plugin. Tier ordering is a power estimate across different effects, not a guarantee of combat strength. Summermyst can participate through eligible equipment records; its effects have not yet been validated in-game in this workspace.
+
+Enchantment replacement requires the item to be unequipped, with the requirement checked again before payment. Equip it after a successful replacement to apply its new effects. Only the selected instance changes, its charge bonuses are reapplied, and the inventory is marked changed for saving. Protected/quest items remain excluded. There is no new co-save record version.
+
+The packaged `DurabilityManager.rules.json` configures the six numeric card ranges, catalysts for all seven categories, late-game costs, and enchantment pool overrides. Costs continue above +50 with a quadratic tail, extra gold, and late materials; quantities no longer freeze at 9999. Requests beyond the signed 32-bit engine count limit are blocked rather than wrapped or silently capped. See [rule format and game test checklist](docs/enhancement-rules.md). New executable card mechanics and arbitrary scaled enchantment forms still require native development.
+
+Version 0.1.30 filters maxed weight/speed/wear/charge categories before drafting; performance also respects its stored integer/runtime cap. If fewer than three categories remain, eligible categories may repeat with independently rolled values. Application revalidates eligibility before spending materials. Repair, equipped status and material ownership are live conditions so a remembered card is usable after repair/unequip/material collection. Per-instance session drafts prevent selection and workstation changes from providing free rerolls.
 
 Durability and wear, performance, charge, weight, attack speed, native `+N` equipment names, and instance enchantment replacement now affect live game data for supported equipment. Skyrim's ordinary inventory row can still show an item's base weight; the mod panel shows the enhanced instance weight while encumbrance uses the reduced total.
 
@@ -41,6 +47,7 @@ Durability and wear, performance, charge, weight, attack speed, native `+N` equi
 ```text
 Data/SKSE/Plugins/DurabilityManager.dll
 Data/SKSE/Plugins/DurabilityManager.ini
+Data/SKSE/Plugins/DurabilityManager.rules.json
 Data/PrismaUI/views/DurabilityManager/index.html
 ```
 
@@ -54,3 +61,10 @@ xmake build -y
 ```
 
 Then run `packaging/package.ps1` to make the install-ready `release/Data` layout.
+
+Rule-only verification (no Skyrim runtime required), from `native`:
+
+```powershell
+xmake build -y DurabilityRulesTests
+.\build\windows\x64\release\DurabilityRulesTests.exe ..\packaging\DurabilityManager.rules.json
+```

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "ranges": {
+    "performance": [[2, 3], [4, 5], [6, 8], [9, 10]],
+    "weight": [[1, 1.4], [1.4, 1.8], [1.8, 2.4], [2.4, 3]],
+    "speed": [[0.01, 0.019], [0.02, 0.029], [0.03, 0.039], [0.04, 0.05]],
+    "durability": [[1, 2], [3, 5], [6, 8], [9, 10]],
+    "wear": [[0.01, 0.03], [0.04, 0.06], [0.07, 0.10], [0.11, 0.15]],
+    "charge": [[0.05, 0.10], [0.11, 0.20], [0.21, 0.35], [0.36, 0.50]]
+  },
+  "catalysts": {
+    "performance": ["IngotIron"],
+    "weight": ["LeatherStrips"],
+    "speed": ["IngotQuicksilver"],
+    "durability": ["IngotCorundum"],
+    "wear": ["IngotDwarven"],
+    "charge": ["SoulGemCommonFilled"],
+    "enchantment": ["SoulGemGrandFilled", "VoidSalts"]
+  },
+  "cost": {
+    "growth": 1.16,
+    "lateGold": 200,
+    "lateMaterials": ["IngotEbony", "DaedraHeart", "DragonBone"]
+  },
+  "enchantments": {
+    "allow": [],
+    "deny": [],
+    "denyPlugins": []
+  }
+}

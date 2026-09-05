@@ -1,5 +1,7 @@
 #include "PrismaUI_API.h"
 #include "input_handler.h"
+#include "enhancement_rules.h"
+#include "enhancement_drafts.h"
 
 #include <nlohmann/json.hpp>
 
@@ -35,6 +37,9 @@ namespace
     };
 
     Settings g_settings{};
+    enhancement::Rules g_enhancementRules{};
+    std::unordered_set<RE::FormID> g_enchantmentPool;
+    std::unordered_set<RE::FormID> g_deniedEnchantments;
     bool g_capturingHotkey = false;
     bool g_panelVisible = false;
     bool g_hudVisible = false;
@@ -119,8 +124,7 @@ namespace
     std::string g_forgeStationName;
     std::chrono::steady_clock::time_point g_forgeActivatedAt{};
     std::optional<ItemKey> g_forgeSelectedItem;
-    std::vector<EnhancementCardState> g_enhancementCards;
-    std::uint32_t g_forgeRefreshes = 0;
+    enhancement::DraftLedger<ItemKey, EnhancementCardState, ItemKeyHash> g_enhancementDrafts;
     std::uint64_t g_cardSequence = 0;
     std::mutex g_forgeLock;
 
@@ -141,10 +145,9 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.28";
+    constexpr std::string_view kPluginVersion = "0.1.30";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
-    constexpr std::uint32_t kBaseCardRefreshCost = 80;
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -207,6 +210,40 @@ namespace
     {
         const auto modulePath = REL::Module::get().filePath();
         return std::filesystem::path(modulePath.data()).parent_path() / "Data" / "SKSE" / "Plugins" / "DurabilityManager.ini";
+    }
+
+    void LoadEnhancementRules()
+    {
+        const auto path = ConfigPath().parent_path() / "DurabilityManager.rules.json";
+        std::ifstream input(path);
+        g_enhancementRules = {};
+        if (!input) {
+            logger::info("No enhancement rule file; using built-in defaults.");
+            return;
+        }
+        try {
+            g_enhancementRules = enhancement::ParseRules(json::parse(input));
+            logger::info("Loaded enhancement rules from {}.", path.string());
+        } catch (const std::exception& error) {
+            logger::error("Invalid enhancement rules; using defaults: {}", error.what());
+        }
+    }
+
+    // Plugin-local hexadecimal IDs survive changes to load order and support ESL.
+    // Plain editor IDs remain convenient for existing material rules.
+    [[nodiscard]] RE::TESForm* ResolveRuleForm(const std::string& a_reference)
+    {
+        const auto delimiter = a_reference.find('|');
+        if (delimiter == std::string::npos) return RE::TESForm::LookupByEditorID(a_reference);
+        const auto plugin = a_reference.substr(0, delimiter);
+        auto localIDText = std::string_view(a_reference).substr(delimiter + 1);
+        if (localIDText.starts_with("0x") || localIDText.starts_with("0X")) localIDText.remove_prefix(2);
+        RE::FormID localID = 0;
+        const auto parsed = std::from_chars(localIDText.data(), localIDText.data() + localIDText.size(), localID, 16);
+        auto* handler = RE::TESDataHandler::GetSingleton();
+        if (!handler || plugin.empty() || localID == 0 || localID > 0xFFFFFF ||
+            parsed.ec != std::errc{} || parsed.ptr != localIDText.data() + localIDText.size()) return nullptr;
+        return handler->LookupForm(localID, plugin);
     }
 
     void WriteConfig()
@@ -333,6 +370,21 @@ namespace
         return 0.0F;
     }
 
+    [[nodiscard]] std::string EnchantmentLabel(const RE::EnchantmentItem* a_enchantment)
+    {
+        if (!a_enchantment) return {};
+        const auto* name = a_enchantment->GetFullName();
+        if (name && name[0]) return name;
+        // Many ENCH records rely on their magic effects for their display name.
+        for (const auto* effect : a_enchantment->effects) {
+            if (!effect || !effect->baseEffect ||
+                effect->baseEffect->data.flags.all(RE::EffectSetting::EffectSettingData::Flag::kHideInUI)) continue;
+            const auto* effectName = effect->baseEffect->GetFullName();
+            if (effectName && effectName[0]) return effectName;
+        }
+        return "附魔";
+    }
+
     [[nodiscard]] std::string EnchantmentName(RE::TESBoundObject* a_item, const RE::ExtraDataList* a_extraList)
     {
         const RE::EnchantmentItem* enchantment = nullptr;
@@ -343,8 +395,7 @@ namespace
             const auto* enchantable = a_item ? a_item->As<RE::TESEnchantableForm>() : nullptr;
             enchantment = enchantable ? enchantable->formEnchanting : nullptr;
         }
-        const auto* name = enchantment ? enchantment->GetFullName() : nullptr;
-        return name && name[0] ? name : "";
+        return EnchantmentLabel(enchantment);
     }
 
     [[nodiscard]] bool IsProtectedUniqueItem(RE::TESBoundObject* a_item)
@@ -518,8 +569,7 @@ namespace
         g_forgeStationName.clear();
         g_forgeActivatedAt = {};
         g_forgeSelectedItem.reset();
-        g_enhancementCards.clear();
-        g_forgeRefreshes = 0;
+        // Leaving a workstation changes access, not the item-owned draft.
     }
 
     [[nodiscard]] ForgeContext GetForgeContext()
@@ -553,9 +603,6 @@ namespace
             g_forgeStation = a_station->GetHandle();
             g_forgeStationName = a_stationName;
             g_forgeActivatedAt = std::chrono::steady_clock::now();
-            g_forgeSelectedItem.reset();
-            g_enhancementCards.clear();
-            g_forgeRefreshes = 0;
         }
         const auto notification = a_stationName + "已启用装备工坊；关闭原菜单后按面板快捷键打开。";
         RE::DebugNotification(notification.c_str());
@@ -836,7 +883,8 @@ namespace
         if (!a_item || !a_restrictions || a_depth > 4) return false;
         bool matches = false;
         a_restrictions->ForEachForm([&](RE::TESForm* a_form) {
-            if (!a_form || matches) return RE::BSContainer::ForEachResult::kStop;
+            if (matches) return RE::BSContainer::ForEachResult::kStop;
+            if (!a_form) return RE::BSContainer::ForEachResult::kContinue;
             if (a_form == a_item) {
                 matches = true;
             } else if (auto* keyword = a_form->As<RE::BGSKeyword>()) {
@@ -858,10 +906,29 @@ namespace
             !a_enchantment->GetFile() || a_enchantment->effects.empty()) {
             return false;
         }
-        const auto* name = a_enchantment->GetFullName();
-        if (!name || !name[0]) return false;
+        if (!g_enchantmentPool.contains(a_enchantment->GetFormID())) return false;
+        std::unordered_set<RE::FormID> ancestors;
+        for (auto* form = a_enchantment; form; form = form->data.baseEnchantment) {
+            if (ancestors.size() >= 16 || !ancestors.insert(form->GetFormID()).second ||
+                form->IsDeleted() || form->IsIgnored() || g_deniedEnchantments.contains(form->GetFormID())) return false;
+            const auto* source = form->GetFile(0);
+            const auto* overrideFile = form->GetFile();
+            for (const auto& denied : g_enhancementRules.denyPlugins) {
+                if ((source && Normalize(std::string(source->GetFilename())) == Normalize(denied)) ||
+                    (overrideFile && Normalize(std::string(overrideFile->GetFilename())) == Normalize(denied))) return false;
+            }
+            if (form->data.wornRestrictions && !MatchesWornRestrictionList(a_item, form->data.wornRestrictions)) return false;
+        }
+        bool visibleEffect = false;
+        for (const auto* effect : a_enchantment->effects) {
+            if (!effect || !effect->baseEffect || effect->baseEffect->IsDeleted() || effect->baseEffect->IsIgnored() ||
+                !std::isfinite(effect->effectItem.magnitude) || !std::isfinite(effect->baseEffect->data.baseCost)) return false;
+            if (!effect->baseEffect->data.flags.all(RE::EffectSetting::EffectSettingData::Flag::kHideInUI)) visibleEffect = true;
+        }
+        if (!visibleEffect) return false;
 
         if (const auto* weapon = a_item->As<RE::TESObjectWEAP>()) {
+            if (weapon->IsBound() || weapon->IsHandToHandMelee()) return false;
             if (weapon->IsStaff()) {
                 return a_enchantment->GetSpellType() == RE::MagicSystem::SpellType::kStaffEnchantment &&
                        a_enchantment->GetCastingType() != RE::MagicSystem::CastingType::kConstantEffect;
@@ -877,13 +944,43 @@ namespace
                 a_enchantment->GetDelivery() != RE::MagicSystem::Delivery::kSelf) {
                 return false;
             }
-            // A null restriction list is treated as an intentionally universal
-            // apparel enchantment. When a list exists, at least one item keyword
-            // (or nested restriction list entry) must match.
-            return !a_enchantment->data.wornRestrictions ||
-                   MatchesWornRestrictionList(a_item, a_enchantment->data.wornRestrictions);
+            return true;  // All restrictions in the base-enchantment chain were checked above.
         }
         return false;
+    }
+
+    void BuildEnchantmentPool()
+    {
+        g_enchantmentPool.clear();
+        g_deniedEnchantments.clear();
+        auto* handler = RE::TESDataHandler::GetSingleton();
+        if (!handler) return;
+        const auto collect = [](RE::TESBoundObject* item) {
+            if (!item || !item->GetPlayable() || item->IsDeleted() || item->IsIgnored() || IsProtectedUniqueItem(item)) return;
+            auto* enchantable = item->As<RE::TESEnchantableForm>();
+            if (enchantable && enchantable->formEnchanting) g_enchantmentPool.insert(enchantable->formEnchanting->GetFormID());
+        };
+        for (auto* item : handler->GetFormArray<RE::TESObjectWEAP>()) {
+            if (item && !item->IsBound()) collect(item);
+        }
+        for (auto* item : handler->GetFormArray<RE::TESObjectARMO>()) collect(item);
+        for (const auto& entry : g_enhancementRules.allowEnchantments) {
+            auto* form = ResolveRuleForm(entry);
+            if (form && form->As<RE::EnchantmentItem>()) g_enchantmentPool.insert(form->GetFormID());
+            else logger::warn("Unresolved enchantment allow rule: {}", entry);
+        }
+        for (const auto& entry : g_enhancementRules.denyEnchantments) {
+            auto* form = ResolveRuleForm(entry);
+            if (form && form->As<RE::EnchantmentItem>()) g_deniedEnchantments.insert(form->GetFormID());
+            else logger::warn("Unresolved enchantment deny rule: {}", entry);
+        }
+        std::map<std::string, std::size_t> counts;
+        for (const auto id : g_enchantmentPool) {
+            auto* form = RE::TESForm::LookupByID<RE::EnchantmentItem>(id);
+            if (form && form->GetFile(0)) ++counts[std::string(form->GetFile(0)->GetFilename())];
+        }
+        logger::info("Enchantment pool: {} source candidates, {} explicit denied records (compatibility checked per item).", g_enchantmentPool.size(), g_deniedEnchantments.size());
+        for (const auto& [plugin, count] : counts) logger::info("Enchantment source {}: {} candidates.", plugin, count);
     }
 
     [[nodiscard]] float EnchantmentPower(const RE::EnchantmentItem* a_enchantment)
@@ -903,30 +1000,21 @@ namespace
     [[nodiscard]] std::string EnchantmentEffectSummary(const RE::EnchantmentItem* a_enchantment)
     {
         if (!a_enchantment) return {};
-        std::size_t effectCount = 0;
-        float firstMagnitude = 0.0F;
-        std::uint32_t firstDuration = 0;
+        std::string result;
         for (const auto* effect : a_enchantment->effects) {
             if (!effect || !effect->baseEffect) continue;
-            if (effectCount == 0) {
-                firstMagnitude = std::abs(effect->effectItem.magnitude);
-                firstDuration = effect->effectItem.duration;
-            }
-            ++effectCount;
-        }
-        if (effectCount == 0) return "效果由附魔本身决定";
-        if (effectCount > 1) return std::to_string(effectCount) + " 项原生效果";
-        const auto magnitudeText = [firstMagnitude] {
+            const auto& flags = effect->baseEffect->data.flags;
+            using Flag = RE::EffectSetting::EffectSettingData::Flag;
+            if (flags.all(Flag::kHideInUI)) continue;
+            if (!result.empty()) result += "；";
+            const auto* effectName = effect->baseEffect->GetFullName();
+            result += effectName && effectName[0] ? effectName : "效果";
             std::ostringstream stream;
-            stream << std::fixed << std::setprecision(firstMagnitude < 10.0F ? 1 : 0) << firstMagnitude;
-            return stream.str();
-        }();
-        if (firstMagnitude > 0.001F && firstDuration > 0) {
-            return "强度 " + magnitudeText + " / " + std::to_string(firstDuration) + " 秒";
+            if (!flags.all(Flag::kNoMagnitude)) stream << " 强度 " << std::fixed << std::setprecision(1) << effect->effectItem.magnitude;
+            if (!flags.all(Flag::kNoDuration) && effect->effectItem.duration > 0) stream << " / " << effect->effectItem.duration << " 秒";
+            result += stream.str();
         }
-        if (firstMagnitude > 0.001F) return "强度 " + magnitudeText;
-        if (firstDuration > 0) return "持续 " + std::to_string(firstDuration) + " 秒";
-        return "原生效果";
+        return result.empty() ? "原生效果" : result;
     }
 
     struct EnchantmentOffer
@@ -944,7 +1032,8 @@ namespace
         auto* dataHandler = RE::TESDataHandler::GetSingleton();
         if (!dataHandler || !a_item) return result;
         const auto* current = InstanceEnchantment(a_item, a_extraList);
-        for (auto* enchantment : dataHandler->GetFormArray<RE::EnchantmentItem>()) {
+        for (const auto id : g_enchantmentPool) {
+            auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(id);
             if (!enchantment || enchantment == current || !IsCompatibleEnchantment(a_item, enchantment)) continue;
             result.push_back(enchantment);
         }
@@ -959,6 +1048,7 @@ namespace
         std::mt19937& a_random)
     {
         auto candidates = CompatibleEnchantments(a_item, a_extraList);
+        logger::info("Enchantment draft for {:08X}: {} compatible alternatives.", a_item->GetFormID(), candidates.size());
         if (candidates.empty()) return std::nullopt;
         std::shuffle(candidates.begin(), candidates.end(), a_random);
         std::stable_sort(candidates.begin(), candidates.end(), [](const auto* a_left, const auto* a_right) {
@@ -993,7 +1083,8 @@ namespace
         RE::EnchantmentItem* a_enchantment,
         const std::uint16_t a_charge)
     {
-        if (!a_extraList || !IsCompatibleEnchantment(a_item, a_enchantment) ||
+        if (!a_extraList || a_extraList->GetWorn() || a_extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(a_item) ||
+            !IsCompatibleEnchantment(a_item, a_enchantment) ||
             InstanceEnchantment(a_item, a_extraList) == a_enchantment) {
             return false;
         }
@@ -1028,6 +1119,7 @@ namespace
             a_key.uniqueID,
             a_enchantment->GetFormID(),
             a_charge);
+        if (auto* player = RE::PlayerCharacter::GetSingleton()) player->AddChange(RE::TESObjectREFR::ChangeFlags::kInventory);
         return true;
     }
 
@@ -1462,7 +1554,7 @@ namespace
         case EnhancementCardType::Durability: return "永久提高该装备实例的耐久上限。";
         case EnhancementCardType::Wear: return "降低每次战斗动作造成的耐久损耗。";
         case EnhancementCardType::Charge: return "提高已附魔武器可容纳的充能。";
-        case EnhancementCardType::Enchantment: return "从当前加载的原版与模组附魔中选择兼容效果；唯一物品与任务物品不会抽到此卡。";
+        case EnhancementCardType::Enchantment: return "覆盖原附魔，不叠加；请先卸下装备，替换后重新装备生效。挡位为估算强度，具体效果见预览。";
         }
         return {};
     }
@@ -1491,9 +1583,8 @@ namespace
             return "附魔充能 +" + FixedDecimal(a_card.rolledValue * 100.0F, 0) + "%";
         case EnhancementCardType::Enchantment: {
             const auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(a_card.enchantmentFormID);
-            const auto* name = enchantment ? enchantment->GetFullName() : nullptr;
-            if (!name || !name[0]) return "附魔候选已失效";
-            auto result = std::string("替换为：") + name + " · " + EnchantmentEffectSummary(enchantment);
+            if (!enchantment) return "附魔候选已失效";
+            auto result = std::string("替换为：") + EnchantmentLabel(enchantment) + " · " + EnchantmentEffectSummary(enchantment);
             if (a_card.enchantmentCharge > 0) result += " · 基础充能 " + std::to_string(a_card.enchantmentCharge);
             return result;
         }
@@ -1536,39 +1627,45 @@ namespace
         };
         switch (a_type) {
         case EnhancementCardType::Performance: {
-            static constexpr std::array minimum{ 2.0F, 4.0F, 6.0F, 9.0F };
-            static constexpr std::array maximum{ 3.0F, 5.0F, 8.0F, 10.0F };
+            const auto& ranges = g_enhancementRules.ranges[0];
+            const std::array minimum{ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]};
+            const std::array maximum{ranges[0][1], ranges[1][1], ranges[2][1], ranges[3][1]};
             return std::round(roll(minimum[tier], maximum[tier]) * levelScale);
         }
         case EnhancementCardType::Weight: {
-            static constexpr std::array minimum{ 1.0F, 1.4F, 1.8F, 2.4F };
-            static constexpr std::array maximum{ 1.4F, 1.8F, 2.4F, 3.0F };
+            const auto& ranges = g_enhancementRules.ranges[1];
+            const std::array minimum{ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]};
+            const std::array maximum{ranges[0][1], ranges[1][1], ranges[2][1], ranges[3][1]};
             const auto remaining = (std::max)(0.0F, EquipmentWeight(a_item) - a_durability.weightReduction - 0.1F);
             if (remaining <= 0.001F) a_blockedReason = "重量已达下限";
             return (std::min)(roll(minimum[tier], maximum[tier]), remaining);
         }
         case EnhancementCardType::Speed: {
-            static constexpr std::array minimum{ 0.01F, 0.02F, 0.03F, 0.04F };
-            static constexpr std::array maximum{ 0.019F, 0.029F, 0.039F, 0.05F };
+            const auto& ranges = g_enhancementRules.ranges[2];
+            const std::array minimum{ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]};
+            const std::array maximum{ranges[0][1], ranges[1][1], ranges[2][1], ranges[3][1]};
             const auto remaining = (std::max)(0.0F, 1.0F - a_durability.attackSpeedBonus);
             if (remaining <= 0.0001F) a_blockedReason = "攻速已达 2× 上限";
             return (std::min)(roll(minimum[tier], maximum[tier]), remaining);
         }
         case EnhancementCardType::Durability: {
-            static constexpr std::array minimum{ 1.0F, 3.0F, 6.0F, 9.0F };
-            static constexpr std::array maximum{ 2.0F, 5.0F, 8.0F, 10.0F };
+            const auto& ranges = g_enhancementRules.ranges[3];
+            const std::array minimum{ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]};
+            const std::array maximum{ranges[0][1], ranges[1][1], ranges[2][1], ranges[3][1]};
             return std::round(roll(minimum[tier], maximum[tier]) * levelScale);
         }
         case EnhancementCardType::Wear: {
-            static constexpr std::array minimum{ 0.01F, 0.04F, 0.07F, 0.11F };
-            static constexpr std::array maximum{ 0.03F, 0.06F, 0.10F, 0.15F };
+            const auto& ranges = g_enhancementRules.ranges[4];
+            const std::array minimum{ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]};
+            const std::array maximum{ranges[0][1], ranges[1][1], ranges[2][1], ranges[3][1]};
             const auto remaining = (std::max)(0.0F, g_settings.maxWearReduction - a_durability.wearReduction);
             if (remaining <= 0.0001F) a_blockedReason = "耐磨已达上限";
             return (std::min)(roll(minimum[tier], maximum[tier]), remaining);
         }
         case EnhancementCardType::Charge: {
-            static constexpr std::array minimum{ 0.05F, 0.11F, 0.21F, 0.36F };
-            static constexpr std::array maximum{ 0.10F, 0.20F, 0.35F, 0.50F };
+            const auto& ranges = g_enhancementRules.ranges[5];
+            const std::array minimum{ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]};
+            const std::array maximum{ranges[0][1], ranges[1][1], ranges[2][1], ranges[3][1]};
             if (a_durability.chargeBridgeInitialized &&
                 a_durability.chargeAppliedCapacity == (std::numeric_limits<std::uint16_t>::max)()) {
                 a_blockedReason = "附魔充能已达引擎上限";
@@ -1594,36 +1691,46 @@ namespace
         return materials;
     }
 
-    void AddCardCatalyst(std::map<RE::TESBoundObject*, std::int32_t>& a_materials, std::string_view a_editorID, const std::int32_t a_count)
-    {
-        if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(a_editorID)) a_materials[material] += a_count;
-    }
-
     [[nodiscard]] std::vector<MaterialRequirementState> GetCardMaterials(
         RE::TESBoundObject* a_item,
         const EnhancementCardType a_type,
         const EnhancementTier a_tier,
-        const std::uint32_t a_level)
+        const std::uint32_t a_level,
+        std::string& a_blockedReason)
     {
         auto materials = GetRecipeMaterials(a_item);
-        const auto levelExponent = static_cast<float>((std::min)(a_level, 50U));
-        const auto costScale = TierMultiplier(a_tier) * std::pow(1.16F, levelExponent);
+        const auto costScale = enhancement::CostScale(g_enhancementRules, a_level, TierMultiplier(a_tier));
+        const auto add = [&](RE::TESBoundObject* material, double count) {
+            if (!material || material == a_item || material->As<RE::TESObjectWEAP>() || material->As<RE::TESObjectARMO>()) {
+                a_blockedReason = "规则所需材料未加载，请检查材料配置";
+                return;
+            }
+            const auto required = enhancement::RequiredCount(count + static_cast<double>(materials[material]));
+            if (!required) a_blockedReason = "材料需求超过引擎数量上限";
+            else materials[material] = *required;
+        };
         for (auto& [material, count] : materials) {
-            count = (std::min)(9999, (std::max)(1, static_cast<std::int32_t>(std::ceil(static_cast<float>(count) * costScale))));
+            if (material == a_item || material->As<RE::TESObjectWEAP>() || material->As<RE::TESObjectARMO>()) {
+                a_blockedReason = "强化材料不能包含武器或护甲";
+            }
+            const auto required = enhancement::RequiredCount(static_cast<double>(count) * costScale);
+            if (!required) a_blockedReason = "材料需求超过引擎数量上限";
+            else count = *required;
         }
-
-        const auto catalystCount = (std::min)(9999, (std::max)(1, static_cast<std::int32_t>(std::ceil(costScale))));
-        switch (a_type) {
-        case EnhancementCardType::Performance: AddCardCatalyst(materials, "IngotIron", catalystCount); break;
-        case EnhancementCardType::Weight: AddCardCatalyst(materials, "LeatherStrips", catalystCount); break;
-        case EnhancementCardType::Speed: AddCardCatalyst(materials, "IngotQuicksilver", catalystCount); break;
-        case EnhancementCardType::Durability: AddCardCatalyst(materials, "IngotCorundum", catalystCount); break;
-        case EnhancementCardType::Wear: AddCardCatalyst(materials, "IngotDwarven", catalystCount); break;
-        case EnhancementCardType::Charge: AddCardCatalyst(materials, "SoulGemCommonFilled", catalystCount); break;
-        case EnhancementCardType::Enchantment:
-            AddCardCatalyst(materials, "SoulGemGrandFilled", catalystCount);
-            AddCardCatalyst(materials, "VoidSalts", catalystCount);
-            break;
+        for (const auto& reference : g_enhancementRules.catalysts[static_cast<std::size_t>(a_type)]) {
+            auto* form = ResolveRuleForm(reference);
+            add(form ? form->As<RE::TESBoundObject>() : nullptr, std::ceil(costScale));
+        }
+        if (a_level > 50) {
+            const auto extra = static_cast<double>(a_level - 50U);
+            add(RE::TESForm::LookupByID<RE::TESBoundObject>(0xFU), g_enhancementRules.lateGold * extra * extra * TierMultiplier(a_tier));
+            static constexpr std::array<std::uint32_t, 3> unlocks{51, 75, 100};
+            for (std::size_t index = 0; index < unlocks.size(); ++index) {
+                if (a_level < unlocks[index]) continue;
+                auto* form = ResolveRuleForm(g_enhancementRules.lateMaterials[index]);
+                add(form ? form->As<RE::TESBoundObject>() : nullptr,
+                    std::ceil((1.0 + static_cast<double>(a_level - unlocks[index]) / 10.0) * TierMultiplier(a_tier)));
+            }
         }
 
         std::vector<MaterialRequirementState> result;
@@ -1634,17 +1741,25 @@ namespace
         return result;
     }
 
-    [[nodiscard]] std::vector<EnhancementCardType> EligibleCardTypes(RE::TESBoundObject* a_item, RE::ExtraDataList* a_extraList)
+    [[nodiscard]] std::vector<EnhancementCardType> EligibleCardTypes(
+        RE::TESBoundObject* a_item, RE::ExtraDataList* a_extraList, const DurabilitySnapshot& a_durability)
     {
         std::vector<EnhancementCardType> types;
         const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
         const auto category = EquipmentCategory(a_item);
-        if ((weapon && BasePerformanceValue(a_item) > 0.0F) || category == "armor") types.push_back(EnhancementCardType::Performance);
-        if (EquipmentWeight(a_item) > 0.1F) types.push_back(EnhancementCardType::Weight);
-        if (weapon) types.push_back(EnhancementCardType::Speed);
+        if (((weapon && BasePerformanceValue(a_item) > 0.0F) || category == "armor") &&
+            a_durability.performanceBonus < (std::numeric_limits<std::int32_t>::max)() &&
+            (!a_durability.performanceBridgeInitialized || a_durability.performanceAppliedHealth < 10000.0F)) {
+            types.push_back(EnhancementCardType::Performance);
+        }
+        if (enhancement::HasRoom(a_durability.weightReduction, EquipmentWeight(a_item) - 0.1F, 0.001F)) types.push_back(EnhancementCardType::Weight);
+        if (weapon && enhancement::HasRoom(a_durability.attackSpeedBonus, 1.0F, 0.0001F)) types.push_back(EnhancementCardType::Speed);
         types.push_back(EnhancementCardType::Durability);
-        types.push_back(EnhancementCardType::Wear);
-        if (weapon && InstanceChargeCapacity(a_item, a_extraList)) types.push_back(EnhancementCardType::Charge);
+        if (enhancement::HasRoom(a_durability.wearReduction, g_settings.maxWearReduction, 0.0001F)) types.push_back(EnhancementCardType::Wear);
+        const auto capacity = InstanceChargeCapacity(a_item, a_extraList);
+        if (weapon && capacity && *capacity < (std::numeric_limits<std::uint16_t>::max)() && a_durability.chargeBonus < 65534.0F) {
+            types.push_back(EnhancementCardType::Charge);
+        }
         const auto protectedItem = IsProtectedUniqueItem(a_item) || (a_extraList && a_extraList->HasQuestObjectAlias());
         if (!protectedItem && !CompatibleEnchantments(a_item, a_extraList).empty()) {
             types.push_back(EnhancementCardType::Enchantment);
@@ -1667,7 +1782,8 @@ namespace
             std::chrono::steady_clock::now().time_since_epoch().count() ^
             (static_cast<std::uint64_t>(a_key.baseFormID) << 16U) ^ a_key.uniqueID ^ sequence);
         std::mt19937 random(seed);
-        auto eligibleTypes = EligibleCardTypes(a_item, a_extraList);
+        const auto durability = GetDurability(a_key);
+        auto eligibleTypes = EligibleCardTypes(a_item, a_extraList, durability);
         std::shuffle(eligibleTypes.begin(), eligibleTypes.end(), random);
         if (eligibleTypes.size() > 3) eligibleTypes.resize(3);
         const auto distinctTypeCount = eligibleTypes.size();
@@ -1675,7 +1791,6 @@ namespace
             eligibleTypes.push_back(eligibleTypes[eligibleTypes.size() % distinctTypeCount]);
         }
 
-        const auto durability = GetDurability(a_key);
         std::vector<EnhancementCardState> cards;
         cards.reserve(eligibleTypes.size());
         for (std::size_t index = 0; index < eligibleTypes.size(); ++index) {
@@ -1698,10 +1813,11 @@ namespace
             static constexpr std::array<std::uint32_t, 4> baseSuccess{ 96, 88, 75, 60 };
             const auto levelPenalty = (std::min)(45U, durability.enhancementLevel > 22U ? 45U : durability.enhancementLevel * 2U);
             card.successChance = (std::max)(10U, baseSuccess[static_cast<std::size_t>(card.tier)] - levelPenalty);
-            card.requiredMaterials = GetCardMaterials(a_item, card.type, card.tier, durability.enhancementLevel);
+            card.requiredMaterials = GetCardMaterials(a_item, card.type, card.tier, durability.enhancementLevel, card.blockedReason);
             if (card.requiredMaterials.empty() && card.blockedReason.empty()) card.blockedReason = "没有可用的强化材料";
             if (a_key.uniqueID == 0 && card.blockedReason.empty()) card.blockedReason = "请先装备一次以建立独立实例";
-            if (durability.current <= 0.0F && card.blockedReason.empty()) card.blockedReason = "请先修复装备";
+            // Repair/unequip/owned materials are live conditions, never frozen
+            // into an item draft that may be revisited after those conditions change.
             cards.push_back(std::move(card));
         }
         logger::info("Generated {} enhancement cards for {:08X}:{:04X} after {} paid refreshes.", cards.size(), a_key.baseFormID, a_key.uniqueID, a_refreshes);
@@ -1711,18 +1827,33 @@ namespace
     [[nodiscard]] json EnhancementCardsJson()
     {
         std::vector<EnhancementCardState> cards;
+        std::optional<ItemKey> selected;
         {
             std::scoped_lock lock(g_forgeLock);
-            cards = g_enhancementCards;
+            selected = g_forgeSelectedItem;
+            if (selected) {
+                if (const auto* draft = g_enhancementDrafts.Find(*selected)) cards = draft->cards;
+            }
         }
         auto* player = RE::PlayerCharacter::GetSingleton();
+        const auto instance = selected ? ResolveEquipmentInstance(*selected) : std::nullopt;
+        const auto durability = selected ? GetDurability(*selected) : DurabilitySnapshot{};
+        const auto eligible = instance ? EligibleCardTypes(instance->item, instance->extraList, durability) : std::vector<EnhancementCardType>{};
         json result = json::array();
         for (const auto& card : cards) {
             json materials = json::array();
             std::string blockedReason = card.blockedReason;
+            if (blockedReason.empty() && (!instance || durability.current <= 0.0F)) blockedReason = instance ? "请先修复装备" : "装备已不在背包中";
+            if (blockedReason.empty() && std::find(eligible.begin(), eligible.end(), card.type) == eligible.end()) blockedReason = "属性已达上限或不再适用";
+            if (card.type == EnhancementCardType::Enchantment && instance && instance->extraList && instance->extraList->GetWorn()) {
+                blockedReason = "请先卸下装备";
+            }
             for (const auto& requirement : card.requiredMaterials) {
                 auto* material = RE::TESForm::LookupByID<RE::TESBoundObject>(requirement.formID);
-                if (!material) continue;
+                if (!material) {
+                    blockedReason = "卡片材料已失效";
+                    continue;
+                }
                 const auto owned = player ? (std::max)(0, player->GetItemCount(material)) : 0;
                 materials.push_back({ { "name", DisplayName(material) }, { "required", requirement.count }, { "owned", owned } });
                 if (blockedReason.empty() && owned < requirement.count) blockedReason = "缺少：" + DisplayName(material);
@@ -1737,6 +1868,12 @@ namespace
                 { "successChance", card.successChance },
                 { "materials", std::move(materials) }
             };
+            if (card.type == EnhancementCardType::Enchantment) {
+                const auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(card.enchantmentFormID);
+                if (enchantment && enchantment->GetFile(0)) {
+                    item["description"] = CardDescription(card.type) + " 来源：" + std::string(enchantment->GetFile(0)->GetFilename());
+                }
+            }
             if (!blockedReason.empty()) item["blockedReason"] = blockedReason;
             result.push_back(std::move(item));
         }
@@ -1745,7 +1882,7 @@ namespace
 
     [[nodiscard]] std::uint32_t CardRefreshCost(const std::uint32_t a_refreshes)
     {
-        return kBaseCardRefreshCost * ((std::min)(a_refreshes, 999U) + 1U);
+        return enhancement::RefreshCost(a_refreshes);
     }
 
     void SelectEquipmentForForge(const std::string_view a_equipmentID)
@@ -1761,18 +1898,19 @@ namespace
             SendState("所选装备已不在背包中。");
             return;
         }
+        bool reused = false;
         {
             std::scoped_lock lock(g_forgeLock);
-            if (g_forgeSelectedItem == key && !g_enhancementCards.empty()) return;
-        }
-        auto cards = GenerateEnhancementCards(*key, instance->item, instance->extraList, 0);
-        {
-            std::scoped_lock lock(g_forgeLock);
+            if (g_forgeSelectedItem == key && g_enhancementDrafts.Find(*key)) return;
+            reused = g_enhancementDrafts.Find(*key) != nullptr;
             g_forgeSelectedItem = *key;
-            g_forgeRefreshes = 0;
-            g_enhancementCards = std::move(cards);
         }
-        SendState("已为" + InstanceDisplayName(instance->item, instance->extraList) + "生成三张强化卡片。");
+        if (!reused) {
+            auto cards = GenerateEnhancementCards(*key, instance->item, instance->extraList, 0);
+            std::scoped_lock lock(g_forgeLock);
+            g_enhancementDrafts.Store(*key, std::move(cards), 0);
+        }
+        SendState(reused ? "已恢复该装备的卡片和刷新费用。" : "已为" + InstanceDisplayName(instance->item, instance->extraList) + "生成三张强化卡片。");
     }
 
     void RefreshEnhancementCards(const std::string_view a_equipmentID)
@@ -1796,12 +1934,11 @@ namespace
         bool selectionMatches = false;
         {
             std::scoped_lock lock(g_forgeLock);
-            if (g_forgeSelectedItem != key) {
-                g_forgeSelectedItem.reset();
-                g_enhancementCards.clear();
-            } else {
-                selectionMatches = true;
-                refreshes = g_forgeRefreshes;
+            if (g_forgeSelectedItem == key) {
+                if (const auto* draft = g_enhancementDrafts.Find(*key)) {
+                    selectionMatches = true;
+                    refreshes = draft->refreshes;
+                }
             }
         }
         if (!selectionMatches) {
@@ -1816,13 +1953,13 @@ namespace
             SendState("刷新失败：需要 " + std::to_string(cost) + " 金币。");
             return;
         }
+        const auto nextRefreshes = (std::min)(refreshes, (std::numeric_limits<std::uint32_t>::max)() - 1U) + 1U;
+        auto cards = GenerateEnhancementCards(*key, instance->item, instance->extraList, nextRefreshes);
         player->RemoveItem(gold, static_cast<std::int32_t>(cost), RE::ITEM_REMOVE_REASON::kRemove, nullptr, nullptr);
-        auto cards = GenerateEnhancementCards(*key, instance->item, instance->extraList, refreshes + 1U);
         {
             std::scoped_lock lock(g_forgeLock);
-            if (g_forgeSelectedItem != key) return;
-            ++g_forgeRefreshes;
-            g_enhancementCards = std::move(cards);
+            // Record the paid result for the item even if UI selection changes.
+            g_enhancementDrafts.Store(*key, std::move(cards), nextRefreshes);
         }
         SendState("已支付 " + std::to_string(cost) + " 金币并刷新强化卡片。");
     }
@@ -1847,16 +1984,14 @@ namespace
         auto cards = GenerateEnhancementCards(a_key, a_item, a_extraList, 0);
         std::scoped_lock lock(g_forgeLock);
         g_forgeSelectedItem = a_key;
-        g_forgeRefreshes = 0;
-        g_enhancementCards = std::move(cards);
+        g_enhancementDrafts.Store(a_key, std::move(cards), 0);
     }
 
-    void ClearEnhancementDraft()
+    void ClearEnhancementDraft(const ItemKey& a_key)
     {
         std::scoped_lock lock(g_forgeLock);
-        g_forgeSelectedItem.reset();
-        g_forgeRefreshes = 0;
-        g_enhancementCards.clear();
+        g_enhancementDrafts.Erase(a_key);
+        if (g_forgeSelectedItem == a_key) g_forgeSelectedItem.reset();
     }
 
     void ApplySuccessfulCard(
@@ -1943,12 +2078,14 @@ namespace
             std::scoped_lock lock(g_forgeLock);
             selectionMatches = g_forgeSelectedItem == key;
             if (selectionMatches) {
-                const auto found = std::find_if(g_enhancementCards.begin(), g_enhancementCards.end(), [a_cardID](const auto& a_candidate) {
-                    return a_candidate.id == a_cardID;
-                });
-                if (found != g_enhancementCards.end()) {
-                    card = *found;
-                    foundCard = true;
+                if (const auto* draft = g_enhancementDrafts.Find(*key)) {
+                    const auto found = std::find_if(draft->cards.begin(), draft->cards.end(), [a_cardID](const auto& a_candidate) {
+                        return a_candidate.id == a_cardID;
+                    });
+                    if (found != draft->cards.end()) {
+                        card = *found;
+                        foundCard = true;
+                    }
                 }
             }
         }
@@ -1977,7 +2114,16 @@ namespace
         }
 
         RE::EnchantmentItem* replacementEnchantment = nullptr;
+        const auto eligible = EligibleCardTypes(instance->item, instance->extraList, durability);
+        if (std::find(eligible.begin(), eligible.end(), card.type) == eligible.end()) {
+            SendState("强化失败：该属性已达上限或卡片不再适用于此装备。本次未消耗材料。");
+            return;
+        }
         if (card.type == EnhancementCardType::Enchantment) {
+            if (instance->extraList->GetWorn()) {
+                SendState("请先卸下该装备再替换附魔，替换后重新装备生效。本次未消耗材料。");
+                return;
+            }
             if (instance->extraList->HasQuestObjectAlias() || IsProtectedUniqueItem(instance->item)) {
                 SendState("附魔替换失败：唯一物品与任务物品不能替换附魔。");
                 return;
@@ -2043,7 +2189,7 @@ namespace
                 card.successChance,
                 result.enhancementLevel);
             const auto enchantmentResult = card.type == EnhancementCardType::Enchantment && replacementEnchantment ?
-                                               "，附魔已替换为“" + std::string(replacementEnchantment->GetFullName()) + "”" :
+                                               "，附魔已替换为“" + EnchantmentLabel(replacementEnchantment) + "”" :
                                                std::string{};
             SendState(itemName + "强化成功" + enchantmentResult + "，当前等级 +" + std::to_string(result.enhancementLevel) + "。");
             return;
@@ -2072,7 +2218,7 @@ namespace
         if (IsUniqueIDInPlayerInventory(key->baseFormID, key->uniqueID)) {
             const auto retainedInstance = ResolveEquipmentInstance(*key);
             if (retainedInstance) SetNextEnhancementDraft(*key, retainedInstance->item, retainedInstance->extraList);
-            else ClearEnhancementDraft();
+            else ClearEnhancementDraft(*key);
             logger::error("Could not remove failed enhancement item {:08X}:{:04X}.", key->baseFormID, key->uniqueID);
             QueuePlayerRuntimeEffectsSync();
             SendState(itemName + "强化失败，但装备移除失败；装备已保留，尝试材料仍然消耗。");
@@ -2086,7 +2232,7 @@ namespace
             g_pendingBreaks.erase(*key);
             g_weaponNotificationTimes.erase(*key);
         }
-        ClearEnhancementDraft();
+        ClearEnhancementDraft(*key);
         QueuePlayerRuntimeEffectsSync();
         logger::info(
             "Enhancement failed and dismantled {:08X}:{:04X}; roll={}, chance={}, salvageTypes={}.",
@@ -2159,6 +2305,7 @@ namespace
                     g_durability.erase(a_key);
                     g_lowDurabilityWarnings.erase(a_key);
                 }
+                ClearEnhancementDraft(a_key);
                 ShowHUD("warning", DisplayName(item), SalvageDescription(materials), g_settings.weaponDisplaySeconds);
                 logger::info("Destroyed and salvaged item {:08X}:{:04X} into {} material types.", a_key.baseFormID, a_key.uniqueID, materials.size());
             }
@@ -2613,7 +2760,9 @@ namespace
         std::uint32_t refreshes = 0;
         {
             std::scoped_lock lock(g_forgeLock);
-            refreshes = g_forgeRefreshes;
+            if (g_forgeSelectedItem) {
+                if (const auto* draft = g_enhancementDrafts.Find(*g_forgeSelectedItem)) refreshes = draft->refreshes;
+            }
         }
         auto* player = RE::PlayerCharacter::GetSingleton();
         return {
@@ -2666,6 +2815,10 @@ namespace
         g_hudVisible = false;
         g_capturingHotkey = false;
         ClearForgeContext();
+        {
+            std::scoped_lock lock(g_forgeLock);
+            g_enhancementDrafts.Clear();  // A different save may reuse the same instance IDs.
+        }
         std::scoped_lock lock(g_durabilityLock);
         ++g_stateEpoch;
         g_pendingBreaks.clear();
@@ -2938,6 +3091,11 @@ namespace
     void RevertState(SKSE::SerializationInterface*)
     {
         {
+            std::scoped_lock lock(g_forgeLock);
+            g_enhancementDrafts.Clear();
+            g_forgeSelectedItem.reset();
+        }
+        {
             std::scoped_lock lock(g_durabilityLock);
             g_durability.clear();
             g_lowDurabilityWarnings.clear();
@@ -2986,6 +3144,8 @@ namespace
         g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
         g_prisma->Hide(g_view);
         LoadConfig();
+        LoadEnhancementRules();
+        BuildEnchantmentPool();
         const auto input = InputHandler::GetSingleton();
         input->SetHotkey(g_settings.hotkey);
         input->SetToggleCallback(TogglePanel);

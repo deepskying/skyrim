@@ -55,3 +55,5 @@
 @media (max-width: 1180px) { .settings-layout { grid-template-columns: minmax(0,1fr) 248px; }.setting { grid-template-columns: 38px minmax(170px,1fr) minmax(205px,235px); gap: 12px; padding-right: 16px; padding-left: 16px; } }
 
 .card-area { position: relative; }.card-heading > button:disabled { cursor: not-allowed; opacity: .48; }.card-loading { min-height: 120px; display: grid; place-items: center; margin: 0; border: 1px dashed #527581; border-radius: 7px; color: #9cb8be; }
+.enhancement-card.enchantment strong { line-height: 1.55; font-size: 16px; overflow-wrap: anywhere; }
+.enhancement-card.enchantment p { overflow-wrap: anywhere; }

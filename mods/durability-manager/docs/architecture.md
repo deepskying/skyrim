@@ -5,6 +5,7 @@
 | State | Owner | Persistence |
 | --- | --- | --- |
 | Hotkey, warning threshold, HUD preference, display duration | Native plugin | `DurabilityManager.ini` |
+| Card ranges/materials, cost curve, enchantment pool overrides | Native plugin, loaded at DataLoaded | `DurabilityManager.rules.json` |
 | Equipment state: reinforcement rank, current/max durability, permanent card effects, stat/name bridge baselines and protection flags | Native plugin | SKSE co-save |
 | Current forge station, selected equipment and three drafted cards | Native plugin | Session only |
 | UI selection and active tab | Prisma view | Session only |
@@ -14,6 +15,10 @@ Durability and reinforcement must be recorded against a stable **item-instance i
 ## Card contract
 
 Each generated card is data, never frontend behaviour: `{ type, tier, rolledValue, enchantmentFormID, enchantmentCharge, enchantmentPower, successChance, requiredMaterials }`. The seven initial types are `performance`, `weight`, `speed`, `durability`, `wear`, `charge`, and `enchantment`. Type determines eligibility and hard limits; tier (`微弱`, `标准`, `强效`, `极强`) determines the random-value subrange and the card border treatment. Enchantment offers resolve a concrete compatible loaded form when drafted. The native side validates the item, resource counts, selected enchantment, success roll, and every stat limit before applying a card.
+
+`DraftLedger<ItemKey, EnhancementCardState>` owns the three cards and refresh count for each visited instance. Forge access/selection is separate: clearing station context never erases this ledger. A paid refresh replaces only that item's draft; a resolved enhancement replaces it with a new round and resets its fee. Destruction removes its entry. Load/revert/new-game clears the session ledger without touching Prisma APIs. This does not prevent rerolls by loading an earlier save; draft persistence is not part of the current co-save format.
+
+Eligibility reads current accumulated bonuses and actual charge capacity before type selection. Capped categories cannot occupy new draft slots; if fewer than three types are eligible, remaining types may repeat. Cached offers are validated again for changed eligibility at display/payment time. Broken/equipped/material-owned conditions are calculated live instead of being saved in `blockedReason` at draft time. No free reroll is granted merely by repairing or changing equipment.
 
 ## Gameplay rules
 
@@ -33,7 +38,8 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 - Weight reduction is summed from matching `ExtraUniqueID` instances and subtracted from freshly recalculated player inventory and worn-armor weight caches. Container and equipment events queue a next-frame resynchronization, avoiding shared base-form edits.
 - Attack speed is synchronized per hand through `weaponSpeedMult` and `leftWeaponSpeedMult`. The bridge remembers its previous target and removes only its own prior bonus when the graph has not been externally changed; a changed graph value is accepted as the new baseline. The saved card value is capped at +1.00.
 - Reinforcement rank is written to the instance's `ExtraTextDisplayData` as `baseline +N`. The bridge persists the player-authored baseline and its last applied value, so upgrades replace the suffix, external renames become a new baseline, and `+0` restores the name. Quest/message-owned display data is never forcibly replaced.
-- Enchantment replacement scans the loaded `EnchantmentItem` forms, which makes it automatically compatible with named Summermyst and other mod enchantment variants. Weapon-contact, staff, and apparel constant effects are kept separate; apparel `wornRestrictions` are matched against item keywords. Offers choose progressively higher-ranked native variants by card tier and reinforcement level, then store the exact form in the session-only card. Success writes only `ExtraEnchantment` on that item instance and rebases/reapplies its saved charge bonus. Shared enchantment forms are never mutated.
+- Enchantment candidates are collected once from playable, non-protected weapon/apparel definitions plus configured allow entries. Candidate and base-enchantment IDs/plugin exclusions, finite valid effects, visible effects, and all ancestor worn restrictions are validated per item. This is a conservative pool, not proof that every third-party scripted effect is generic; a deny list remains necessary for exceptions. Tiers estimate relative strength from native effect data. The exact form is stored in the session card. Unequipping is required before payment and mutation; success writes `ExtraEnchantment`, marks the inventory changed, and rebases/reapplies the saved charge bonus. The next equip activates the new effect.
+- JSON rule overrides are parsed atomically; malformed configurations use built-in defaults and produce a log error. Missing material records block the affected draft rather than silently removing costs. Growth continues after +50 using doubles; conversion to the engine's signed 32-bit material count is checked before casting and adding requirements. Overflow blocks the draft.
 - Co-save record version 3 adds the display-name bridge strings and initialized flag. Version-1 and version-2 records are accepted as explicit migration paths; their current native data becomes the relevant bridge baseline before saved effects are synchronized.
 - HUD warnings fire on a threshold crossing with a cooldown, rather than once per hit.
 
