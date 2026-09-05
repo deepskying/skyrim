@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -14,6 +15,11 @@ namespace enhancement
 {
     inline constexpr std::array<const char*, 7> types{
         "performance", "weight", "speed", "durability", "wear", "charge", "enchantment"
+    };
+    struct EnchantmentRank
+    {
+        std::optional<float> power;
+        std::optional<std::uint8_t> tier;
     };
     struct Rules
     {
@@ -35,6 +41,7 @@ namespace enhancement
         std::vector<std::string> allowEnchantments;
         std::vector<std::string> denyEnchantments;
         std::vector<std::string> denyPlugins;
+        std::map<std::string, EnchantmentRank> enchantmentRanks;
     };
 
     // Reject the entire override on malformed input; callers retain defaults.
@@ -100,6 +107,32 @@ namespace enhancement
             if (pool.contains("allow")) result.allowEnchantments = strings(pool.at("allow"));
             if (pool.contains("deny")) result.denyEnchantments = strings(pool.at("deny"));
             if (pool.contains("denyPlugins")) result.denyPlugins = strings(pool.at("denyPlugins"));
+            if (pool.contains("ranking")) {
+                const auto& ranking = pool.at("ranking");
+                if (!ranking.is_object() || ranking.size() > 4096) throw std::runtime_error("Invalid enchantment ranking object");
+                for (const auto& [reference, entry] : ranking.items()) {
+                    if (reference.empty() || reference.size() > 256 || !entry.is_object() || entry.empty()) {
+                        throw std::runtime_error("Invalid enchantment ranking entry");
+                    }
+                    EnchantmentRank rank;
+                    for (const auto& [field, ignored] : entry.items()) {
+                        if (field != "power" && field != "tier") throw std::runtime_error("Unknown ranking field");
+                    }
+                    if (entry.contains("power")) {
+                        rank.power = entry.at("power").get<float>();
+                        if (!std::isfinite(*rank.power) || *rank.power < 0 || *rank.power > 100000000) throw std::runtime_error("Invalid ranking power");
+                    }
+                    if (entry.contains("tier")) {
+                        const auto tier = entry.at("tier").get<std::string>();
+                        static constexpr std::array names{"weak", "standard", "strong", "extreme"};
+                        for (std::uint8_t i = 0; i < names.size(); ++i) {
+                            if (tier == names[i]) rank.tier = i;
+                        }
+                        if (!rank.tier) throw std::runtime_error("Unknown ranking tier");
+                    }
+                    result.enchantmentRanks.emplace(reference, rank);
+                }
+            }
         }
         return result;
     }

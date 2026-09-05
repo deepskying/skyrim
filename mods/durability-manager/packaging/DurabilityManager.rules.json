@@ -25,6 +25,7 @@
   "enchantments": {
     "allow": [],
     "deny": [],
-    "denyPlugins": []
+    "denyPlugins": [],
+    "ranking": {}
   }
 }

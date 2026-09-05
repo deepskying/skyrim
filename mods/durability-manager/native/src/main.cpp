@@ -2,6 +2,7 @@
 #include "input_handler.h"
 #include "enhancement_rules.h"
 #include "enhancement_drafts.h"
+#include "enchantment_ranking.h"
 
 #include <nlohmann/json.hpp>
 
@@ -40,6 +41,7 @@ namespace
     enhancement::Rules g_enhancementRules{};
     std::unordered_set<RE::FormID> g_enchantmentPool;
     std::unordered_set<RE::FormID> g_deniedEnchantments;
+    std::unordered_map<RE::FormID, enhancement::EnchantmentRank> g_enchantmentRanks;
     bool g_capturingHotkey = false;
     bool g_panelVisible = false;
     bool g_hudVisible = false;
@@ -145,7 +147,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.30";
+    constexpr std::string_view kPluginVersion = "0.1.31";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
 
@@ -953,6 +955,7 @@ namespace
     {
         g_enchantmentPool.clear();
         g_deniedEnchantments.clear();
+        g_enchantmentRanks.clear();
         auto* handler = RE::TESDataHandler::GetSingleton();
         if (!handler) return;
         const auto collect = [](RE::TESBoundObject* item) {
@@ -974,6 +977,12 @@ namespace
             if (form && form->As<RE::EnchantmentItem>()) g_deniedEnchantments.insert(form->GetFormID());
             else logger::warn("Unresolved enchantment deny rule: {}", entry);
         }
+        for (const auto& [entry, rank] : g_enhancementRules.enchantmentRanks) {
+            auto* form = ResolveRuleForm(entry);
+            if (!form || !form->As<RE::EnchantmentItem>()) logger::warn("Unresolved enchantment ranking rule: {}", entry);
+            else if (!g_enchantmentRanks.emplace(form->GetFormID(), rank).second) logger::warn("Duplicate enchantment ranking rule: {}", entry);
+            else logger::info("Enchantment ranking rule {} resolved to {:08X}.", entry, form->GetFormID());
+        }
         std::map<std::string, std::size_t> counts;
         for (const auto id : g_enchantmentPool) {
             auto* form = RE::TESForm::LookupByID<RE::EnchantmentItem>(id);
@@ -983,16 +992,29 @@ namespace
         for (const auto& [plugin, count] : counts) logger::info("Enchantment source {}: {} candidates.", plugin, count);
     }
 
+    [[nodiscard]] std::optional<enhancement::EnchantmentRank> EnchantmentRankOverride(const RE::EnchantmentItem* a_enchantment)
+    {
+        std::unordered_set<RE::FormID> visited;
+        for (auto* form = a_enchantment; form && visited.size() < 16; form = form->data.baseEnchantment) {
+            if (!visited.insert(form->GetFormID()).second) break;
+            if (const auto found = g_enchantmentRanks.find(form->GetFormID()); found != g_enchantmentRanks.end()) return found->second;
+        }
+        return std::nullopt;
+    }
+
     [[nodiscard]] float EnchantmentPower(const RE::EnchantmentItem* a_enchantment)
     {
         if (!a_enchantment) return 0.0F;
+        if (const auto rank = EnchantmentRankOverride(a_enchantment); rank && rank->power) return *rank->power;
         double total = 0.0;
         for (const auto* effect : a_enchantment->effects) {
             if (!effect || !effect->baseEffect) continue;
-            const auto magnitude = (std::max)(1.0, std::abs(static_cast<double>(effect->effectItem.magnitude)));
-            const auto duration = 1.0 + static_cast<double>((std::min)(effect->effectItem.duration, 300U)) / 30.0;
-            const auto baseCost = (std::max)(0.1, std::abs(static_cast<double>(effect->baseEffect->data.baseCost)));
-            total += magnitude * duration * std::sqrt(baseCost);
+            const auto& flags = effect->baseEffect->data.flags;
+            using Flag = RE::EffectSetting::EffectSettingData::Flag;
+            total += enhancement::EffectPower(effect->effectItem.magnitude, effect->effectItem.duration,
+                effect->baseEffect->data.baseCost, flags.all(Flag::kNoMagnitude), flags.all(Flag::kNoDuration),
+                effect->baseEffect->GetArchetype() == RE::EffectArchetypes::ArchetypeID::kSoulTrap,
+                flags.all(Flag::kHideInUI));
         }
         return static_cast<float>(std::clamp(total, 0.0, 100000000.0));
     }
@@ -1010,8 +1032,11 @@ namespace
             const auto* effectName = effect->baseEffect->GetFullName();
             result += effectName && effectName[0] ? effectName : "效果";
             std::ostringstream stream;
-            if (!flags.all(Flag::kNoMagnitude)) stream << " 强度 " << std::fixed << std::setprecision(1) << effect->effectItem.magnitude;
-            if (!flags.all(Flag::kNoDuration) && effect->effectItem.duration > 0) stream << " / " << effect->effectItem.duration << " 秒";
+            const auto soulTrap = effect->baseEffect->GetArchetype() == RE::EffectArchetypes::ArchetypeID::kSoulTrap;
+            if (!soulTrap && !flags.all(Flag::kNoMagnitude)) stream << " 强度 " << std::fixed << std::setprecision(1) << effect->effectItem.magnitude;
+            if (!flags.all(Flag::kNoDuration) && effect->effectItem.duration > 0) {
+                stream << (soulTrap ? " 捕魂时限 " : " / ") << effect->effectItem.duration << " 秒";
+            }
             result += stream.str();
         }
         return result.empty() ? "原生效果" : result;
@@ -1043,16 +1068,36 @@ namespace
     [[nodiscard]] std::optional<EnchantmentOffer> RollEnchantmentOffer(
         RE::TESBoundObject* a_item,
         RE::ExtraDataList* a_extraList,
-        const EnhancementTier a_tier,
+        EnhancementTier& a_tier,
         const DurabilitySnapshot& a_durability,
         std::mt19937& a_random)
     {
         auto candidates = CompatibleEnchantments(a_item, a_extraList);
         logger::info("Enchantment draft for {:08X}: {} compatible alternatives.", a_item->GetFormID(), candidates.size());
         if (candidates.empty()) return std::nullopt;
-        std::shuffle(candidates.begin(), candidates.end(), a_random);
-        std::stable_sort(candidates.begin(), candidates.end(), [](const auto* a_left, const auto* a_right) {
-            return EnchantmentPower(a_left) < EnchantmentPower(a_right);
+        struct RankedCandidate
+        {
+            RE::EnchantmentItem* form;
+            float power;
+            std::optional<std::uint8_t> fixedTier;
+        };
+        std::vector<RankedCandidate> ranked;
+        std::array<bool, 4> available{};
+        for (auto* form : candidates) {
+            const auto rank = EnchantmentRankOverride(form);
+            const auto fixedTier = rank ? rank->tier : std::nullopt;
+            ranked.push_back({form, EnchantmentPower(form), fixedTier});
+            for (std::size_t tier = 0; tier < available.size(); ++tier) {
+                available[tier] = available[tier] || enhancement::MatchesTier(fixedTier, tier);
+            }
+        }
+        const auto chosenTier = enhancement::AvailableTier(static_cast<std::size_t>(a_tier), available, a_random);
+        if (!chosenTier) return std::nullopt;
+        a_tier = static_cast<EnhancementTier>(*chosenTier);
+        std::erase_if(ranked, [&](const auto& entry) { return !enhancement::MatchesTier(entry.fixedTier, *chosenTier); });
+        std::shuffle(ranked.begin(), ranked.end(), a_random);
+        std::stable_sort(ranked.begin(), ranked.end(), [](const auto& a_left, const auto& a_right) {
+            return a_left.power < a_right.power;
         });
 
         static constexpr std::array<float, 4> tierCenters{ 0.14F, 0.39F, 0.66F, 0.88F };
@@ -1060,9 +1105,13 @@ namespace
         const auto levelBias = (std::min)(0.10F, static_cast<float>((std::min)(a_durability.enhancementLevel, 50U)) * 0.002F);
         const auto jitter = std::uniform_real_distribution<float>(-0.10F, 0.10F)(a_random);
         const auto percentile = std::clamp(tierCenters[tierIndex] + levelBias + jitter, 0.0F, 1.0F);
-        const auto candidateIndex = static_cast<std::size_t>(std::lround(
-            percentile * static_cast<float>(candidates.size() - 1U)));
-        auto* selected = candidates[candidateIndex];
+        std::vector<double> weights;
+        weights.reserve(ranked.size());
+        for (std::size_t index = 0; index < ranked.size(); ++index) {
+            weights.push_back(enhancement::CandidateWeight(index, ranked.size(), percentile, ranked[index].fixedTier.has_value()));
+        }
+        const auto candidateIndex = std::discrete_distribution<std::size_t>(weights.begin(), weights.end())(a_random);
+        const auto& selected = ranked[candidateIndex];
 
         std::uint16_t charge = 0;
         if (a_item->As<RE::TESObjectWEAP>()) {
@@ -1073,7 +1122,9 @@ namespace
                 1LL,
                 static_cast<long long>((std::numeric_limits<std::uint16_t>::max)())));
         }
-        return EnchantmentOffer{ selected, EnchantmentPower(selected), charge };
+        logger::info("Enchantment offer {:08X}: tier={}, power={}, fixedTier={}", selected.form->GetFormID(),
+            tierIndex, selected.power, selected.fixedTier.has_value());
+        return EnchantmentOffer{ selected.form, selected.power, charge };
     }
 
     bool ApplyReplacementEnchantment(

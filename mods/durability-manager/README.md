@@ -42,6 +42,8 @@ Version 0.1.30 filters maxed weight/speed/wear/charge categories before drafting
 
 Durability and wear, performance, charge, weight, attack speed, native `+N` equipment names, and instance enchantment replacement now affect live game data for supported equipment. Skyrim's ordinary inventory row can still show an item's base weight; the mod panel shows the enhanced instance weight while encumbrance uses the reduced total.
 
+Version 0.1.31 improves utility enchantment ranking: hidden helpers and no-magnitude/no-duration fields no longer inflate scores, and SoulTrap effects use a bounded capture-window score. `enchantments.ranking` supports whole-enchantment score overrides and fixed tiers, including inheritance from base-enchantment rules. Fixed tiers constrain offers without bypassing compatibility; if a rolled tier has no candidates, an available tier is chosen before computing costs, success chance and charge. The preview labels soul-trap duration as its capture window. These rankings do not modify actual effects or provide automatic recognition of arbitrary third-party scripts.
+
 ## Install layout
 
 ```text

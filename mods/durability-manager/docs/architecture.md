@@ -22,6 +22,8 @@ Eligibility reads current accumulated bonuses and actual charge capacity before 
 
 ## Gameplay rules
 
+Enchantment ranking overrides resolve at DataLoaded by plugin-local FormID or EditorID. The closest rule along the base-enchantment chain wins as a complete entry. Its optional power replaces the whole effect score; its optional tier restricts the offer to one tier. Unspecified effects use flag-aware scoring; SoulTrap has a bounded utility score. Candidate scores are computed before sorting. Empty fixed-tier buckets fall back by the standard tier weights to an available bucket, and all economic fields use the final tier. No enchantment form/effect magnitudes are edited by ranking.
+
 - The first time an equipped item participates, the plugin assigns or reuses Skyrim's `ExtraUniqueID`; the resulting `base FormID + unique ID` key is saved in the SKSE co-save. A save without this record simply starts each item at its default state.
 - Successful player melee hits consume the equipped weapon's type-specific base wear. Power attacks multiply that cost; misses, bashes, unarmed attacks, bound weapons, and hits caused by other actors are ignored. Warhammers are distinguished from battleaxes through the standard `WeapTypeWarhammer` keyword.
 - Bows lose configured wear only after a completed `TESPlayerBowShotEvent` (cancelled draws cost nothing); crossbows use their separate configured base cost. Bound weapons are excluded. Wear-reduction is applied after the base cost and is clamped by the configured global cap.
