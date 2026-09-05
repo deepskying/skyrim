@@ -27,6 +27,10 @@ namespace
         float powerAttackWearMultiplier = 1.60F;
         float bowShotWear = 1.0F;
         float crossbowShotWear = 2.0F;
+        float armorHitWear = 1.0F;
+        float clothingHitWear = 1.25F;
+        float shieldBlockWear = 1.0F;
+        float incomingPowerAttackWearMultiplier = 1.5F;
         float maxWearReduction = 0.70F;
     };
 
@@ -103,6 +107,7 @@ namespace
     std::mutex g_durabilityLock;
     std::uint16_t g_nextGeneratedUniqueID = 1;
     std::uint64_t g_stateEpoch = 0;
+    std::uint64_t g_armorHitSequence = 0;
 
     RE::ObjectRefHandle g_forgeStation;
     std::string g_forgeStationName;
@@ -129,7 +134,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordType = 0x44555241U;  // "DURA"
     constexpr std::uint32_t kDurabilityRecordVersion = 2;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
-    constexpr std::string_view kPluginVersion = "0.1.25";
+    constexpr std::string_view kPluginVersion = "0.1.26";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
     constexpr std::uint32_t kBaseCardRefreshCost = 80;
@@ -221,6 +226,10 @@ namespace
                    << "\nPowerAttackWearMultiplier=" << g_settings.powerAttackWearMultiplier
                    << "\nBowShotWear=" << g_settings.bowShotWear
                    << "\nCrossbowShotWear=" << g_settings.crossbowShotWear
+                   << "\nArmorHitWear=" << g_settings.armorHitWear
+                   << "\nClothingHitWear=" << g_settings.clothingHitWear
+                   << "\nShieldBlockWear=" << g_settings.shieldBlockWear
+                   << "\nIncomingPowerAttackWearMultiplier=" << g_settings.incomingPowerAttackWearMultiplier
                    << "\nMaxWearReduction=" << g_settings.maxWearReduction << '\n';
     }
 
@@ -273,6 +282,10 @@ namespace
                     else if (key == "POWERATTACKWEARMULTIPLIER") g_settings.powerAttackWearMultiplier = std::clamp(std::stof(value), 1.0F, 10.0F);
                     else if (key == "BOWSHOTWEAR") g_settings.bowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "CROSSBOWSHOTWEAR") g_settings.crossbowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "ARMORHITWEAR") g_settings.armorHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "CLOTHINGHITWEAR") g_settings.clothingHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "SHIELDBLOCKWEAR") g_settings.shieldBlockWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "INCOMINGPOWERATTACKWEARMULTIPLIER") g_settings.incomingPowerAttackWearMultiplier = std::clamp(std::stof(value), 1.0F, 10.0F);
                     else if (key == "MAXWEARREDUCTION") g_settings.maxWearReduction = std::clamp(std::stof(value), 0.0F, 0.95F);
                 } catch (const std::exception&) {
                     logger::warn("Ignoring invalid DurabilityManager.ini value for {}.", key);
@@ -574,13 +587,13 @@ namespace
         g_prisma->Invoke(g_view, script.c_str());
     }
 
-    void UpdateLowDurabilityWarning(const RE::TESObjectWEAP* a_weapon, const ItemKey& a_key, const DurabilitySnapshot& a_durability)
+    void UpdateLowDurabilityWarning(const RE::TESBoundObject* a_item, const ItemKey& a_key, const DurabilitySnapshot& a_durability)
     {
         if (!g_settings.enableLowDurabilityWarning || a_durability.maximum <= 0.0F) return;
         const auto percentage = static_cast<std::uint32_t>(std::lround(a_durability.current * 100.0F / a_durability.maximum));
         if (percentage < g_settings.lowDurabilityThreshold) {
             if (g_lowDurabilityWarnings.insert(a_key).second) {
-                ShowHUD("warning", "耐久度过低", DisplayName(a_weapon) + "：" + std::to_string(percentage) + "%（请尽快修复）", g_settings.weaponDisplaySeconds);
+                ShowHUD("warning", "耐久度过低", DisplayName(a_item) + "：" + std::to_string(percentage) + "%（请尽快修复）", g_settings.weaponDisplaySeconds);
             }
         } else {
             g_lowDurabilityWarnings.erase(a_key);
@@ -645,10 +658,20 @@ namespace
     {
         std::map<RE::TESBoundObject*, std::int32_t> materials;
         const auto* recipe = FindRepairRecipe(a_item);
-        if (!recipe || a_durability.maximum <= 0.0F || a_durability.current >= a_durability.maximum) return materials;
+        if (a_durability.maximum <= 0.0F || a_durability.current >= a_durability.maximum) return materials;
 
         const auto missingRatio = std::clamp((a_durability.maximum - a_durability.current) / a_durability.maximum, 0.0F, 1.0F);
         const auto costRatio = missingRatio <= 0.25F ? 0.25F : missingRatio <= 0.50F ? 0.50F : missingRatio <= 0.75F ? 0.75F : 1.0F;
+        if (!recipe) {
+            auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr;
+            if (!armor) return materials;
+            const auto materialEditorID = armor->IsClothing() ? "LeatherStrips" : "IngotIron";
+            if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(materialEditorID)) {
+                const auto fullRepairCount = armor->IsClothing() ? 2.0F : 4.0F;
+                materials[material] = (std::max)(1, static_cast<std::int32_t>(std::ceil(fullRepairCount * costRatio)));
+            }
+            return materials;
+        }
         recipe->requiredItems.ForEachContainerObject([&materials, costRatio](RE::ContainerObject& a_ingredient) {
             if (!a_ingredient.obj || a_ingredient.count <= 0) return RE::BSContainer::ForEachResult::kContinue;
             const auto scaledCount = static_cast<std::int32_t>(std::ceil(static_cast<float>(a_ingredient.count) * costRatio));
@@ -1872,6 +1895,47 @@ namespace
         }
     }
 
+    [[nodiscard]] float BaseArmorWear(const RE::TESObjectARMO* a_armor)
+    {
+        if (!a_armor) return 0.0F;
+        if (a_armor->IsShield()) return g_settings.shieldBlockWear;
+        return a_armor->IsClothing() ? g_settings.clothingHitWear : g_settings.armorHitWear;
+    }
+
+    void ApplyEquipmentWear(
+        const RE::TESBoundObject* a_item,
+        const ItemKey& a_key,
+        const float a_baseWear,
+        const float a_actionMultiplier,
+        const std::string_view a_action)
+    {
+        if (!a_item || a_baseWear <= 0.0F) return;
+        DurabilitySnapshot durability;
+        float appliedWear = 0.0F;
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            auto& stored = g_durability[a_key];
+            stored.maximum = (std::max)(1.0F, stored.maximum);
+            stored.current = std::clamp(stored.current, 0.0F, stored.maximum);
+            if (stored.current <= 0.0F) return;
+            const auto reduction = std::clamp(stored.wearReduction, 0.0F, g_settings.maxWearReduction);
+            appliedWear = (std::max)(0.1F, a_baseWear * a_actionMultiplier * (1.0F - reduction));
+            stored.current = (std::max)(0.0F, stored.current - appliedWear);
+            durability = stored;
+        }
+        logger::debug(
+            "{} wore {:08X}:{:04X} by {:.2F}; now {:.2F}/{:.2F}.",
+            a_action,
+            a_key.baseFormID,
+            a_key.uniqueID,
+            appliedWear,
+            durability.current,
+            durability.maximum);
+        UpdateLowDurabilityWarning(a_item, a_key, durability);
+        if (durability.current <= 0.0F) QueueZeroDurabilityResolution(a_key);
+        if (g_panelVisible) SendState();
+    }
+
     void ApplyWeaponWear(
         RE::InventoryEntryData* a_entry,
         const RE::TESObjectWEAP* a_weapon,
@@ -1882,23 +1946,95 @@ namespace
         if (!a_weapon || a_weapon->IsBound()) return;
         const auto key = EnsureItemKey(a_entry, a_weapon);
         if (!key) return;
+        ApplyEquipmentWear(a_weapon, *key, a_baseWear, a_actionMultiplier, a_action);
+    }
 
-        DurabilitySnapshot durability;
-        float appliedWear = 0.0F;
-        {
-            std::scoped_lock lock(g_durabilityLock);
-            auto& stored = g_durability[*key];
-            stored.maximum = (std::max)(1.0F, stored.maximum);
-            stored.current = std::clamp(stored.current, 0.0F, stored.maximum);
-            const auto reduction = std::clamp(stored.wearReduction, 0.0F, g_settings.maxWearReduction);
-            appliedWear = (std::max)(0.1F, a_baseWear * a_actionMultiplier * (1.0F - reduction));
-            stored.current = (std::max)(0.0F, stored.current - appliedWear);
-            durability = stored;
+    struct WornArmorInstance
+    {
+        RE::TESObjectARMO* armor = nullptr;
+        RE::ExtraDataList* extraList = nullptr;
+        ItemKey key{};
+        float selectionWeight = 0.0F;
+    };
+
+    [[nodiscard]] float ArmorSelectionWeight(const RE::TESObjectARMO* a_armor)
+    {
+        if (!a_armor || a_armor->IsShield()) return 0.0F;
+        using Slot = RE::BIPED_MODEL::BipedObjectSlot;
+        const auto slots = std::to_underlying(a_armor->GetSlotMask());
+        const auto has = [slots](const Slot a_slot) { return (slots & std::to_underlying(a_slot)) != 0; };
+        if (has(Slot::kBody)) return 5.0F;
+        if (has(Slot::kHead) || has(Slot::kCirclet)) return 2.0F;
+        if (has(Slot::kHands) || has(Slot::kForearms)) return 1.5F;
+        if (has(Slot::kFeet) || has(Slot::kCalves)) return 1.5F;
+        if (has(Slot::kRing) || has(Slot::kAmulet)) return 0.0F;
+        return slots != 0 ? 0.75F : 0.0F;
+    }
+
+    [[nodiscard]] std::vector<WornArmorInstance> CollectWornArmorInstances()
+    {
+        std::vector<WornArmorInstance> result;
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player) return result;
+        const auto inventory = player->GetInventory();
+        for (const auto& [item, entry] : inventory) {
+            auto* armor = item ? item->As<RE::TESObjectARMO>() : nullptr;
+            if (!armor || !entry.second || !entry.second->extraLists) continue;
+            for (auto* extraList : *entry.second->extraLists) {
+                if (!extraList || !extraList->GetWorn()) continue;
+                const auto key = EnsureItemKeyForExtraList(extraList, armor);
+                if (!key) continue;
+                if (GetDurability(*key).current <= 0.0F) {
+                    QueueZeroDurabilityResolution(*key);
+                    continue;
+                }
+                result.push_back({ armor, extraList, *key, ArmorSelectionWeight(armor) });
+            }
         }
-        logger::debug("{} wore {:08X}:{:04X} by {:.2F}; now {:.2F}/{:.2F}.", a_action, key->baseFormID, key->uniqueID, appliedWear, durability.current, durability.maximum);
-        UpdateLowDurabilityWarning(a_weapon, *key, durability);
-        if (durability.current <= 0.0F) QueueZeroDurabilityResolution(*key);
-        if (g_panelVisible) SendState();
+        return result;
+    }
+
+    void ApplyIncomingArmorWear(const RE::TESHitEvent& a_event)
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player || a_event.target.get() != player || a_event.cause.get() == player) return;
+
+        const auto* source = a_event.source != 0 ? RE::TESForm::LookupByID(a_event.source) : nullptr;
+        const auto* sourceWeapon = source ? source->As<RE::TESObjectWEAP>() : nullptr;
+        if (a_event.source != 0 && (!sourceWeapon || sourceWeapon->IsStaff())) return;
+
+        auto wornArmor = CollectWornArmorInstances();
+        if (wornArmor.empty()) return;
+        WornArmorInstance* selected = nullptr;
+        const auto blocked = a_event.flags.any(RE::TESHitEvent::Flag::kHitBlocked);
+        if (blocked) {
+            const auto shield = std::find_if(wornArmor.begin(), wornArmor.end(), [](const auto& a_candidate) {
+                return a_candidate.armor && a_candidate.armor->IsShield();
+            });
+            if (shield == wornArmor.end()) return;
+            selected = std::addressof(*shield);
+        } else {
+            std::vector<double> weights;
+            weights.reserve(wornArmor.size());
+            for (const auto& candidate : wornArmor) weights.push_back(static_cast<double>(candidate.selectionWeight));
+            if (std::none_of(weights.begin(), weights.end(), [](const double a_weight) { return a_weight > 0.0; })) return;
+            const auto seed = static_cast<std::uint32_t>(
+                std::chrono::steady_clock::now().time_since_epoch().count() ^
+                (++g_armorHitSequence << 16U) ^ a_event.source ^ a_event.projectile);
+            std::mt19937 random(seed);
+            std::discrete_distribution<std::size_t> distribution(weights.begin(), weights.end());
+            selected = std::addressof(wornArmor[distribution(random)]);
+        }
+        if (!selected || !selected->armor) return;
+        const auto multiplier = a_event.flags.any(RE::TESHitEvent::Flag::kPowerAttack) ?
+                                    g_settings.incomingPowerAttackWearMultiplier :
+                                    1.0F;
+        ApplyEquipmentWear(
+            selected->armor,
+            selected->key,
+            BaseArmorWear(selected->armor),
+            multiplier,
+            blocked ? "Blocked physical hit" : "Incoming physical hit");
     }
 
     class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESActivateEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>
@@ -1939,18 +2075,40 @@ namespace
             QueuePlayerRuntimeEffectsSync();
             if (!a_event->equipped) return RE::BSEventNotifyControl::kContinue;
             const auto* weapon = RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject);
-            auto* entry = FindEquippedWeaponEntry(weapon);
-            const auto key = EnsureItemKey(entry, weapon);
-            if (key) {
-                if (const auto instance = ResolveEquipmentInstance(*key); instance && instance->extraList) {
-                    SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
+            if (weapon) {
+                auto* entry = FindEquippedWeaponEntry(weapon);
+                const auto key = EnsureItemKey(entry, weapon);
+                if (key) {
+                    if (const auto instance = ResolveEquipmentInstance(*key); instance && instance->extraList) {
+                        SyncInstanceRuntimeEffects(*key, instance->item, instance->extraList);
+                    }
                 }
-            }
-            if (key && GetDurability(*key).current <= 0.0F) {
-                QueueZeroDurabilityResolution(*key);
+                if (key && GetDurability(*key).current <= 0.0F) {
+                    QueueZeroDurabilityResolution(*key);
+                    return RE::BSEventNotifyControl::kContinue;
+                }
+                ShowWeaponDurability(weapon, entry);
                 return RE::BSEventNotifyControl::kContinue;
             }
-            ShowWeaponDurability(weapon, entry);
+
+            auto* armor = RE::TESForm::LookupByID<RE::TESObjectARMO>(a_event->baseObject);
+            if (!armor) return RE::BSEventNotifyControl::kContinue;
+            std::optional<ItemKey> key;
+            RE::ExtraDataList* extraList = nullptr;
+            if (a_event->uniqueID != 0) {
+                key = ItemKey{ a_event->baseObject, a_event->uniqueID };
+                if (const auto instance = ResolveEquipmentInstance(*key)) extraList = instance->extraList;
+            }
+            if (!extraList) {
+                const auto inventory = player->GetInventory();
+                const auto found = inventory.find(armor);
+                auto* entry = found != inventory.end() && found->second.second ? found->second.second.get() : nullptr;
+                extraList = FindWornExtraList(entry);
+                key = EnsureItemKeyForExtraList(extraList, armor);
+            }
+            if (!key || !extraList) return RE::BSEventNotifyControl::kContinue;
+            SyncInstanceRuntimeEffects(*key, armor, extraList);
+            if (GetDurability(*key).current <= 0.0F) QueueZeroDurabilityResolution(*key);
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -1980,7 +2138,9 @@ namespace
         RE::BSEventNotifyControl ProcessEvent(const RE::TESHitEvent* a_event, RE::BSTEventSource<RE::TESHitEvent>*) override
         {
             const auto* player = RE::PlayerCharacter::GetSingleton();
-            if (!a_event || !player || a_event->cause.get() != player || a_event->source == 0 || a_event->flags.any(RE::TESHitEvent::Flag::kBashAttack)) return RE::BSEventNotifyControl::kContinue;
+            if (!a_event || !player) return RE::BSEventNotifyControl::kContinue;
+            if (a_event->target.get() == player) ApplyIncomingArmorWear(*a_event);
+            if (a_event->cause.get() != player || a_event->source == 0 || a_event->flags.any(RE::TESHitEvent::Flag::kBashAttack)) return RE::BSEventNotifyControl::kContinue;
             const auto* weapon = RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->source);
             const auto baseWear = BaseWeaponWear(weapon);
             if (!weapon || !weapon->IsMelee() || weapon->IsHandToHandMelee() || !baseWear) return RE::BSEventNotifyControl::kContinue;
@@ -2022,8 +2182,10 @@ namespace
         const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
         const auto isMeleeWeapon = weapon && weapon->IsMelee() && !weapon->IsHandToHandMelee() && !weapon->IsBound();
         const auto baseWeaponWear = BaseWeaponWear(weapon);
+        const auto baseArmorWear = BaseArmorWear(armor);
         const auto effectiveWearReduction = std::clamp(a_durability.wearReduction, 0.0F, g_settings.maxWearReduction);
         const auto effectiveWeaponWear = baseWeaponWear ? (std::max)(0.1F, *baseWeaponWear * (1.0F - effectiveWearReduction)) : 0.0F;
+        const auto effectiveArmorWear = armor ? (std::max)(0.1F, baseArmorWear * (1.0F - effectiveWearReduction)) : 0.0F;
         const auto questItem = a_extraList && a_extraList->HasQuestObjectAlias();
         const auto uniqueItem = IsProtectedUniqueItem(a_item);
         const auto broken = a_durability.current <= 0.0F;
@@ -2043,7 +2205,7 @@ namespace
             { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
             { "weight", (std::max)(0.1F, EquipmentWeight(a_item) - a_durability.weightReduction) },
             { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + a_durability.attackSpeedBonus)) : 0.0F },
-            { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : "尚未启用" },
+            { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : armor && armor->IsShield() ? "每次盾牌格挡" : armor ? "每次被物理命中并抽中部位" : "尚未启用" },
             { "wearReduction", effectiveWearReduction },
             { "enchantment", enchantment },
             { "enchanted", IsInstanceEnchanted(a_item, a_extraList) },
@@ -2055,6 +2217,7 @@ namespace
             { "repairMaterials", RepairMaterialsJson(repairMaterials) }
         };
         if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
+        else if (armor) equipmentItem["wearRate"] = effectiveArmorWear;
         if (chargeCapacity) {
             const auto* extraCharge = a_extraList ? a_extraList->GetByType<RE::ExtraCharge>() : nullptr;
             const auto currentCharge = extraCharge && std::isfinite(extraCharge->charge) ?

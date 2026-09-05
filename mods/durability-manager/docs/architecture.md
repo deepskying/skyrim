@@ -20,11 +20,13 @@ Each generated card is data, never frontend behaviour: `{ type, tier, rolledValu
 - The first time an equipped item participates, the plugin assigns or reuses Skyrim's `ExtraUniqueID`; the resulting `base FormID + unique ID` key is saved in the SKSE co-save. A save without this record simply starts each item at its default state.
 - Successful player melee hits consume the equipped weapon's type-specific base wear. Power attacks multiply that cost; misses, bashes, unarmed attacks, bound weapons, and hits caused by other actors are ignored. Warhammers are distinguished from battleaxes through the standard `WeapTypeWarhammer` keyword.
 - Bows lose configured wear only after a completed `TESPlayerBowShotEvent` (cancelled draws cost nothing); crossbows use their separate configured base cost. Bound weapons are excluded. Wear-reduction is applied after the base cost and is clamped by the configured global cap.
+- When the player receives a physical `TESHitEvent`, one worn non-jewelry armor/clothing instance is selected by slot coverage and loses its configured base wear. A blocked hit targets a worn shield only; a weapon-only block causes no armor wear. Staff/spell and self-inflicted hits are ignored. Incoming power attacks apply the armor-specific multiplier.
 - Ordinary non-unique equipment at zero durability is removed and converted into half of the best matching forge recipe, with at least one of each component returned. Equipment without a usable recipe is retained rather than silently destroyed.
 - `AllowEnchantedItemsToBreak` defaults to `true`: when enabled, ordinary enchanted equipment follows the same break-and-salvage rule; when disabled, it becomes `broken` instead.
 - Quest equipment and items carrying Skyrim's standard `DaedricArtifact` or `MagicDisallowEnchanting` keyword always become `broken`; they are unequipped and cannot be used until repaired, regardless of the enchanted-item setting.
 - Broken retained items are collected from their persistent instance IDs into `repairQueue`, so they remain selectable after being unequipped. Zero-durability records loaded from older saves enter the same resolution path after load.
 - Repair costs are calculated by missing-durability band and recipe material, then shown before consuming anything.
+- Recipe-less armor and clothing use a repair-only fallback (iron ingots or leather strips) so the new incoming-hit wear cannot create permanently unusable equipment; they are still retained rather than auto-salvaged at zero.
 - Numeric enhancement cards consume their displayed materials before the native roll. Success stores the bounded value and increments the exact instance's rank. Ordinary failure removes only that instance and returns half of its forge-recipe materials; quest and recognized unique items remain and lose one rank with proportional bonus reduction.
 - Performance uses the instance's native `ExtraHealth` temper factor. The plugin records the vanilla temper baseline and its last applied value, so later grindstone/workbench or third-party deltas are folded into that baseline without baking in the mod's previous contribution a second time.
 - Charge capacity uses the instance's native `ExtraEnchantment` charge value. Capacity changes preserve the weapon's current charge percentage and never modify the shared base enchantment form.
@@ -50,6 +52,13 @@ completed bow / crossbow shot
   -> ignore bound weapons and cancelled draws
   -> subtract configured base wear after wear-reduction cap
   -> persist state through the next SKSE co-save
+
+incoming physical hit on player
+  -> ignore spells, staffs, jewelry, and self-inflicted hits
+  -> blocked: select the worn shield; no shield means no armor wear
+  -> unblocked: select one worn armor/clothing instance by coverage weight
+  -> subtract configured wear after that instance's wear-reduction cap
+  -> zero: reuse the existing unequip, protection, salvage, and repair path
 
 weapon equip / switch / `weaponDraw` animation
   -> resolve the player's equipped weapon
