@@ -57,3 +57,44 @@
 .card-area { position: relative; }.card-heading > button:disabled { cursor: not-allowed; opacity: .48; }.card-loading { min-height: 120px; display: grid; place-items: center; margin: 0; border: 1px dashed #527581; border-radius: 7px; color: #9cb8be; }
 .enhancement-card.enchantment strong { line-height: 1.55; font-size: 16px; overflow-wrap: anywhere; }
 .enhancement-card.enchantment p { overflow-wrap: anywhere; }
+
+/* A full-width draft and an inline review keep destructive actions out of the inventory list. */
+.enhancement-page { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 32px; }
+.enhancement-heading { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.enhancement-heading > span { margin-left: auto; color: #e8bf82; font-size: 16px; }
+.enhancement-heading p { margin: 0 0 5px; color: #86bbc8; font-size: 11px; letter-spacing: .15em; }
+.enhancement-heading h2 { margin: 0; font-size: 26px; overflow-wrap: anywhere; }
+.enhancement-heading h2 span { color: #9ce2ee; }
+.enhancement-heading button, .enhancement-review button { padding: 10px 16px; border: 1px solid #6396a4; border-radius: 6px; background: #18343d; }
+.enhancement-help { margin: 18px 0; color: #a9c2c8; font-size: 15px; line-height: 1.6; }
+.enhancement-page .card-heading > button { font-size: 16px; }
+.enhancement-page .card-heading p { font-size: 14px; letter-spacing: .03em; }
+.enhancement-page .enhancement-cards { align-items: stretch; gap: 20px; }
+.enhancement-page .enhancement-card { display: flex; flex-direction: column; min-width: 0; padding: 22px; border-width: 2px; }
+.enhancement-page .enhancement-card h4 { font-size: 24px; }
+.enhancement-page .enhancement-card > strong { font-size: 19px; line-height: 1.5; }
+.enhancement-page .enhancement-card > p { min-height: 0; font-size: 16px; line-height: 1.6; }
+.enhancement-page .enhancement-card header small, .enhancement-page .enhancement-card header b { font-size: 16px; }
+.enhancement-page .enhancement-card h5 { margin: 20px 0 10px; font-size: 16px; color: #b4d0d5; }
+.enhancement-page .enhancement-card footer { margin-top: auto; padding-top: 20px; flex-wrap: wrap; gap: 12px; }
+.enhancement-page .enhancement-card footer > span, .enhancement-page .enhancement-card footer small, .enhancement-page .enhancement-card button { font-size: 16px; }
+.enhancement-page .materials { margin-bottom: 20px; }
+.enhancement-page .materials span, .enhancement-page .materials b { font-size: 16px; overflow-wrap: anywhere; }
+.enhancement-comparison { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 16px 0; font-size: 16px; background: rgba(1,10,15,.35); }
+.enhancement-comparison caption { text-align: left; padding: 0 0 10px; color: #c3e1e6; font-weight: 600; }
+.enhancement-comparison th, .enhancement-comparison td { padding: 12px 10px; border: 1px solid #456572; text-align: left; overflow-wrap: anywhere; line-height: 1.5; font-weight: 400; vertical-align: top; }
+.enhancement-comparison thead th { color: #a9c2c8; background: rgba(56,107,120,.18); }
+.enhancement-comparison tbody td:last-child { color: #b6edd4; background: rgba(50,116,93,.12); font-weight: 600; }
+.enhancement-comparison tbody td:nth-child(2) { color: #a9bec5; }
+.enhancement-review { max-width: 1100px; margin: 20px auto; padding: 26px; border: 2px solid #bc9560; border-radius: 10px; background: #0d222c; font-size: 16px; line-height: 1.6; }
+.enhancement-review header p { margin: 0; color: #e8bf82; }.enhancement-review h3 { margin: 6px 0 16px; font-size: 24px; }
+.enhancement-review h4 small { color: #a9c2c8; font-size: 16px; font-weight: 400; }
+.enhancement-risk { border-left: 4px solid #da9574; padding: 16px 20px; background: rgba(127,58,36,.2); color: #f4c4ae; }
+.enhancement-risk p { margin: 8px 0 0; }
+.risk-acknowledgement { display: flex; align-items: center; gap: 12px; margin: 22px 0; cursor: pointer; }
+.risk-acknowledgement input { width: 22px; height: 22px; accent-color: #a6d5de; }
+.enhancement-review footer { display: flex; justify-content: flex-end; gap: 16px; }
+.enhancement-review .confirm-enhancement { border-color: #d59e72; background: #653b29; }
+.enhancement-review button:disabled { cursor: not-allowed; opacity: .4; }
+.enhancement-page button:focus-visible, .risk-acknowledgement input:focus-visible { outline: 3px solid #c1edf4; outline-offset: 3px; }
+@media (max-width: 1250px) { .enhancement-page { padding: 20px; }.enhancement-page .enhancement-cards { grid-template-columns: 1fr; }.enhancement-page .enhancement-card { padding: 20px; } }

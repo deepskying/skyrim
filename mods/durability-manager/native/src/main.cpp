@@ -147,7 +147,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.31";
+    constexpr std::string_view kPluginVersion = "0.1.32";
     constexpr auto kForgeContextLifetime = std::chrono::minutes(2);
     constexpr float kForgeContextMaximumDistance = 600.0F;
 
@@ -1875,6 +1875,9 @@ namespace
         return cards;
     }
 
+    [[nodiscard]] json EnhancementPreview(RE::TESBoundObject* a_item, RE::ExtraDataList* a_extraList,
+        const DurabilitySnapshot& a_before, const EnhancementCardState& a_card);
+
     [[nodiscard]] json EnhancementCardsJson()
     {
         std::vector<EnhancementCardState> cards;
@@ -1911,6 +1914,7 @@ namespace
             }
             auto item = json{
                 { "id", card.id },
+                { "equipmentId", selected ? std::to_string(selected->baseFormID) + ":" + std::to_string(selected->uniqueID) : "" },
                 { "type", CardTypeID(card.type) },
                 { "tier", CardTierName(card.tier) },
                 { "title", CardTitle(card.type) },
@@ -1919,6 +1923,7 @@ namespace
                 { "successChance", card.successChance },
                 { "materials", std::move(materials) }
             };
+            item["preview"] = instance ? EnhancementPreview(instance->item, instance->extraList, durability, card) : json::array();
             if (card.type == EnhancementCardType::Enchantment) {
                 const auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(card.enchantmentFormID);
                 if (enchantment && enchantment->GetFile(0)) {
@@ -2045,13 +2050,11 @@ namespace
         if (g_forgeSelectedItem == a_key) g_forgeSelectedItem.reset();
     }
 
-    void ApplySuccessfulCard(
-        const ItemKey& a_key,
+    [[nodiscard]] DurabilitySnapshot SuccessfulCardSnapshot(
+        DurabilitySnapshot durability,
         RE::TESBoundObject* a_item,
         const EnhancementCardState& a_card)
     {
-        std::scoped_lock lock(g_durabilityLock);
-        auto& durability = g_durability[a_key];
         durability.maximum = (std::max)(1.0F, durability.maximum);
         durability.current = std::clamp(durability.current, 0.0F, durability.maximum);
         switch (a_card.type) {
@@ -2089,6 +2092,13 @@ namespace
             break;
         }
         if (durability.enhancementLevel < (std::numeric_limits<std::uint32_t>::max)()) ++durability.enhancementLevel;
+        return durability;
+    }
+
+    void ApplySuccessfulCard(const ItemKey& a_key, RE::TESBoundObject* a_item, const EnhancementCardState& a_card)
+    {
+        std::scoped_lock lock(g_durabilityLock);
+        g_durability[a_key] = SuccessfulCardSnapshot(g_durability[a_key], a_item, a_card);
         g_lowDurabilityWarnings.erase(a_key);
     }
 
@@ -2705,6 +2715,78 @@ namespace
         bool registered_ = false;
     };
 
+    [[nodiscard]] json EnhancementPreview(RE::TESBoundObject* a_item, RE::ExtraDataList* a_extraList,
+        const DurabilitySnapshot& a_before, const EnhancementCardState& a_card)
+    {
+        // Pure projection: share the success arithmetic without mutating the item or co-save.
+        const auto after = SuccessfulCardSnapshot(a_before, a_item, a_card);
+        json rows = json::array();
+        const auto add = [&rows](std::string label, std::string before, std::string next) {
+            rows.push_back({ { "label", std::move(label) }, { "before", std::move(before) }, { "after", std::move(next) } });
+        };
+        add("强化等级", "+" + std::to_string(a_before.enhancementLevel), "+" + std::to_string(after.enhancementLevel));
+        auto* weapon = a_item->As<RE::TESObjectWEAP>();
+        auto* armor = a_item->As<RE::TESObjectARMO>();
+        const auto capacity = InstanceChargeCapacity(a_item, a_extraList);
+        switch (a_card.type) {
+        case EnhancementCardType::Performance: {
+            const auto base = static_cast<std::int64_t>(BasePerformanceValue(a_item));
+            add(weapon ? "攻击（基础+本模组）" : "防御（基础+本模组）",
+                std::to_string(base + a_before.performanceBonus), std::to_string(base + after.performanceBonus));
+            // This extra row exposes the runtime cap separately from the ledger's additive bonus.
+            const auto* extraHealth = a_extraList ? a_extraList->GetByType<RE::ExtraHealth>() : nullptr;
+            const auto currentHealth = extraHealth && std::isfinite(extraHealth->health) ? (std::max)(0.01F, extraHealth->health) : 1.0F;
+            auto baseline = currentHealth;
+            if (a_before.performanceBridgeInitialized && std::isfinite(a_before.performanceBaselineHealth) && std::isfinite(a_before.performanceAppliedHealth)) {
+                baseline = a_before.performanceBaselineHealth;
+                if (std::abs(currentHealth - a_before.performanceAppliedHealth) > 0.001F) baseline += currentHealth - a_before.performanceAppliedHealth;
+            }
+            if (base > 0) add("锻造倍率（上限 10000）", FixedDecimal(currentHealth, 3) + "×",
+                FixedDecimal(std::clamp(std::clamp(baseline, 0.01F, 10000.0F) + static_cast<float>(after.performanceBonus) / BasePerformanceValue(a_item), 0.01F, 10000.0F), 3) + "×");
+            break;
+        }
+        case EnhancementCardType::Weight:
+            add("重量", FixedDecimal((std::max)(0.1F, EquipmentWeight(a_item) - a_before.weightReduction), 2),
+                FixedDecimal((std::max)(0.1F, EquipmentWeight(a_item) - after.weightReduction), 2));
+            break;
+        case EnhancementCardType::Speed:
+            if (weapon) add("攻速", FixedDecimal(weapon->GetSpeed() * (1.0F + a_before.attackSpeedBonus), 2) + "×",
+                FixedDecimal(weapon->GetSpeed() * (1.0F + after.attackSpeedBonus), 2) + "×");
+            break;
+        case EnhancementCardType::Durability:
+            add("耐久 / 上限", FixedDecimal(a_before.current, 2) + " / " + FixedDecimal(a_before.maximum, 2),
+                FixedDecimal(after.current, 2) + " / " + FixedDecimal(after.maximum, 2));
+            break;
+        case EnhancementCardType::Wear: {
+            add("耐磨减免", FixedDecimal(a_before.wearReduction * 100.0F, 1) + "%", FixedDecimal(after.wearReduction * 100.0F, 1) + "%");
+            const auto base = weapon ? BaseWeaponWear(weapon) : armor ? std::optional<float>(BaseArmorWear(armor)) : std::nullopt;
+            if (base) add("每次耐久损耗", FixedDecimal((std::max)(0.1F, *base * (1.0F - a_before.wearReduction)), 2),
+                FixedDecimal((std::max)(0.1F, *base * (1.0F - after.wearReduction)), 2));
+            break;
+        }
+        case EnhancementCardType::Enchantment: {
+            const auto* enchantment = RE::TESForm::LookupByID<RE::EnchantmentItem>(a_card.enchantmentFormID);
+            const auto* current = InstanceEnchantment(a_item, a_extraList);
+            add("附魔（整体替换）", current ? EnchantmentLabel(current) + " · " + EnchantmentEffectSummary(current) : "无",
+                enchantment ? EnchantmentLabel(enchantment) + " · " + EnchantmentEffectSummary(enchantment) : "候选已失效");
+            break;
+        }
+        case EnhancementCardType::Charge:
+            break;
+        }
+        if (weapon && (a_card.type == EnhancementCardType::Charge || a_card.type == EnhancementCardType::Enchantment)) {
+            auto baseline = a_card.type == EnhancementCardType::Enchantment ? a_card.enchantmentCharge : capacity.value_or(1);
+            if (a_card.type == EnhancementCardType::Charge && a_before.chargeBridgeInitialized && a_before.chargeBaselineCapacity > 0) {
+                baseline = a_before.chargeBaselineCapacity;
+                if (capacity && *capacity != a_before.chargeAppliedCapacity) baseline = static_cast<std::uint16_t>(std::clamp<long long>(
+                    std::llround(*capacity / (1.0 + static_cast<double>(after.chargeBonus))), 1LL, 65535LL));
+            }
+            const auto target = std::clamp<long long>(std::llround(baseline * (1.0 + static_cast<double>(after.chargeBonus))), 1LL, 65535LL);
+            add("充能容量", capacity ? std::to_string(*capacity) : "无", std::to_string(target));
+        }
+        return rows;
+    }
+
     [[nodiscard]] json BuildEquipmentItem(
         RE::TESBoundObject* a_item,
         RE::ExtraDataList* a_extraList,
@@ -2741,8 +2823,8 @@ namespace
             { "current", std::round(a_durability.current * 100.0F) / 100.0F },
             { "maximum", std::round(a_durability.maximum * 100.0F) / 100.0F },
             { "enhancementLevel", a_durability.enhancementLevel },
-            { "damage", weapon ? static_cast<std::int32_t>(weapon->GetAttackDamage()) + a_durability.performanceBonus : 0 },
-            { "armor", armor ? static_cast<std::int32_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
+            { "damage", weapon ? static_cast<std::int64_t>(weapon->GetAttackDamage()) + a_durability.performanceBonus : 0 },
+            { "armor", armor ? static_cast<std::int64_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
             { "weight", (std::max)(0.1F, EquipmentWeight(a_item) - a_durability.weightReduction) },
             { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + a_durability.attackSpeedBonus)) : 0.0F },
             { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : armor && armor->IsShield() ? "每次盾牌格挡" : armor ? "每次被物理命中并抽中部位" : "尚未启用" },

@@ -82,7 +82,9 @@ activate forge
   -> show all carried equipment and full selected-item details
   -> draft three eligible enhancement-card previews
   -> refresh consumes 80, 160, 240... gold and replaces all three cards
-  -> user repairs or selects one card
+  -> user repairs, or enters the full-width enhancement page
+  -> compare native before/after rows, select one card, review costs and failure risk
+  -> explicit acknowledgement enables the confirm button (cancel costs nothing)
   -> validate material inventory, outcome and limits again
   -> consume displayed materials and roll natively
   -> success: apply the bounded numeric result or selected instance enchantment, then increase rank
@@ -93,3 +95,11 @@ activate forge
 ## Native/UI contract
 
 The view receives `{ equipped, repairQueue, forge, settings }`. Equipment rows include their visible combat stats, weight, enchantment, protection flags and reinforcement rank. `forge` contains the station context and the current three card offers. The native side remains authoritative and revalidates all requests. The UI never decides whether an item is protected, broken, repairable, affordable, eligible for a card, or allowed to replace its enchantment.
+
+### Enhancement review (v0.1.32)
+
+Each card now includes `equipmentId` (the exact `baseFormID:uniqueID`) and `preview: [{ label, before, after }]`, with display strings calculated natively. `SuccessfulCardSnapshot` is shared between the read-only projection and actual success mutation. Charge preview includes baseline rebasing and the 65535 capacity limit; performance shows both the ledger's base-plus-mod value and the capped native temper factor, not final perk-adjusted combat damage. No shared forms or co-save records are changed by previews.
+
+The full-width page only displays offers belonging to its selected instance. Review is local UI state: clicking a card or cancelling sends no mutation request. Confirmation requires an unchecked-by-default acknowledgement; changes to the item, card, costs or protection invalidate it. A synchronous submit guard suppresses repeated clicks until a new native state arrives. Leaving the page, hiding the panel, losing workshop access, or losing the item clears review. Native request names and payment-time validations remain unchanged. No Prisma view lifecycle, serialization version or draft persistence changes were made.
+
+Frontend helper regressions run with `node --test tests/*.test.mjs` from `web`. They cover malformed/null input, material gating, instance-bound cards, stale confirmations and protected-item failure wording. Browser demo verification covers page navigation, before/after tables, disabled confirmation, acknowledgement and cancellation. Real game testing is still required for native payment/outcomes, death/load and third-party enchantments.

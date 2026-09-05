@@ -38,6 +38,9 @@ export type EquipmentItem = {
 
 export type EnhancementCard = {
   id: string;
+  /** Exact native instance owning this offer; prevents stale cards during selection changes. */
+  equipmentId: string;
+  preview: { label: string; before: string; after: string }[];
   type: CardType;
   tier: EnhancementTier;
   title: string;
