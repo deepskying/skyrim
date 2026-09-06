@@ -19,7 +19,6 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
   onAction: (type: string, data: Record<string, unknown>) => void;
 }) {
   const [review, setReview] = useState<{ id: string; key: string }>();
-  const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState<RefreshView>({ phase: 'idle', message: '' });
   const [transition] = useState(() => createRefreshTransition(setRefresh, {
@@ -39,7 +38,7 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
   useEffect(() => { submitted.current = false; setBusy(false); }, [revision]);
   useEffect(() => { if (review) cancelButton.current?.focus(); }, [review]);
   useEffect(() => {
-    if (review && !reviewed) { setReview(undefined); setAcknowledged(false); }
+    if (review && !reviewed) setReview(undefined);
   }, [review, reviewed]);
 
   const dispatch = (type: string, data: Record<string, unknown>) => {
@@ -47,7 +46,6 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
     submitted.current = true;
     setBusy(true);
     setReview(undefined);
-    setAcknowledged(false);
     onAction(type, data);
   };
 
@@ -66,14 +64,13 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
       <p>{reviewed.description}</p>
       <h4>本次消耗 <small>持有 / 需要</small></h4><MaterialList materials={reviewed.materials} />
       <div className="enhancement-risk"><strong>成功率 {reviewed.successChance}% · 失败率 {100 - reviewed.successChance}%</strong><p>{failureDescription(item)}</p><p>成功或失败都会消耗上列金币和材料。{reviewed.type === 'enchantment' && '成功后原附魔被整体覆盖，不能通过本面板恢复；成功后自动恢复原装备槽位；恢复失败时请手动装备。'}</p></div>
-      <label className="risk-acknowledgement"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />我已了解材料消耗、失败后果{reviewed.type === 'enchantment' ? '及附魔覆盖规则' : ''}</label>
-      <footer><button ref={cancelButton} onClick={() => { setReview(undefined); setAcknowledged(false); }} type="button">取消，返回卡片</button><button className="confirm-enhancement" disabled={!acknowledged || locked || Boolean(missingCost(reviewed.materials))} onClick={() => {
-        if (acknowledged && reviewed) dispatch('applyEnhancement', { equipmentId: item.id, cardId: reviewed.id });
+      <footer><button ref={cancelButton} onClick={() => setReview(undefined)} type="button">取消，返回卡片</button><button className="confirm-enhancement" disabled={locked || Boolean(missingCost(reviewed.materials))} onClick={() => {
+        if (reviewed && !locked && !missingCost(reviewed.materials)) dispatch('applyEnhancement', { equipmentId: item.id, cardId: reviewed.id });
       }} type="button">尝试强化 · {costLabel(reviewed.materials)}</button></footer>
     </section> : <div className={`enhancement-cards refresh-${refresh.phase}`} aria-busy={refreshing}>{displayedCards.map((card) => <article className={`enhancement-card ${card.type} tier-${card.tier}`} key={`${refresh.phase === 'revealing' ? refreshResult?.requestId : 'card'}-${card.id}`}>
       <header><span>{cardIcons[card.type]}</span><small>{cardLabels[card.type]}</small><b>{card.tier}</b></header><h4>{card.title}</h4><strong>{card.value}</strong><p>{card.description}</p>
       <Comparison card={card} /><h5>本次材料 · 持有 / 需要</h5><MaterialList materials={card.materials} />
-      <footer><span>成功率 {card.successChance}%<small>失败：{item.quest || item.unique ? '降级' : '分解'}</small></span><button disabled={locked || Boolean(card.blockedReason) || Boolean(missingCost(card.materials))} onClick={() => { if (transition.isPending()) return; onAction('playWorkshopClick', {}); setAcknowledged(false); setReview({ id: card.id, key: confirmationKey(item, card) }); }} type="button">{missingCost(card.materials) ?? card.blockedReason ?? '查看并确认'} · {costLabel(card.materials)}</button></footer>
+      <footer><span>成功率 {card.successChance}%<small>失败：{item.quest || item.unique ? '降级' : '分解'}</small></span><button disabled={locked || Boolean(card.blockedReason) || Boolean(missingCost(card.materials))} onClick={() => { if (transition.isPending()) return; onAction('playWorkshopClick', {}); setReview({ id: card.id, key: confirmationKey(item, card) }); }} type="button">{missingCost(card.materials) ?? card.blockedReason ?? '查看并确认'} · {costLabel(card.materials)}</button></footer>
     </article>)}</div>}
     {busy && <p className="card-loading" role="status">正在等待游戏处理，请勿重复操作……</p>}
     {!cards.length && <p className="card-loading">正在同步所选装备的强化卡片……</p>}

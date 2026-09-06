@@ -1,5 +1,9 @@
 # Durability Manager architecture
 
+## Direct review confirmation (0.1.41)
+
+The review no longer stores an acknowledgement state or renders a checkbox. Its confirm button is enabled for a valid affordable offer when no operation is pending, with the same checks repeated in its handler. The explicit review page, risk copy, cancel-first focus, instance/offer invalidation, synchronous duplicate-submit guard and native validations remain. The acknowledgement steps documented for 0.1.32 below describe the older behavior, superseded by this version.
+
 ## Equipped enhancement, fees and feedback (0.1.40)
 
 `WorkshopEquipmentRestore` keeps only the instance key and original equip-slot FormID across immediate, non-forced engine calls. Each call is followed by a fresh inventory lookup; no extra-data pointer is retained across unequip/equip. Worn stacks with shared counts or ambiguous hand flags are rejected. Original weapon hands and armor slot conflicts are checked before restoration so another mod's new equipment is not displaced. A failed restoration retains the successfully enhanced item and reports manual recovery. Ordinary roll failure leaves the target unequipped before removal; protected failure leaves it unequipped and downgraded. Enchantment writes retain their unequipped-only guard, and protected items still cannot replace enchantments. This flow requires engine acceptance with both hands, two-handed weapons, shields, clothing and identical copies.
@@ -103,7 +107,7 @@ open panel near a forge
   -> refresh consumes 80, 160, 240... gold and replaces all three cards
   -> user repairs, or enters the full-width enhancement page
   -> compare native before/after rows, select one card, review costs and failure risk
-  -> explicit acknowledgement enables the confirm button (cancel costs nothing)
+  -> confirm directly when affordable and idle (cancel costs nothing)
   -> revalidate nearby facilities, material inventory, outcome and limits again
   -> consume displayed materials and roll natively
   -> success: apply the bounded numeric result or selected instance enchantment, then increase rank

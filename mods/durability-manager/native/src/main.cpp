@@ -164,7 +164,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.40";
+    constexpr std::string_view kPluginVersion = "0.1.41";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {

@@ -46,3 +46,15 @@ test('risk copy distinguishes destruction, protected downgrade and level zero', 
   assert.match(failureDescription({ quest: true, unique: false, enhancementLevel: 4 }), /降至 \+3/);
   assert.match(failureDescription({ quest: false, unique: true, enhancementLevel: 0 }), /降至 \+0/);
 });
+
+test('review has no acknowledgement gate but retains risks, cost and duplicate-submit guards', () => {
+  const page = readFileSync(new URL('../src/EnhancementPage.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /acknowledged|setAcknowledged|risk-acknowledgement|我已了解|type="checkbox"/);
+  assert.match(page, /className="enhancement-risk"/);
+  assert.match(page, /failureDescription\(item\)/);
+  assert.match(page, /className="confirm-enhancement" disabled=\{locked \|\| Boolean\(missingCost\(reviewed.materials\)\)\}/);
+  assert.match(page, /if \(reviewed && !locked && !missingCost\(reviewed.materials\)\) dispatch\('applyEnhancement'/);
+  assert.match(page, /if \(submitted.current \|\| transition.isPending\(\)\) return/);
+  assert.match(page, /confirmationKey\(item, offer\) === review\?\.key/);
+  assert.match(page, /取消，返回卡片/);
+});
