@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>天际 · 音乐管理器</title><link rel="stylesheet" href="styles.css"></head>
+<body>
+<main class="panel">
+  <header><div class="brand"><span class="brand-mark">♫</span><div><small>SKYRIM SOUNDTRACK</small><h1>音乐管理器</h1></div></div><div class="header-actions"><span id="demo-label" class="pill" hidden>界面预览</span><label class="toggle"><input id="enabled" type="checkbox" checked><span></span>自动接管</label><button id="settings-button" class="icon-button" aria-label="播放设置">⚙</button><button id="close" class="close" aria-label="关闭音乐管理器">×</button></div></header>
+  <section class="environment"><span class="live-dot"></span><div><small>当前环境</small><strong id="environment">等待进入游戏</strong></div><span class="divider"></span><span id="location">正在连接播放器</span><span id="mode" class="environment-mode">按环境自动选歌</span></section>
+  <div class="workspace"><aside><div class="aside-heading">环境歌单 <span>09</span></div><nav id="categories" aria-label="环境歌单"></nav><div class="aside-foot"><span>MP3 / FLAC / WAV</span><p>保留歌名，放入文件夹。<br>重新扫描，即可开始播放。</p></div></aside>
+  <section class="library"><div class="library-heading"><div><small>YOUR PLAYLIST</small><h2 id="playlist-title">野外白天</h2><p id="playlist-description">阳光下的漫游，让音乐随旅途展开。</p></div><button id="open-folder" class="secondary">打开文件夹 <span>↗</span></button></div>
+    <div class="toolbar"><label class="search"><span>⌕</span><input id="search" placeholder="搜索歌曲名称…" aria-label="搜索歌曲名称"></label><span id="track-count">0 首歌曲</span><button id="scan" class="secondary">↻ 重新扫描</button></div>
+    <div class="table-labels"><span>#</span><span>歌曲</span><span>格式</span><span>播放控制</span></div><div id="tracks" class="tracks" role="list" aria-label="歌曲列表"></div>
+    <div class="library-footer"><span id="fallback-hint">此分类为空时播放「通用」，通用也为空则保持安静。</span><span>随机播放 · 每轮不重复</span></div>
+  </section></div>
+  <footer class="player"><div class="album" aria-hidden="true"><span>♫</span><i></i></div><div class="now"><small id="play-status">等待播放器</small><strong id="now-title">尚未播放</strong><span id="now-category">让天际拥有你的配乐</span></div><div class="transport"><div class="transport-buttons"><button id="auto" class="text-button">恢复环境播放</button><button id="pause" class="play-button" aria-label="暂停播放">Ⅱ</button><button id="next" class="icon-button" aria-label="下一首">▶|</button></div><div class="progress-row"><time id="position">0:00</time><div class="progress"><div id="progress-fill"></div></div><time id="duration">0:00</time></div></div><label class="volume"><span>音量</span><input id="volume" type="range" min="0" max="100" value="50" aria-label="音乐音量"><output id="volume-value">50%</output></label></footer>
+  <div class="statusbar"><span id="message" role="status">正在读取音乐库…</span><span><kbd id="hotkey-hint">Shift + M</kbd> 唤起 / 关闭 <b>·</b> <kbd>Esc</kbd> 返回游戏</span></div>
+</main>
+<div id="settings" class="modal-backdrop" hidden><section class="settings-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="settings-header"><div><small>PERSONALIZE YOUR SOUNDTRACK</small><h2 id="settings-title">配置面板</h2></div><button id="settings-close" class="close" aria-label="关闭配置面板">×</button></div>
+  <div class="settings-tabs" role="tablist"><button id="tab-playback" role="tab" aria-selected="true" aria-controls="settings-playback">播放设置</button><button id="tab-hotkey" role="tab" aria-selected="false" aria-controls="settings-hotkey">快捷键</button></div>
+  <div id="settings-playback" role="tabpanel" aria-labelledby="tab-playback">
+    <label class="setting-row"><div><strong>空歌单回退到通用</strong><p>关闭后，当前环境没有音乐就保持安静。立即保存。</p></div><input id="fallback" type="checkbox" checked></label>
+    <form id="playback-form">
+      <label class="setting-row"><div><strong>随游戏暂停音乐</strong><p>关闭后，暂停菜单中仍可继续听歌。</p></div><input id="pause-with-game" type="checkbox" checked></label>
+      <label class="setting-row"><div><strong>跟随游戏主音量</strong><p>同时受游戏主音量和播放器音量控制。</p></div><input id="follow-master" type="checkbox" checked></label>
+      <div class="settings-grid">
+        <label>普通淡入淡出 / 秒<input id="fade-seconds" type="number" min="0" max="10" step="0.05" required></label>
+        <label>战斗淡入淡出 / 秒<input id="combat-fade-seconds" type="number" min="0" max="5" step="0.05" required></label>
+        <label>场景切换等待 / 秒<input id="scene-delay" type="number" min="0" max="15" step="0.1" required></label>
+        <label>脱离战斗等待 / 秒<input id="combat-exit-delay" type="number" min="0" max="15" step="0.1" required></label>
+        <label>白天开始 / 时<input id="day-start" type="number" min="0" max="23" step="1" required></label>
+        <label>白天结束 / 时<input id="day-end" type="number" min="1" max="24" step="1" required></label>
+      </div>
+      <p class="form-note">按游戏时间划分昼夜。开始时间需早于结束时间，其他时段使用夜晚歌单。</p>
+      <div class="settings-buttons"><button id="playback-reset" type="button" class="secondary">填入默认值</button><button class="primary" type="submit">保存播放设置</button></div>
+      <p id="playback-message" class="form-message" role="status"></p>
+    </form>
+  </div>
+  <div id="settings-hotkey" role="tabpanel" aria-labelledby="tab-hotkey" hidden>
+    <div class="binding-current"><small>当前唤起快捷键</small><strong id="current-hotkey">Shift + M</strong></div>
+    <form id="hotkey-form">
+      <label class="key-label">主按键<select id="hotkey-key" aria-label="快捷键主按键"></select></label>
+      <div class="modifier-options"><label><input id="hotkey-shift" type="checkbox">Shift</label><label><input id="hotkey-ctrl" type="checkbox">Ctrl</label><label><input id="hotkey-alt" type="checkbox">Alt</label></div>
+      <p class="form-note">可选 A–Z、F1–F12，可组合多个修饰键。Esc 始终用于返回，不可改绑。</p>
+      <div class="binding-preview">即将设置为 <strong id="draft-hotkey">Shift + M</strong></div>
+      <div class="settings-buttons"><button id="hotkey-reset" type="button" class="secondary">填入 Shift + M</button><button class="primary" type="submit">保存快捷键</button></div>
+      <p id="hotkey-message" class="form-message" role="status"></p>
+    </form>
+  </div>
+  <details class="setting-info"><summary>音乐目录与说明</summary><p id="root-path"></p><p>保留歌名放入环境文件夹后重新扫描。音乐面板本身不暂停游戏，关闭面板后继续播放。所有配置按本机保存，重启游戏后保留。</p></details>
+</section></div>
+<script src="app.js"></script></body></html>

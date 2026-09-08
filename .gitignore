@@ -12,3 +12,5 @@ reference/
 **/packaging/FollowerSpellbookManager/
 **/packaging/FollowerSpellbookManager-*/
 **/packaging/*.zip
+mods/music-manager/packaging/migration/
+mods/music-manager/packaging/validation/

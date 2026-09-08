@@ -4,6 +4,7 @@ This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preservi
 
 ## Modules
 
+- `mods/music-manager` — environment-aware MP3 background music, DCS library migration, and Prisma UI controls. Default panel hotkey: **Shift+M**. Targets Skyrim SE **1.5.97**.
 - `mods/follower-spellbook-manager` — manage loaded followers, their spells, and spell tomes. Default panel hotkey: **Shift+S**.
 - `mods/inventory-manager` — lightweight inventory and magic list with configurable shortcuts. Default panel hotkey: **Shift+D**.
 - `mods/durability-manager` — PrismaUI foundation for weapon and armour durability. Default panel hotkey: **Shift+F**.
