@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const labels = [['explore_day','野外白天','☀'],['explore_night','野外夜晚','☾'],['town','城镇','⌂'],['tavern','酒馆','♧'],['home','住宅','◇'],['dungeon','地牢','♜'],['combat','普通战斗','⚔'],['dragon','龙战','♆'],['general','通用','♫']];
-const descriptions = {explore_day:'阳光下的漫游，让音乐随旅途展开。',explore_night:'星空、营火与远方，陪伴夜色中的旅途。',town:'穿行街巷，在熟悉的城镇停留。',tavern:'卸下行囊，听一段温暖的旋律。',home:'回到属于自己的安静角落。',dungeon:'深入洞穴与古老遗迹。',combat:'拔出武器，让节奏跟随战斗。',dragon:'巨龙盘旋，迎接天空中的挑战。',general:'其他环境的备用歌单。'};
+const labels = [['explore_day','野外白天','☀'],['explore_night','野外夜晚','☾'],['town','城镇','⌂'],['tavern','酒馆','♧'],['home','住宅','◇'],['castle','城堡','♜'],['cemetery','墓地','✧'],['temple','神殿','✦'],['dungeon','地牢','♜'],['combat','普通战斗','⚔'],['dragon','龙战','♆'],['general','通用','♫']];
+const descriptions = {explore_day:'阳光下的漫游，让音乐随旅途展开。',explore_night:'星空、营火与远方，陪伴夜色中的旅途。',town:'穿行街巷，在熟悉的城镇停留。',tavern:'卸下行囊，听一段温暖的旋律。',home:'回到属于自己的安静角落。',castle:'领主大厅与城堡中的庄严配乐。',cemetery:'墓园与亡者之厅，留一段安静的回响。',temple:'神殿中的祈祷与宁静。',dungeon:'深入洞穴与古老遗迹。',combat:'拔出武器，让节奏跟随战斗。',dragon:'巨龙盘旋，迎接天空中的挑战。',general:'其他环境的备用歌单。'};
 let state = {categories:labels.map(([id,label])=>({id,label,count:0})),tracks:[],scene:'explore_day',playlist:'',current:'',position:0,duration:0,volume:.5,enabled:true,fallback:true,paused:false,preview:false,status:'等待播放器',location:'',root:'',message:'正在读取音乐库…'};
 const playbackDefaults={pauseWithGame:true,followMaster:true,fadeSeconds:1.2,combatFadeSeconds:.35,sceneDelay:2,combatExitDelay:3,dayStart:6,dayEnd:20};
 const defaultHotkey={scanCode:50,shift:true,ctrl:false,alt:false,label:'Shift + M'};

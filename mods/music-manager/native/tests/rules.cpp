@@ -13,6 +13,18 @@ int main() {
     check(music::classify(e) == "dragon", "dragon beats interior");
     e = {}; e.interior = true;
     check(music::classify(e) == "general", "unknown interior fallback");
+    e.town = true; e.castle = true;
+    check(music::classify(e) == "castle", "castle beats city parent");
+    e.temple = true;
+    check(music::classify(e) == "temple", "temple beats castle parent");
+    e.cemetery = true;
+    check(music::classify(e) == "cemetery", "burial hall beats temple");
+    e.interior = false;
+    check(music::classify(e) == "cemetery", "outdoor cemetery");
+    e.combat = true;
+    check(music::classify(e) == "combat", "combat beats cemetery");
+    e = {}; e.castle = true; e.temple = true;
+    check(music::classify(e) == "explore_day", "interior categories do not leak outdoors");
     music::SceneGate gate;
     check(gate.update("town", 0) == "town", "initial scene");
     check(gate.update("dungeon", 1) == "town", "debounce");

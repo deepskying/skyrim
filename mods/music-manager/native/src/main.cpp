@@ -103,6 +103,13 @@ music::Environment capture() {
     for (unsigned depth = 0; location && depth < 16; ++depth, location = location->parentLoc) {
         e.tavern |= location->HasKeywordString("LocTypeInn");
         e.home |= location->HasKeywordString("LocTypePlayerHouse");
+        e.castle |= location->HasKeywordString("LocTypeCastle");
+        e.cemetery |= location->HasKeywordString("LocTypeCemetery");
+        e.temple |= location->HasKeywordString("LocTypeTemple");
+        // Some vanilla burial halls lack LocTypeCemetery (e.g. Solitude).
+        std::string locationID = location->GetFormEditorID();
+        std::transform(locationID.begin(), locationID.end(), locationID.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        e.cemetery |= locationID.find("hallofthedead") != std::string::npos || locationID.find("hallofdead") != std::string::npos;
         e.town |= location->HasKeywordString("LocTypeCity") || location->HasKeywordString("LocTypeTown") || location->HasKeywordString("LocTypeSettlement");
         e.dungeon |= location->HasKeywordString("LocTypeDungeon") || location->HasKeywordString("LocTypeCave") || location->HasKeywordString("LocTypeDraugrCrypt") || location->HasKeywordString("LocTypeDwarvenAutomatons") || location->HasKeywordString("LocTypeNordicRuin") || location->HasKeywordString("LocTypeMine");
     }
@@ -236,7 +243,7 @@ void onMessage(SKSE::MessagingInterface::Message* message) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(250));
             }
         });
-        logger::info("Music Manager 0.2.0 initialized; music category found: {}", musicCategory != nullptr);
+        logger::info("Music Manager 0.3.0 initialized; music category found: {}", musicCategory != nullptr);
         break;
     }
     default: break;

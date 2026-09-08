@@ -14,3 +14,4 @@ reference/
 **/packaging/*.zip
 mods/music-manager/packaging/migration/
 mods/music-manager/packaging/validation/
+**/__pycache__/

@@ -7,15 +7,17 @@
 
 namespace music {
 struct Category { const char* id; const char* folder; };
-inline constexpr std::array<Category, 9> categories{{
+inline constexpr std::array<Category, 12> categories{{
     {"explore_day", "野外白天"}, {"explore_night", "野外夜晚"}, {"town", "城镇"},
-    {"tavern", "酒馆"}, {"home", "住宅"}, {"dungeon", "地牢"},
+    {"tavern", "酒馆"}, {"home", "住宅"}, {"castle", "城堡"},
+    {"cemetery", "墓地"}, {"temple", "神殿"}, {"dungeon", "地牢"},
     {"combat", "普通战斗"}, {"dragon", "龙战"}, {"general", "通用"}
 }};
 struct Environment {
     bool active = false, paused = false, story = false;
     bool combat = false, dragon = false, interior = false;
     bool tavern = false, home = false, dungeon = false, town = false;
+    bool castle = false, cemetery = false, temple = false;
     float hour = 12, masterVolume = 1;
     std::string location, nativeMusic;
     unsigned epoch = 0;
@@ -24,6 +26,10 @@ inline std::string classify(const Environment& e, double dayStart = 6, double da
     if (e.combat) return e.dragon ? "dragon" : "combat";
     if (e.interior && e.tavern) return "tavern";
     if (e.interior && e.home) return "home";
+    // Burial halls can also carry the temple keyword; keep their own soundtrack.
+    if (e.cemetery) return "cemetery";
+    if (e.interior && e.temple) return "temple";
+    if (e.interior && e.castle) return "castle";
     if (e.dungeon) return "dungeon";
     if (e.town) return "town";
     if (e.interior) return "general";

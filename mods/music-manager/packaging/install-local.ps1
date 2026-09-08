@@ -15,7 +15,7 @@ if (-not $taskDestination.StartsWith($taskModsRoot + '\', [StringComparison]::Or
 if (Test-Path -LiteralPath $taskDestination) { throw 'This installer creates a new mod only; destination already exists.' }
 if (Test-Path -LiteralPath $taskProfile) { throw 'Test profile already exists; refusing to overwrite it.' }
 $taskRelease = Join-Path $PSScriptRoot 'release'
-$taskMigration = Join-Path $PSScriptRoot 'migration'
+$taskMigration = Join-Path $PSScriptRoot 'migration\mp3-v0.3.0'
 $taskReport = Get-Content -LiteralPath (Join-Path $taskMigration 'migration-report.json') -Raw -Encoding utf8 | ConvertFrom-Json
 if ($taskReport.errors.Count -gt 0) { throw 'Migration has unresolved errors.' }
 $taskDependencies = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'validation\dcs-dependencies.json') -Raw -Encoding utf8 | ConvertFrom-Json
@@ -37,7 +37,7 @@ $taskIni = Get-Content -LiteralPath (Join-Path $taskDestination 'SKSE\Plugins\Mu
 $taskIni = $taskIni -replace '(?m)^Path=.*$', ('Path=' + $taskMusicDestination)
 # Win32 INI APIs need UTF-16 for Chinese physical paths.
 [IO.File]::WriteAllText((Join-Path $taskDestination 'SKSE\Plugins\MusicManager.ini'),$taskIni,[Text.Encoding]::Unicode)
-$taskMeta = "[General]`r`ngameName=SkyrimSE`r`nversion=0.2.0`r`nmodid=0`r`nrepository=Local`r`nnotes=Shift+M music manager; tested in separate profile.`r`n"
+$taskMeta = "[General]`r`ngameName=SkyrimSE`r`nversion=0.3.0`r`nmodid=0`r`nrepository=Local`r`nnotes=Shift+M music manager; tested in separate profile.`r`n"
 [IO.File]::WriteAllText((Join-Path $taskDestination 'meta.ini'),$taskMeta,[Text.UTF8Encoding]::new($false))
 foreach ($taskFile in @('archives.txt','initweaks.ini','loadorder.txt','lockedorder.txt','settings.ini','skyrim.ini','skyrimcustom.ini','skyrimprefs.ini','plugins.txt','modlist.txt')) {
     $taskSourceFile = Join-Path $taskSource $taskFile

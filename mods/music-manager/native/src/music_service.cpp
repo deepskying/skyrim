@@ -188,7 +188,7 @@ struct Service::Impl {
         float cursor = 0, length = 0;
         if (current) { ma_sound_get_cursor_in_seconds(&current->value, &cursor); ma_sound_get_length_in_seconds(&current->value, &length); }
         std::string status = !ready ? "音频设备不可用" : !enabled ? "已关闭接管" : !env.active ? "等待进入游戏" : env.story ? "剧情音乐优先" : paused ? "已暂停" : !current ? "当前分类与通用均无可用音乐" : preview ? "正在试听" : "正在播放";
-        json state{{"version", "0.2.0"}, {"categories", cats}, {"tracks", list}, {"scene", scene}, {"playlist", playlist}, {"current", current ? current->id : ""}, {"position", cursor}, {"duration", length}, {"volume", volume}, {"enabled", enabled.load()}, {"fallback", fallback}, {"paused", manualPause}, {"preview", preview}, {"status", status}, {"location", env.location}, {"nativeMusic", env.nativeMusic}, {"root", utf8(root)}, {"message", message}};
+        json state{{"version", "0.3.0"}, {"categories", cats}, {"tracks", list}, {"scene", scene}, {"playlist", playlist}, {"current", current ? current->id : ""}, {"position", cursor}, {"duration", length}, {"volume", volume}, {"enabled", enabled.load()}, {"fallback", fallback}, {"paused", manualPause}, {"preview", preview}, {"status", status}, {"location", env.location}, {"nativeMusic", env.nativeMusic}, {"root", utf8(root)}, {"message", message}};
         state["playback"] = playback.json();
         std::lock_guard lock(mutex); published = std::move(state);
     }
