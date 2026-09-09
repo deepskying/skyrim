@@ -1,0 +1,25 @@
+{
+  "mode": "built-in image_gen",
+  "common": "Use case: stylized-concept. Create one full-length purely geometric magical BOW illustration, portrait, isolated on a completely plain almost-black background. Full weapon visible, no crop, a readable C-shaped bow body on the left and one straight fine RED luminous bowstring joining the top and bottom tips on the right. Clean nearly orthographic side view, crisp extremely simple geometry.\nABSOLUTE REQUIREMENT: the ENTIRE bow is RED and SELF-LUMINOUS. Every structural surface and every line glows red, crimson or scarlet. NO black or gray solid body, NO metal, NO silver, NO white edges, NO leather grip, NO ornaments, NO physical mechanical fittings, NO realistic material texture. Dark visible areas may ONLY be empty background seen through gaps. The weapon looks like a minimal solid-light construction made only from mathematical geometric primitives, uniform red light with a restrained red halo. Keep the actual shape readable; do not overexpose to white, pink or orange.\nAt the exact vertical midpoint of the bow place ONE clear RED SIX-POINTED STAR made from TWO overlapping equilateral triangle outlines: one pointing up and one pointing down, exactly six outer tips and a hollow hexagon at their intersection. No enclosing medallion, no circle around the star, no diamonds behind the star, no central gem. The six-pointed star itself is the central connecting element. Upper and lower limbs attach directly to two points of this star. No extra decorated handle is needed for this concept.\nThe limbs must be entirely made from a rhythmic sequence of simple geometric shapes that gradually rotate and get smaller, so the combined silhouette follows a graceful CURVED arc, never a big angular zigzag. Choose a sparse legible geometric composition, not an elaborate sci-fi weapon. Matching upper and lower flowing arcs. No arrows, people, ice, flames, particles, sparks, fog, text, labels, watermark, religious scene, or other objects. Present the geometry like an exceptionally elegant red luminous mathematical sculpture, not a metal weapon with glowing inlays.",
+  "specs": [
+    {
+      "key": "01-red-triangle-plates",
+      "name": "赤光·叠弦",
+      "detail": "Variation 1: the upper and lower limbs each consist of 12 overlapping FILLED RED TRIANGLES. Absolutely plain smooth triangular plates of red luminous material, uniform red emission across each entire face, slightly brighter red outlines to distinguish the overlaps. Each triangle rotates about 6 degrees from its neighbor and scales down toward the tip, creating a smooth fan-shaped crescent. No holes inside these triangles. A delicate red line links their bases; nothing else. The middle star is hollow red line geometry so it remains distinct from the solid red triangular wings.",
+      "file": "01-red-triangle-plates.png"
+    },
+    {
+      "key": "02-red-triangle-wire",
+      "name": "赤光·旋序",
+      "detail": "Variation 2: use ONLY RED LINE SEGMENTS, no filled plates at all. Each limb is formed by 14 identical-proportion equilateral TRIANGLE OUTLINES with moderately thick uniform glowing red lines. The triangles partially overlap, gradually rotate and shrink along a smooth arc, forming an elegant chain of nested triangular windows. All triangle interiors are EMPTY and show the black background. No complex extra bracing, no double outlines, no metal. The central hexagram uses the same line thickness as the wings and remains clearly readable. This is an extremely minimal neon-red wire sculpture of a bow.",
+      "file": "02-red-triangle-wire.png"
+    },
+    {
+      "key": "03-red-diamond-wire",
+      "name": "赤光·流菱",
+      "detail": "Variation 3: use ONLY simple HOLLOW RHOMBUS OUTLINES for the limbs, no filled plates and no triangles in the wings. Each upper and lower limb has 11 elongated four-sided diamonds, overlapping slightly and turning gradually along a smooth recurve. Every line has the same modest thickness and pure red glow. Diamond sizes taper gently toward the tips; generous empty spaces inside each diamond keep it light and airy. Central star remains the required two overlapping triangular outlines with six points, providing a deliberate contrast with the diamond limbs. Absolutely no extra frame, no ornamental end caps, no broad rails.",
+      "file": "03-red-diamond-wire.png"
+    }
+  ],
+  "status": "Concept illustrations only."
+}

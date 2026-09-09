@@ -1,0 +1,25 @@
+{
+  "mode": "built-in image_gen",
+  "common": "Use case: stylized-concept. Asset type: concept illustration for a Skyrim fantasy bow that will later be modeled in 3D. Create ONE entire bow per image, portrait composition, isolated on a plain charcoal studio background. Full bow visible from tip to tip with generous margins, nearly orthographic side elevation with just enough thickness to read as a real object. It must have a recognizably asymmetric bow-and-string silhouette: angular curved bow limbs on the left, one taut straight bowstring connecting the tips on the right, open negative space between. Exact key requirement: at the vertical midpoint of the bow is a RED SIX-POINTED HEXAGRAM constructed from TWO overlapping equilateral TRIANGLE outlines, one pointing up and one down, exactly six outer points. Clear geometric red star is the central visual focus. Small practical grip integrated immediately behind/below the central emblem. All components are simple extruded geometric shapes and straight polygonal rails with clean bevels. Show readable physically connected construction, restrained red emissive inlays, realistic but simple metal shading and crisp edges. No dragons, scales, feathers, ice, organic decoration, random filigree, particles, fog, excessive bloom, cloth, people, arrows, guns, pentagrams, five-pointed stars, text, labels or watermark. Make the DESIGN impressive through geometry and negative space, not complex textures or lighting tricks.",
+  "specs": [
+    {
+      "key": "01-crimson-truss",
+      "name": "赤星·棱翼",
+      "detail": "Design A: a lean, aggressive open triangular truss recurve bow, black titanium narrow triangular frames linked along the upper and lower limbs. Each limb has THREE large clearly readable nested triangles and long tapering triangular blade tips, in a swept angular C silhouette. Red thin rails follow selected triangle edges; brushed silver bevels on otherwise dark gunmetal. The central red hexagram is hollow and large enough to read, held in a small hexagonal bracket. Upper/lower limbs have balanced mirrored angular sweep. Keep it sparse, elegant, architectural, about 20 substantial geometric rails total, no tiny greebles.",
+      "file": "01-crimson-truss.png"
+    },
+    {
+      "key": "02-crimson-orbit",
+      "name": "赤星·环律",
+      "detail": "Design B: an elegant sacred-geometric polygon-arc bow. Upper and lower limbs made from TWO parallel segmented twelve-sided polygon arcs, not smooth circles, forming an open crescent around the string. Broad empty slots between the rails, with only a few short diagonal structural bridges. Polished dark silver frame with deep crimson glass-like inset strips. A bold RED hexagram at the center sits within TWO concentric thin hexagonal outlines. The extremities end in crisp forked V shapes. Strong rhythm of concentric angular arcs and repeated hexagons, a refined astronomical instrument appearance. No full circular wheel enclosing the bow, no decorative clutter.",
+      "file": "02-crimson-orbit.png"
+    },
+    {
+      "key": "03-crimson-vector",
+      "name": "赤星·断界",
+      "detail": "Design C: a bold geometric longbow made of stepped parallel straight rails. Three long slim silver-black bars on each limb fan outward from a crimson central hexagram, then bend at exact 45-degree angles into a sharply recurved zigzag. Two elongated hollow diamond frames form the dominant upper and lower wings; secondary parallel red light-lines trace each diamond. Slight upper/lower asymmetry, longer spear-like upper tip and shorter split lower tip, but unmistakably one usable bow. The central red six-pointed star is held by a compact diamond-shaped mount. Art-deco meets arcane hard-surface geometry, very clean repeating lines and deep open spaces, no fins that look like feathers.",
+      "file": "03-crimson-vector.png"
+    }
+  ],
+  "status": "Concept illustrations only; no meshes or MO2 installation changes."
+}

@@ -1,0 +1,25 @@
+{
+  "mode": "built-in image_gen",
+  "common": "Use case: stylized-concept. Create ONE full-length fantasy bow concept illustration, portrait format, isolated on plain dark charcoal, clean studio illumination. Nearly orthographic side elevation with subtle visible thickness; full tips and string in frame. This is a design exploration for a game mesh: extremely clear simple geometry, clean flat surfaces and narrow bevels, no ornate decoration. Bow curves in a C on the left; a single taut straight thin string joins tips on the right. At the exact vertical center of the bow is a prominent glowing crimson SIX-POINTED HEXAGRAM: TWO overlapping equilateral triangular outlines, one up one down, exactly six tips. Keep a narrow unobstructed grip behind the central star. Dark graphite and silver solid edges with restrained crimson accents. CRITICAL NEW DESIGN DIRECTION: Both upper and lower bow limbs must consist of MANY densely stacked geometric modules that gradually rotate and change size, producing a graceful, continuous sweeping arc. The repeated overlapping shapes themselves define the entire curved limb. Modules should be elegantly layered like a mathematical fan or a parametric architectural sculpture, crisp manufactured geometry, not feathers or organic scales. Around 12-18 clearly visible modules PER limb, small smooth angular changes between neighbors, no big kink in the overall silhouette. Connected by a discreet thin curved spine on the back, no disconnected floating debris. Avoid the rejected designs: NO three giant triangle frames spaced far apart, NO long exposed zigzag bars, NO diamond attached to a bare rod, NO large empty gaps between modules, NO simple polygon outline frame. Also no dragons, ice, filigree, mechanical greebles, arrows, humans, lettering, text, watermark, heavy bloom or smoke. The result should be beautiful through layered silhouettes and geometric rhythm.",
+  "specs": [
+    {
+      "key": "01-triangle-fan",
+      "name": "赤星·叠刃",
+      "detail": "Design 1: closely stacked solid thin isosceles TRIANGULAR plates, each silver-edged black triangle partially overlaps the preceding one by about half. The triangles' outward-facing points sweep backward in a synchronized fan. Progressively rotate each triangle by a few degrees and taper plate size toward the tips so the upper and lower limbs form elegant smooth recurve arcs. Broad and sculptural near the center, narrow and acute at the tips. About 15 triangular plates on each limb, clearly readable three-sided silhouettes, with crimson hairline accents on only alternate leading edges. The triangular tips make a refined serrated crescent silhouette, not randomly scattered spikes.",
+      "file": "01-triangle-fan.png"
+    },
+    {
+      "key": "02-triangle-nested",
+      "name": "赤星·回旋",
+      "detail": "Design 2: tightly layered HOLLOW equilateral triangular rings, each a substantial three-sided extruded frame, about 14 per limb. Each successive triangular ring rotates slightly relative to its neighbor and shifts along a curved path, creating a mesmerizing geometric fan and smooth crescent bow profile. Rings overlap in depth, revealing orderly nested triangular openings rather than large separated triangles. Small repeated increments of rotation, with a broad central fan tapering to compact hooked tips. Silver front bevels, dark side walls, thin red inner edges; keep each frame simple and substantial. A flowing architectural stack of triangle frames, sophisticated and visually rhythmic.",
+      "file": "02-triangle-nested.png"
+    },
+    {
+      "key": "03-rhombus-cascade",
+      "name": "赤星·流棱",
+      "detail": "Design 3: tightly stacked elongated RHOMBUS plates with a small diamond-shaped cutout in each. Approximately 16 plates per limb, arranged along a graceful sweeping recurve so each rhombus is slightly rotated and shifted from its neighbor, like a bent deck of precisely machined geometric cards. Long straight parallel edges within each module, continuously curving silhouette across the sequence. Each overlaps the next by two thirds. Gunmetal front faces, bright silver bevels and a sparse red line running along the recessed inner diamond openings. Asymmetrical longer upper sweep and shorter lower hook, but a balanced functional bow. Make the elegant flowing layered arc unmistakable, avoid generic sci-fi straight bars.",
+      "file": "03-rhombus-cascade.png"
+    }
+  ],
+  "status": "Concept illustrations only; revised limbs using gradually rotated and scaled stacked geometry."
+}

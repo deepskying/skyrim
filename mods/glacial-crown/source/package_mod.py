@@ -5,7 +5,7 @@ import json
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
-archive = root / 'packaging/GlacialCrown-0.1.0.zip'
+archive = root / 'packaging/GlacialCrown-0.1.1.zip'
 archive.parent.mkdir(parents=True, exist_ok=True)
 assets = sorted(p for p in (root / 'data').rglob('*') if p.is_file())
 assert assets and (root / 'data/GlacialCrown.esp') in assets

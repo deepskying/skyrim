@@ -269,7 +269,7 @@ collision=bpy.data.objects.get('bhkBoxShape')
 collision.hide_render=True
 # The original compact bow collision remains deliberately simple for the prototype.
 # It is carried over through PyNifly rather than synthesizing Havok metadata.
-stats={'version':'0.1.0','triangles':sum(len(p.vertices)-2 for o in objects for p in o.data.polygons),
+stats={'version':'0.1.1','triangles':sum(len(p.vertices)-2 for o in objects for p in o.data.polygons),
        'vertices':sum(len(o.data.vertices) for o in objects),'shapes':len(objects),'bones':list(rig.data.bones.keys()),
        'features':['new crystal geometry','DDS textures','emissive crystal core','skinned bowstring','static segmented halo'],
        'not_implemented':['orbit animation','charge-reactive VFX','custom projectile','gameplay validation']}
@@ -277,7 +277,13 @@ stats={'version':'0.1.0','triangles':sum(len(p.vertices)-2 for o in objects for 
 bpy.ops.object.select_all(action='DESELECT')
 for obj in objects+[root,rig,collision]+list(root.children): obj.select_set(True)
 bpy.context.view_layer.objects.active=objects[0]
-bpy.ops.export_scene.pynifly(filepath=str(MESH/'glacialcrown.nif'),target_game='SKYRIMSE',preserve_hierarchy=True,export_animations=False)
+# PyNifly's automatic setting discovery overrides explicit kwargs with the
+# imported root's stored defaults. Disable it so the weapon's animated bone
+# hierarchy is preserved instead of exporting seven independent root bones.
+bpy.ops.export_scene.pynifly(filepath=str(MESH/'glacialcrown.nif'),target_game='SKYRIMSE',
+    intuit_defaults=False, preserve_hierarchy=True, blender_xf=False,
+    rename_bones=True, rotate_bones_pretty=False, export_pose=False,
+    export_modifiers=False, export_animations=False)
 assert (MESH/'glacialcrown.nif').stat().st_size>10000
 
 # Retain the same geometry/materials for a truthful model preview.
