@@ -10,7 +10,7 @@
     <div class="table-labels"><span>#</span><span>歌曲</span><span>格式</span><span>播放控制</span></div><div id="tracks" class="tracks" role="list" aria-label="歌曲列表"></div>
     <div class="library-footer"><span id="fallback-hint">此分类为空时播放「通用」，通用也为空则保持安静。</span><span>随机播放 · 每轮不重复</span></div>
   </section></div>
-  <footer class="player"><div class="album" aria-hidden="true"><span>♫</span><i></i></div><div class="now"><small id="play-status">等待播放器</small><strong id="now-title">尚未播放</strong><span id="now-category">让天际拥有你的配乐</span></div><div class="transport"><div class="transport-buttons"><button id="auto" class="text-button">恢复环境播放</button><button id="pause" class="play-button" aria-label="暂停播放">Ⅱ</button><button id="next" class="icon-button" aria-label="下一首">▶|</button></div><div class="progress-row"><time id="position">0:00</time><div class="progress"><div id="progress-fill"></div></div><time id="duration">0:00</time></div></div><label class="volume"><span>音量</span><input id="volume" type="range" min="0" max="100" value="50" aria-label="音乐音量"><output id="volume-value">50%</output></label></footer>
+  <footer class="player"><div class="album" aria-hidden="true"><span>♫</span><i></i></div><div class="now"><small id="play-status">等待播放器</small><strong id="now-title">尚未播放</strong><span id="now-category">让天际拥有你的配乐</span><div class="now-actions"><button id="delete-current" disabled>删除此曲</button><button id="undo-delete" hidden>撤销删除</button></div></div><div class="transport"><div class="transport-buttons"><button id="auto" class="text-button">恢复环境播放</button><button id="pause" class="play-button" aria-label="暂停播放">Ⅱ</button><button id="next" class="icon-button" aria-label="下一首">▶|</button></div><div class="progress-row"><time id="position">0:00</time><div class="progress"><div id="progress-fill"></div></div><time id="duration">0:00</time></div></div><label class="volume"><span>音量</span><input id="volume" type="range" min="0" max="100" value="50" aria-label="音乐音量"><output id="volume-value">50%</output></label></footer>
   <div class="statusbar"><span id="message" role="status">正在读取音乐库…</span><span><kbd id="hotkey-hint">Shift + M</kbd> 唤起 / 关闭 <b>·</b> <kbd>Esc</kbd> 返回游戏</span></div>
 </main>
 <div id="settings" class="modal-backdrop" hidden><section class="settings-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -47,4 +47,11 @@
   </div>
   <details class="setting-info"><summary>音乐目录与说明</summary><p id="root-path"></p><p>保留歌名放入环境文件夹后重新扫描。音乐面板本身不暂停游戏，关闭面板后继续播放。所有配置按本机保存，重启游戏后保留。</p></details>
 </section></div>
-<script src="app.js"></script></body></html>
+<div id="delete-dialog" class="modal-backdrop" hidden><section class="settings-card delete-card" role="dialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description">
+  <small>MANAGE YOUR MUSIC</small><h2 id="delete-title">删除这首音乐？</h2>
+  <strong id="delete-song-name"></strong><p id="delete-song-path"></p>
+  <p id="delete-description">文件会移到音乐库的「_已删除」目录，随后播放下一首。可以撤销本次删除；其他环境中的同曲副本会保留。</p>
+  <p id="delete-status" class="form-message invalid" role="status"></p>
+  <div class="settings-buttons"><button id="delete-cancel" class="secondary">取消</button><button id="delete-confirm" class="danger-button">确认删除</button></div>
+</section></div>
+<script src="volume-control.js"></script><script src="app.js"></script></body></html>

@@ -1,5 +1,6 @@
 #include "music_service.h"
 #include "music_settings.h"
+#include "music_files.h"
 #include "miniaudio.h"
 #include <Windows.h>
 #include <atomic>
@@ -11,6 +12,7 @@
 #include <thread>
 #include <map>
 #include <cctype>
+#include <optional>
 
 namespace music {
 using json = nlohmann::json;
@@ -40,6 +42,8 @@ struct Service::Impl {
     SceneGate gate;
     std::string scene = "general", playlist, last, message;
     float volume = .5f;
+    std::string volumeRequestId, volumeError;
+    std::optional<ArchivedTrack> lastDeleted;
     PlaybackSettings playback;
     bool manualPause = false, paused = false, preview = false, fallback = true;
     unsigned epoch = 0;
@@ -153,6 +157,43 @@ struct Service::Impl {
         }
         stopSound(0);
     }
+    void deleteCurrent(const std::string& id) {
+        if (!current || current->id != id) throw std::runtime_error("正在播放的歌曲已变化，请重新选择要删除的歌曲");
+        const auto* found = find(id);
+        if (!found) throw std::runtime_error("歌曲已不在音乐库中");
+        const Track track = *found;
+        auto archived = prepareArchive(root, track.path);
+        archived.name = track.name;
+        const bool wasPreview = preview;
+        ma_uint64 cursor = 0;
+        ma_sound_get_cursor_in_pcm_frames(&current->value, &cursor);
+        // Release streaming decoder handles before attempting a Windows rename.
+        stopSound(0);
+        try { moveLibraryFile(root, archived.original, archived.archived); }
+        catch (...) {
+            if (auto* original = find(id); original && play(*original, 0)) {
+                ma_sound_seek_to_pcm_frame(&current->value, cursor);
+                preview = wasPreview;
+            }
+            throw;
+        }
+        lastDeleted = std::move(archived);
+        std::erase_if(tracks, [&](const Track& item) { return item.id == id; });
+        bags.clear(); preview = false;
+        if (env.active && enabled && !env.story) next();
+        else playlist.clear();
+        message = "已移至 _已删除：" + track.name + "；可撤销删除";
+    }
+    void undoDelete(const std::string& ticket) {
+        if (!lastDeleted || lastDeleted->ticket != ticket) throw std::runtime_error("可撤销的歌曲已变化，请重试");
+        checkedLibraryPath(root, lastDeleted->original);
+        fs::create_directories(lastDeleted->original.parent_path());
+        moveLibraryFile(root, lastDeleted->archived, lastDeleted->original);
+        const auto name = lastDeleted->name;
+        lastDeleted.reset();
+        scan();
+        message = "已恢复音乐文件：" + name;
+    }
     void handle(const json& j) {
         const auto type = j.value("type", "");
         if (type == "scan") scan();
@@ -162,9 +203,17 @@ struct Service::Impl {
             if (save()) { gate.clear(); message = "播放设置已保存并生效"; }
             else playback = previous;
         }
+        else if (type == "deleteCurrent") deleteCurrent(j.value("id", ""));
+        else if (type == "undoDelete") undoDelete(j.value("ticket", ""));
         else if (type == "next") { manualPause = false; next(); }
         else if (type == "pause") manualPause = !manualPause;
-        else if (type == "volume") { volume = std::clamp(j.at("value").get<float>(), 0.f, 1.f); save(); }
+        else if (type == "volume") {
+            const auto value = j.at("value").get<float>();
+            if (!std::isfinite(value)) throw std::runtime_error("音量数值无效");
+            volume = std::clamp(value, 0.f, 1.f);
+            volumeError = save() ? "" : "音量已生效，但保存失败，重启后可能恢复旧值。";
+            volumeRequestId = j.value("requestId", std::string{});
+        }
         else if (type == "enabled") { enabled = j.at("value").get<bool>(); save(); }
         else if (type == "fallback") { fallback = j.at("value").get<bool>(); save(); }
         else if (type == "disable") {
@@ -188,8 +237,11 @@ struct Service::Impl {
         float cursor = 0, length = 0;
         if (current) { ma_sound_get_cursor_in_seconds(&current->value, &cursor); ma_sound_get_length_in_seconds(&current->value, &length); }
         std::string status = !ready ? "音频设备不可用" : !enabled ? "已关闭接管" : !env.active ? "等待进入游戏" : env.story ? "剧情音乐优先" : paused ? "已暂停" : !current ? "当前分类与通用均无可用音乐" : preview ? "正在试听" : "正在播放";
-        json state{{"version", "0.3.0"}, {"categories", cats}, {"tracks", list}, {"scene", scene}, {"playlist", playlist}, {"current", current ? current->id : ""}, {"position", cursor}, {"duration", length}, {"volume", volume}, {"enabled", enabled.load()}, {"fallback", fallback}, {"paused", manualPause}, {"preview", preview}, {"status", status}, {"location", env.location}, {"nativeMusic", env.nativeMusic}, {"root", utf8(root)}, {"message", message}};
+        json state{{"version", "0.4.0"}, {"categories", cats}, {"tracks", list}, {"scene", scene}, {"playlist", playlist}, {"current", current ? current->id : ""}, {"position", cursor}, {"duration", length}, {"volume", volume}, {"enabled", enabled.load()}, {"fallback", fallback}, {"paused", manualPause}, {"preview", preview}, {"status", status}, {"location", env.location}, {"nativeMusic", env.nativeMusic}, {"root", utf8(root)}, {"message", message}};
         state["playback"] = playback.json();
+        state["volumeRequestId"] = volumeRequestId;
+        state["volumeError"] = volumeError;
+        state["lastDeleted"] = lastDeleted ? json{{"name", lastDeleted->name}, {"ticket", lastDeleted->ticket}} : json(nullptr);
         std::lock_guard lock(mutex); published = std::move(state);
     }
     void run(std::stop_token stop) {

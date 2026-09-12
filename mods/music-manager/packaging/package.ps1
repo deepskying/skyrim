@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$OutputDirectory = (Join-Path $PSScriptRoot 'release'), [string]$Version = '0.3.0')
+param([string]$OutputDirectory = (Join-Path $PSScriptRoot 'release'), [string]$Version = '0.4.0')
 $ErrorActionPreference = 'Stop'
 $taskModule = Split-Path $PSScriptRoot -Parent
 $taskDll = Join-Path $taskModule 'native\build\windows\x64\release\MusicManager.dll'
@@ -38,6 +38,7 @@ try {
         'SKSE/Plugins/MusicManager.rules.json',
         'PrismaUI/views/MusicManager/index.html',
         'PrismaUI/views/MusicManager/app.js',
+        'PrismaUI/views/MusicManager/volume-control.js',
         'PrismaUI/views/MusicManager/styles.css'
     )
     foreach ($taskFolder in @('野外白天','野外夜晚','城镇','酒馆','住宅','城堡','墓地','神殿','地牢','普通战斗','龙战','通用')) {
