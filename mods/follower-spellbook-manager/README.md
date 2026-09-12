@@ -8,7 +8,7 @@ An SKSE + Prisma UI mod for Skyrim Special Edition 1.5.97. It lets the player in
 - Click the close button or press **Esc** to close the panel from any page.
 - Open to a grid of loaded player teammates. Each card shows the follower's class, level, and live health, magicka, and stamina bars before opening the detail page.
 - Player-scaled followers show their current level cap on the roster card. Their detail page can raise that cap to the configured target and later restore the original value; fixed-level followers are left unchanged.
-- The responsive panel uses 90% of the available viewport and a translucent blue-green theme.
+- The responsive panel uses 90% of the available viewport and a translucent black theme with mint accents, larger labels, rounded cards, and thicker resource bars.
 - View that follower's castable spells in an independently scrolling grid, with each card showing the calculated cost and its share of the follower's maximum magicka.
 - Enable or disable individual follower spells from each spell card. Disabled spells remain visible for restoration, and their state is stored in the SKSE co-save.
 - Filter the list by magic school.

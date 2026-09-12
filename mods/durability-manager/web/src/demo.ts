@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.41',
+  version: '0.1.42',
   capturingHotkey: false,
   message: '已检测到附近的锻造熔炉，可直接选择装备进行修复或强化。',
   settings: {

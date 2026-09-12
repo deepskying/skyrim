@@ -1082,5 +1082,49 @@
     "damage": 99,
     "weapon_speed": 1.2,
     "enchantment": null
+  },
+  {
+    "key": "swordred",
+    "name": "余烬·截锋",
+    "series": "swords",
+    "weapon_type": "sword",
+    "stat_form": "0x94a",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "swordgreen",
+    "name": "流萤·游梭",
+    "series": "swords",
+    "weapon_type": "sword",
+    "stat_form": "0x94d",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "swordblue",
+    "name": "寒汐·棱隙",
+    "series": "swords",
+    "weapon_type": "sword",
+    "stat_form": "0x950",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "swordpurple",
+    "name": "梦隙·错影",
+    "series": "swords",
+    "weapon_type": "sword",
+    "stat_form": "0x953",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
   }
 ]

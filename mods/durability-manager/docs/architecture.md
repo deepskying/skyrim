@@ -1,5 +1,18 @@
 # Durability Manager architecture
 
+## Staff wear (0.1.42)
+
+The equipment sink subscribes to `SKSE::ActionEvent::kSpellFire`. It accepts only the player, a left/right slot and a non-bound staff source matching that hand's equipped entry. `FindWornExtraListForHand` resolves the exact instance; an explicit empty/invalid `ExtraCharge` is excluded. Only this release event charges staff wear: charging and hit events are not used, and concentration has no per-second charge. `StaffCastWear` defaults to 1.0, is clamped to 0.1–100 on INI load and is preserved on settings writes. The common wear pipeline applies reduction and zero-durability behavior. Staff details and enhancement previews use the same base cost. Recipe-less staves receive the repair-only iron-ingot fallback (1–4 by missing-durability band); salvage eligibility is unchanged.
+
+SKSE dispatches this action immediately before the original spell-fire handler, so this is a release-action rule, not confirmation of projectile creation or target impact. Source: https://github.com/ianpatt/skse64/blob/master/skse64/Hooks_Handlers.cpp.
+
+Game verification checklist (pending):
+- Fire a right-hand and left-hand staff separately, then two identical staves; only the firing instance should lose the configured wear.
+- Cancel during charging, try an empty staff, cast an ordinary spell in the other hand and let an NPC cast; player staff durability should remain unchanged.
+- Hold a concentration staff and hit multiple targets; verify the actual release-event cadence and that damage ticks add no wear.
+- Change `StaffCastWear`, restart, apply wear reduction and compare actual loss with details/preview; save/load should preserve current durability.
+- Exhaust a recipe-less staff, repair it using the displayed iron-ingot cost and equip it again; verify warning and protected breakage behavior.
+
 ## Direct review confirmation (0.1.41)
 
 The review no longer stores an acknowledgement state or renders a checkbox. Its confirm button is enabled for a valid affordable offer when no operation is pending, with the same checks repeated in its handler. The explicit review page, risk copy, cancel-first focus, instance/offer invalidation, synchronous duplicate-submit guard and native validations remain. The acknowledgement steps documented for 0.1.32 below describe the older behavior, superseded by this version.

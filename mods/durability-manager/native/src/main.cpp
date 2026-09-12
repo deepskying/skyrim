@@ -39,6 +39,7 @@ namespace
         float powerAttackWearMultiplier = 1.60F;
         float bowShotWear = 1.0F;
         float crossbowShotWear = 2.0F;
+        float staffCastWear = 1.0F;
         float armorHitWear = 1.0F;
         float clothingHitWear = 1.25F;
         float shieldBlockWear = 1.0F;
@@ -165,7 +166,7 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.41";
+    constexpr std::string_view kPluginVersion = "0.1.42";
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -290,6 +291,7 @@ namespace
                    << "\nPowerAttackWearMultiplier=" << g_settings.powerAttackWearMultiplier
                    << "\nBowShotWear=" << g_settings.bowShotWear
                    << "\nCrossbowShotWear=" << g_settings.crossbowShotWear
+                   << "\nStaffCastWear=" << g_settings.staffCastWear
                    << "\nArmorHitWear=" << g_settings.armorHitWear
                    << "\nClothingHitWear=" << g_settings.clothingHitWear
                    << "\nShieldBlockWear=" << g_settings.shieldBlockWear
@@ -347,6 +349,7 @@ namespace
                     else if (key == "POWERATTACKWEARMULTIPLIER") g_settings.powerAttackWearMultiplier = std::clamp(std::stof(value), 1.0F, 10.0F);
                     else if (key == "BOWSHOTWEAR") g_settings.bowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "CROSSBOWSHOTWEAR") g_settings.crossbowShotWear = std::clamp(std::stof(value), 0.1F, 100.0F);
+                    else if (key == "STAFFCASTWEAR") g_settings.staffCastWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "ARMORHITWEAR") g_settings.armorHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "CLOTHINGHITWEAR") g_settings.clothingHitWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "SHIELDBLOCKWEAR") g_settings.shieldBlockWear = std::clamp(std::stof(value), 0.1F, 100.0F);
@@ -736,10 +739,12 @@ namespace
         const auto costRatio = missingRatio <= 0.25F ? 0.25F : missingRatio <= 0.50F ? 0.50F : missingRatio <= 0.75F ? 0.75F : 1.0F;
         if (!recipe) {
             auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr;
-            if (!armor) return materials;
-            const auto materialEditorID = armor->IsClothing() ? "LeatherStrips" : "IngotIron";
+            const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
+            if (!armor && !(weapon && weapon->IsStaff())) return materials;
+            const auto clothing = armor && armor->IsClothing();
+            const auto materialEditorID = clothing ? "LeatherStrips" : "IngotIron";
             if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(materialEditorID)) {
-                const auto fullRepairCount = armor->IsClothing() ? 2.0F : 4.0F;
+                const auto fullRepairCount = clothing ? 2.0F : 4.0F;
                 materials[material] = (std::max)(1, static_cast<std::int32_t>(std::ceil(fullRepairCount * costRatio)));
             }
             return materials;
@@ -2650,6 +2655,8 @@ namespace
             return g_settings.bowShotWear;
         case RE::WEAPON_TYPE::kCrossbow:
             return g_settings.crossbowShotWear;
+        case RE::WEAPON_TYPE::kStaff:
+            return g_settings.staffCastWear;
         default:
             return std::nullopt;
         }
@@ -2797,7 +2804,7 @@ namespace
             blocked ? "Blocked physical hit" : "Incoming physical hit");
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>, public RE::BSTEventSink<SKSE::ActionEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -2813,6 +2820,7 @@ namespace
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESHitEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESContainerChangedEvent>(this);
+            if (auto* source = SKSE::GetActionEventSource()) source->AddEventSink(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
         }
@@ -2869,6 +2877,29 @@ namespace
             if (!a_event || !player) return RE::BSEventNotifyControl::kContinue;
             const auto playerID = player->GetFormID();
             if (a_event->oldContainer == playerID || a_event->newContainer == playerID) QueuePlayerRuntimeEffectsSync();
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
+        RE::BSEventNotifyControl ProcessEvent(const SKSE::ActionEvent* a_event, RE::BSTEventSource<SKSE::ActionEvent>*) override
+        {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!a_event || !player || a_event->actor != player || a_event->type != SKSE::ActionEvent::Type::kSpellFire) return RE::BSEventNotifyControl::kContinue;
+            if (a_event->slot != SKSE::ActionEvent::Slot::kLeft && a_event->slot != SKSE::ActionEvent::Slot::kRight) return RE::BSEventNotifyControl::kContinue;
+            const auto* weapon = a_event->sourceForm ? a_event->sourceForm->As<RE::TESObjectWEAP>() : nullptr;
+            if (!weapon || !weapon->IsStaff() || weapon->IsBound()) return RE::BSEventNotifyControl::kContinue;
+            // SKSE supplies the equipped object and firing hand. Do not resolve by base
+            // form: two copies of the same staff can be equipped in different hands.
+            const auto leftHand = a_event->slot == SKSE::ActionEvent::Slot::kLeft;
+            auto* entry = player->GetEquippedEntryData(leftHand);
+            if (!entry || entry->object != weapon) return RE::BSEventNotifyControl::kContinue;
+            auto* extraList = FindWornExtraListForHand(entry, leftHand);
+            const auto* charge = extraList ? extraList->GetByType<RE::ExtraCharge>() : nullptr;
+            if (charge && (!std::isfinite(charge->charge) || charge->charge <= 0.0F)) return RE::BSEventNotifyControl::kContinue;
+            const auto key = EnsureItemKeyForExtraList(extraList, weapon);
+            if (!key) return RE::BSEventNotifyControl::kContinue;
+            // Listen only to release, never charge-start or hit events. Concentration
+            // casts pay per release rather than per damage tick or target.
+            ApplyEquipmentWear(weapon, *key, g_settings.staffCastWear, 1.0F, "Staff release");
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -3001,6 +3032,7 @@ namespace
         const auto enchantment = EnchantmentName(a_item, a_extraList);
         const auto chargeCapacity = InstanceChargeCapacity(a_item, a_extraList);
         const auto isRangedWeapon = weapon && (weapon->IsBow() || weapon->IsCrossbow()) && !weapon->IsBound();
+        const auto isStaff = weapon && weapon->IsStaff() && !weapon->IsBound();
         const auto isMeleeWeapon = weapon && weapon->IsMelee() && !weapon->IsHandToHandMelee() && !weapon->IsBound();
         const auto baseWeaponWear = BaseWeaponWear(weapon);
         const auto baseArmorWear = BaseArmorWear(armor);
@@ -3029,7 +3061,7 @@ namespace
             { "armor", armor ? static_cast<std::int64_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
             { "weight", (std::max)(0.1F, EquipmentWeight(a_item) - a_durability.weightReduction) },
             { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + a_durability.attackSpeedBonus)) : 0.0F },
-            { "wearRateLabel", isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : armor && armor->IsShield() ? "每次盾牌格挡" : armor ? "每次被物理命中并抽中部位" : "尚未启用" },
+            { "wearRateLabel", isStaff ? "每次法杖释放" : isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : armor && armor->IsShield() ? "每次盾牌格挡" : armor ? "每次被物理命中并抽中部位" : "尚未启用" },
             { "wearReduction", effectiveWearReduction },
             { "enchantment", enchantment },
             { "enchanted", IsInstanceEnchanted(a_item, a_extraList) },
@@ -3040,7 +3072,7 @@ namespace
             { "repairable", repairable },
             { "repairMaterials", RepairMaterialsJson(repairMaterials) }
         };
-        if (isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
+        if (isStaff || isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
         else if (armor) equipmentItem["wearRate"] = effectiveArmorWear;
         if (chargeCapacity) {
             const auto* extraCharge = a_extraList ? a_extraList->GetByType<RE::ExtraCharge>() : nullptr;

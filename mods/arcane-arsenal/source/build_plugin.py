@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 MASTER=Path(r'C:\Users\linos\Desktop\games\+skyrim\SkyrimSE\Data\Skyrim.esm')
 catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
 metadata=configparser.ConfigParser();metadata.read(ROOT/'packaging/meta.ini',encoding='utf-8');version=metadata['General']['version']
-record_count=len(catalog)*3+17
+record_count=len(catalog)*3+18
 source=list(records(MASTER,{b'WEAP',b'STAT',b'ENCH',b'MISC',b'KYWD',b'INGR',b'CONT',b'AMMO'}))
 by_name={edid(r).lower():r for r in source};by_form={r['form']:r for r in source}
 weapon=by_name['imperialbow'];parts=dict(subrecords(weapon['data']))
@@ -33,10 +33,10 @@ for i,spec in enumerate(catalog):
     # Explicit IDs preserve save identity when catalog entries are retired.
     # Never reuse the reserved IDs recorded in retired_weapons.json.
     base=0x01000000|int(spec['stat_form'],16);stat_id=base;weapon_id=base+1;recipe_id=base+2
-    template=by_name['irongreatsword'] if spec.get('weapon_type')=='greatsword' else weapon
+    template=by_name['ironsword'] if spec.get('weapon_type')=='sword' else by_name['irongreatsword'] if spec.get('weapon_type')=='greatsword' else weapon
     template_parts=dict(subrecords(template['data']))
     fp_template=by_form[struct.unpack('<I',template_parts[b'WNAM'])[0]]
-    item_bounds=struct.pack('<6h',-30,-28,-8,30,110,8) if spec.get('weapon_type')=='greatsword' else bounds
+    item_bounds=struct.pack('<6h',-18,-17,-5,18,75,5) if spec.get('weapon_type')=='sword' else struct.pack('<6h',-30,-28,-8,30,110,8) if spec.get('weapon_type')=='greatsword' else bounds
     model=Z('weapons\\arcanearsenal\\'+spec['key']+'.nif')
     enchant=by_name[spec['enchantment'].lower()] if spec.get('enchantment') else None
     stats.append(changed(fp_template,stat_id,{b'EDID':Z('AA'+spec['key']+'1stPerson'),b'OBND':item_bounds,b'MODL':model},(b'MODT',b'MODS')))
@@ -152,6 +152,12 @@ greatsword_inventory=[(w['form'],1) for w,spec in zip(weapons,catalog) if spec.g
 assert len(greatsword_inventory)==12
 extra=sub(b'COCT',U32(12))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in greatsword_inventory)
 greatswords_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(greatswords_chest['data']))
+swords_chest=changed(by_name['treaschestsmallemptynorespawn'],0x01000956,
+    {b'EDID':Z('AAHeteromorphicSwordsChest'),b'FULL':Z('异构单手剑·试武箱')},(b'MODT',b'COCT',b'CNTO'))
+sword_inventory=[(w['form'],1) for w,spec in zip(weapons,catalog) if spec.get('weapon_type')=='sword']
+assert len(sword_inventory)==4
+extra=sub(b'COCT',U32(4))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in sword_inventory)
+swords_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(swords_chest['data']))
 # A hidden start-game quest with one forced player alias. No stages/objectives,
 # no actor edits, and no dependency on load-order-specific light-plugin indices.
 # VMAD v5 / object format 2 follows xEdit's TES5 record definitions.
@@ -172,12 +178,12 @@ seq=ROOT/'data/seq/ArcaneArsenal.seq';seq.parent.mkdir(parents=True,exist_ok=Tru
 seq.write_bytes(U32(quest_id))
 # Crystal experiment IDs 0x90C..0x918 are retired, including chest 0x918. Never reuse.
 header={'sig':b'TES4','flags':0x200,'form':0,'version':44,'data':
-    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x94A))+
+    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x957))+
     sub(b'CNAM',Z('Arcane Armory'))+
-    sub(b'SNAM',Z(f'{len(catalog)} original weapons and sixteen test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
+    sub(b'SNAM',Z(f'{len(catalog)} original weapons and seventeen test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
     sub(b'MAST',b'Skyrim.esm\0')+sub(b'DATA',b'\0'*8)}
 dest=ROOT/'data/ArcaneArsenal.esp';dest.parent.mkdir(parents=True,exist_ok=True)
-dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
+dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest,swords_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
 parsed=list(records(dest));assert len(parsed)==record_count+1
 assert parsed[0]['flags']&0x200
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in parsed[1:])
@@ -199,5 +205,6 @@ result.update(pisces_chest='0008F1',pisces_chest_contents='4 Pisces bows, 200 ir
 result.update(scorpio_chest='0008FE',scorpio_chest_contents='4 Scorpio bows, 200 iron arrows')
 result.update(heteromorphic_chest='00090B',heteromorphic_chest_contents='8 Heteromorphic bows, 200 iron arrows')
 result.update(greatswords_chest='000931',greatswords_chest_contents='12 Heteromorphic greatswords')
+result.update(swords_chest='000956',swords_chest_contents='4 Heteromorphic one-handed swords')
 (ROOT/'build/plugin-report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

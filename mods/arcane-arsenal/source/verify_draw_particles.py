@@ -11,11 +11,11 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT.parents[1]/'reference/bow-tools/blender-4.5.13-windows-x64/portable/scripts/addons/io_scene_nifly'))
 from pyn.pynifly import NifFile
 key=sys.argv[1] if len(sys.argv)>1 else 'redplates'
-is_aries=key.startswith(('greatsword','aries','taurus','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic','geo')) or key in ('redplates','redtriangles','reddiamonds')
+is_aries=key.startswith(('sword','greatsword','aries','taurus','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic','geo')) or key in ('redplates','redtriangles','reddiamonds')
 base_count=json.loads((ROOT/'build'/(key+'-particles.json')).read_text(encoding='utf-8'))['old_block_count'] if is_aries else 37
 source=ROOT/'data/meshes/weapons/arcanearsenal'/(key+'.nif')
 copy=ROOT/'build'/(key+'-particles-roundtrip.nif')
-native=NifFile(str(source));assert len(native.shapes)==(2 if key.startswith('greatsword') else 4 if key=='heteromorphic2green' else 3 if is_aries else 4)
+native=NifFile(str(source));assert len(native.shapes)==(2 if key.startswith(('sword','greatsword')) else 4 if key=='heteromorphic2green' else 3 if is_aries else 4)
 assert not NifFile.message_log(),NifFile.message_log()
 native.filepath=str(copy);native.save()
 assert not NifFile.message_log(),NifFile.message_log()
