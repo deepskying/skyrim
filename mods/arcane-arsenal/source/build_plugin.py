@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 MASTER=Path(r'C:\Users\linos\Desktop\games\+skyrim\SkyrimSE\Data\Skyrim.esm')
 catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
 metadata=configparser.ConfigParser();metadata.read(ROOT/'packaging/meta.ini',encoding='utf-8');version=metadata['General']['version']
-record_count=len(catalog)*3+16
+record_count=len(catalog)*3+17
 source=list(records(MASTER,{b'WEAP',b'STAT',b'ENCH',b'MISC',b'KYWD',b'INGR',b'CONT',b'AMMO'}))
 by_name={edid(r).lower():r for r in source};by_form={r['form']:r for r in source}
 weapon=by_name['imperialbow'];parts=dict(subrecords(weapon['data']))
@@ -33,13 +33,17 @@ for i,spec in enumerate(catalog):
     # Explicit IDs preserve save identity when catalog entries are retired.
     # Never reuse the reserved IDs recorded in retired_weapons.json.
     base=0x01000000|int(spec['stat_form'],16);stat_id=base;weapon_id=base+1;recipe_id=base+2
+    template=by_name['irongreatsword'] if spec.get('weapon_type')=='greatsword' else weapon
+    template_parts=dict(subrecords(template['data']))
+    fp_template=by_form[struct.unpack('<I',template_parts[b'WNAM'])[0]]
+    item_bounds=struct.pack('<6h',-30,-28,-8,30,110,8) if spec.get('weapon_type')=='greatsword' else bounds
     model=Z('weapons\\arcanearsenal\\'+spec['key']+'.nif')
     enchant=by_name[spec['enchantment'].lower()] if spec.get('enchantment') else None
-    stats.append(changed(firstperson,stat_id,{b'EDID':Z('AA'+spec['key']+'1stPerson'),b'OBND':bounds,b'MODL':model},(b'MODT',b'MODS')))
-    weapon_data=bytearray(parts[b'DNAM'])
+    stats.append(changed(fp_template,stat_id,{b'EDID':Z('AA'+spec['key']+'1stPerson'),b'OBND':item_bounds,b'MODL':model},(b'MODT',b'MODS')))
+    weapon_data=bytearray(template_parts[b'DNAM'])
     struct.pack_into('<f',weapon_data,4,float(spec['weapon_speed']))
-    weapons.append(changed(weapon,weapon_id,{
-        b'EDID':Z('AA'+spec['key']),b'FULL':Z(spec['name']),b'DESC':b'\0',b'OBND':bounds,
+    weapons.append(changed(template,weapon_id,{
+        b'EDID':Z('AA'+spec['key']),b'FULL':Z(spec['name']),b'DESC':b'\0',b'OBND':item_bounds,
         b'MODL':model,b'WNAM':U32(stat_id),
         **({b'EITM':U32(enchant['form']),b'EAMT':struct.pack('<H',1800)} if enchant else {}),
         b'DATA':struct.pack('<IfH',1800,float(spec['weight']),spec['damage']),
@@ -142,6 +146,12 @@ heteromorphic_inventory=[(w['form'],1) for w,s in zip(weapons,catalog) if s.get(
 assert len(heteromorphic_inventory)==9
 extra=sub(b'COCT',U32(len(heteromorphic_inventory)))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in heteromorphic_inventory)
 heteromorphic_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(heteromorphic_chest['data']))
+greatswords_chest=changed(by_name['treaschestsmallemptynorespawn'],0x01000931,
+    {b'EDID':Z('AAHeteromorphicGreatswordsChest'),b'FULL':Z('异构巨剑·试武箱')},(b'MODT',b'COCT',b'CNTO'))
+greatsword_inventory=[(w['form'],1) for w,spec in zip(weapons,catalog) if spec.get('weapon_type')=='greatsword']
+assert len(greatsword_inventory)==12
+extra=sub(b'COCT',U32(12))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in greatsword_inventory)
+greatswords_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(greatswords_chest['data']))
 # A hidden start-game quest with one forced player alias. No stages/objectives,
 # no actor edits, and no dependency on load-order-specific light-plugin indices.
 # VMAD v5 / object format 2 follows xEdit's TES5 record definitions.
@@ -162,12 +172,12 @@ seq=ROOT/'data/seq/ArcaneArsenal.seq';seq.parent.mkdir(parents=True,exist_ok=Tru
 seq.write_bytes(U32(quest_id))
 # Crystal experiment IDs 0x90C..0x918 are retired, including chest 0x918. Never reuse.
 header={'sig':b'TES4','flags':0x200,'form':0,'version':44,'data':
-    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x925))+
+    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x94A))+
     sub(b'CNAM',Z('Arcane Armory'))+
-    sub(b'SNAM',Z(f'{len(catalog)} original bows and fifteen test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
+    sub(b'SNAM',Z(f'{len(catalog)} original weapons and sixteen test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
     sub(b'MAST',b'Skyrim.esm\0')+sub(b'DATA',b'\0'*8)}
 dest=ROOT/'data/ArcaneArsenal.esp';dest.parent.mkdir(parents=True,exist_ok=True)
-dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
+dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
 parsed=list(records(dest));assert len(parsed)==record_count+1
 assert parsed[0]['flags']&0x200
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in parsed[1:])
@@ -176,7 +186,7 @@ for r in parsed:
     if r['sig']==b'WEAP':
         display=dict(subrecords(r['data']))[b'FULL'].rstrip(b'\0').decode('utf-8')
         assert display in {s['name'] for s in catalog}
-result={'version':version,'plugin':'ArcaneArsenal.esp','ESL':True,'header_version':1.7,'form_version':44,'master':'Skyrim.esm','new_records':record_count,'weapons':report,'test_chest':'00080C','test_chest_contents':f'{len(catalog)} bows, 200 iron arrows','aries_chest':'00082F','aries_chest_contents':'4 Aries bows, 200 iron arrows','taurus_chest':'00083C','taurus_chest_contents':'4 Taurus bows, 200 iron arrows','geometric_chest':'00087C','geometric_chest_contents':'24 geometric bows, 200 iron arrows','gameplay_tested':False}
+result={'version':version,'plugin':'ArcaneArsenal.esp','ESL':True,'header_version':1.7,'form_version':44,'master':'Skyrim.esm','new_records':record_count,'weapons':report,'test_chest':'00080C','test_chest_contents':f'{len(catalog)} weapons, 200 iron arrows','aries_chest':'00082F','aries_chest_contents':'4 Aries bows, 200 iron arrows','taurus_chest':'00083C','taurus_chest_contents':'4 Taurus bows, 200 iron arrows','geometric_chest':'00087C','geometric_chest_contents':'24 geometric bows, 200 iron arrows','gameplay_tested':False}
 result.update(gemini_chest='000889',gemini_chest_contents='4 Gemini bows, 200 iron arrows')
 result.update(cancer_chest='000896',cancer_chest_contents='4 Cancer bows, 200 iron arrows')
 result.update(leo_chest='0008A3',leo_chest_contents='4 Leo bows, 200 iron arrows')
@@ -188,5 +198,6 @@ result.update(aquarius_chest='0008E4',aquarius_chest_contents='4 Aquarius bows, 
 result.update(pisces_chest='0008F1',pisces_chest_contents='4 Pisces bows, 200 iron arrows')
 result.update(scorpio_chest='0008FE',scorpio_chest_contents='4 Scorpio bows, 200 iron arrows')
 result.update(heteromorphic_chest='00090B',heteromorphic_chest_contents='8 Heteromorphic bows, 200 iron arrows')
+result.update(greatswords_chest='000931',greatswords_chest_contents='12 Heteromorphic greatswords')
 (ROOT/'build/plugin-report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

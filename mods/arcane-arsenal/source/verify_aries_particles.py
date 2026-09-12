@@ -8,7 +8,7 @@ from pathlib import Path
 from mathutils import Matrix,Vector
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'source'))
 from nif_blocks import NifBlocks
-SERIES='heteromorphic2' if '--heteromorphic2' in sys.argv else 'crystal' if '--crystal' in sys.argv else 'heteromorphic' if '--heteromorphic' in sys.argv else 'scorpio' if '--scorpio' in sys.argv else 'pisces' if '--pisces' in sys.argv else 'aquarius' if '--aquarius' in sys.argv else 'capricorn' if '--capricorn' in sys.argv else 'sagittarius' if '--sagittarius' in sys.argv else 'libra' if '--libra' in sys.argv else 'virgo' if '--virgo' in sys.argv else 'leo' if '--leo' in sys.argv else 'cancer' if '--cancer' in sys.argv else 'gemini' if '--gemini' in sys.argv else 'geometric' if '--geometric' in sys.argv else 'taurus' if '--taurus' in sys.argv else 'aries'
+SERIES='greatswords3' if '--greatswords3' in sys.argv else 'greatswords2' if '--greatswords2' in sys.argv else 'greatswords' if '--greatswords' in sys.argv else 'heteromorphic2' if '--heteromorphic2' in sys.argv else 'crystal' if '--crystal' in sys.argv else 'heteromorphic' if '--heteromorphic' in sys.argv else 'scorpio' if '--scorpio' in sys.argv else 'pisces' if '--pisces' in sys.argv else 'aquarius' if '--aquarius' in sys.argv else 'capricorn' if '--capricorn' in sys.argv else 'sagittarius' if '--sagittarius' in sys.argv else 'libra' if '--libra' in sys.argv else 'virgo' if '--virgo' in sys.argv else 'leo' if '--leo' in sys.argv else 'cancer' if '--cancer' in sys.argv else 'gemini' if '--gemini' in sys.argv else 'geometric' if '--geometric' in sys.argv else 'taurus' if '--taurus' in sys.argv else 'aries'
 u=lambda b,o=0:struct.unpack_from('<I',b,o)[0]
 f=lambda b,o=0:struct.unpack_from('<f',b,o)[0]
 reports=[]
@@ -36,10 +36,10 @@ for spec in json.loads((ROOT/'source'/(SERIES+'_catalog.json')).read_text(encodi
     assert not any('Hexagram' in s.decode() for s in n.strings)  # Classic static stars are ordinary skinned geometry.
     assert len([k for k,b in n.blocks if k=='NiParticleSystem'])==6
     for j,anchor in enumerate(source['particle_anchors']):
-        index=names['AAAriesDust'+str(j)];parent=parents[index]
+        index=names[spec.get('particle_node_prefix','AAAriesDust')+str(j)];parent=parents[index]
         assert parent==names[anchor['bone']]
         touched.add(parent)
-        assert abs(f(n.blocks[index][1],64)-.0001)<1e-8
+        assert abs(f(n.blocks[index][1],64)-spec.get('control_scale',.0001))<1e-8
         assert abs(matrix(index).to_3x3().determinant())>1e-13
         actual=world(parent)@matrix(index,True)
         error=(actual.translation-Vector(anchor['position'])).length

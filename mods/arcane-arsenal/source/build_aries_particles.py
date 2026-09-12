@@ -8,7 +8,7 @@ import sys,struct,math,json,hashlib
 from mathutils import Matrix,Vector
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'source'))
-SERIES='heteromorphic2' if '--heteromorphic2' in sys.argv else 'crystal' if '--crystal' in sys.argv else 'heteromorphic' if '--heteromorphic' in sys.argv else 'scorpio' if '--scorpio' in sys.argv else 'pisces' if '--pisces' in sys.argv else 'aquarius' if '--aquarius' in sys.argv else 'capricorn' if '--capricorn' in sys.argv else 'sagittarius' if '--sagittarius' in sys.argv else 'libra' if '--libra' in sys.argv else 'virgo' if '--virgo' in sys.argv else 'leo' if '--leo' in sys.argv else 'cancer' if '--cancer' in sys.argv else 'gemini' if '--gemini' in sys.argv else 'geometric' if '--geometric' in sys.argv else 'taurus' if '--taurus' in sys.argv else 'aries'
+SERIES='greatswords3' if '--greatswords3' in sys.argv else 'greatswords2' if '--greatswords2' in sys.argv else 'greatswords' if '--greatswords' in sys.argv else 'heteromorphic2' if '--heteromorphic2' in sys.argv else 'crystal' if '--crystal' in sys.argv else 'heteromorphic' if '--heteromorphic' in sys.argv else 'scorpio' if '--scorpio' in sys.argv else 'pisces' if '--pisces' in sys.argv else 'aquarius' if '--aquarius' in sys.argv else 'capricorn' if '--capricorn' in sys.argv else 'sagittarius' if '--sagittarius' in sys.argv else 'libra' if '--libra' in sys.argv else 'virgo' if '--virgo' in sys.argv else 'leo' if '--leo' in sys.argv else 'cancer' if '--cancer' in sys.argv else 'gemini' if '--gemini' in sys.argv else 'geometric' if '--geometric' in sys.argv else 'taurus' if '--taurus' in sys.argv else 'aries'
 from nif_blocks import NifBlocks
 from bsa_reference import extract
 p=lambda fmt,*v:struct.pack('<'+fmt,*v)
@@ -69,7 +69,7 @@ def sprite(style):
             rgba+=bytes((255,255,255,round(255*a)))
     header=p('7I',124,0x100f,size,size,size*4,0,1)+p('11I',*([0]*11))
     header+=p('8I',32,0x41,0,32,0xff0000,0xff00,0xff,0xff000000)+p('5I',0x1000,0,0,0,0)
-    prefix='aa_geo_' if style in ('hexagon','needle','streak') and SERIES in ('geometric','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic') else 'aa_aries_'
+    prefix='aa_geo_' if style in ('hexagon','needle','streak') and SERIES in ('greatswords3','greatswords2','greatswords','geometric','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic') else 'aa_aries_'
     if style=='kite':prefix='aa_virgo_'
     if style in ('chevron','crescent'):prefix='aa_sagittarius_'
     if style in ('droplet','hollowtriangle'):prefix='aa_capricorn_'
@@ -117,7 +117,7 @@ def build(spec):
         direction=anchor.get('direction',direction)
         desired=Vector(direction).to_track_quat('Z','Y').to_matrix().to_4x4();desired.translation=Vector(anchor['position'])
         local=parent_matrix.inverted()@desired
-        control=node('AAAriesDust'+str(j),local,.0001);children(bone,[control]);touched.add(bone)
+        control=node(spec.get('particle_node_prefix','AAAriesDust')+str(j),local,spec.get('control_scale',.0001));children(bone,[control]);touched.add(bone)
         assert ((parent_matrix@local).translation-desired.translation).length<.001
         mapping={i:n.append(src.blocks[i][0],b'') for i in selected};grow=n.append('NiPSysGrowFadeModifier',b'')
         refs=lambda i:mapping[i]
@@ -161,13 +161,13 @@ def build(spec):
             n.blocks[refs(i)]=(kind,bytes(b))
         n.blocks[grow]=('NiPSysGrowFadeModifier',p('IIIBfHfHf',n.string(f'AAAries{j}_GrowFade'),4000,refs(5),1,.08,0,spec['life']*.3,0,1))
         children(control,[refs(3)])
-        anchor_report.append({**anchor,'root':'AAAriesDust'+str(j),'control_block':control,'system':refs(5),'dark_alpha':dark})
+        anchor_report.append({**anchor,'root':spec.get('particle_node_prefix','AAAriesDust')+str(j),'control_block':control,'system':refs(5),'dark_alpha':dark})
     dest=ROOT/'data/meshes/weapons/arcanearsenal'/(key+'.nif');n.save(dest)
     check=NifBlocks(dest);assert check.blocks==n.blocks and check.strings==n.strings
     for i,old in enumerate(original):
         if i not in touched:assert check.blocks[i]==old
         else:assert check.blocks[i][1][:72]==old[1][:72]
-    report={'key':key,'version':'0.8.0' if SERIES=='geometric' else '0.7.1','old_block_count':len(original),'new_block_count':len(n.blocks),'native_particle_systems':6,'pool_per_system':spec['pool'],'typical_particles_per_view':round(6*spec['rate']*spec['life']),'max_particles_both_views':12*spec['pool'],'texture':texture.name,'anchors':anchor_report,'geometry_preserved':True,'hidden_scale':.0001,'style':spec['fx'],'scope':'Local-space native particles; in-game playback pending.'}
+    report={'key':key,'version':'0.8.0' if SERIES=='geometric' else '0.7.1','old_block_count':len(original),'new_block_count':len(n.blocks),'native_particle_systems':6,'pool_per_system':spec['pool'],'typical_particles_per_view':round(6*spec['rate']*spec['life']),'max_particles_both_views':12*spec['pool'],'texture':texture.name,'anchors':anchor_report,'geometry_preserved':True,'hidden_scale':spec.get('control_scale',.0001),'style':spec['fx'],'scope':'Local-space native particles; in-game playback pending.'}
     if SERIES=='leo':report['version']='0.14.0'
     if SERIES=='virgo':report['version']='0.15.0'
     if SERIES=='libra':report['version']='0.16.0'
@@ -178,6 +178,9 @@ def build(spec):
     if SERIES=='scorpio':report['version']='0.21.0'
     if SERIES=='heteromorphic':report['version']='0.22.0'
     if SERIES=='heteromorphic2':report['version']='0.24.0'
+    if SERIES=='greatswords':report['version']='0.25.0'
+    if SERIES=='greatswords2':report['version']='0.26.0'
+    if SERIES=='greatswords3':report['version']='0.27.0'
     if SERIES=='crystal':report['version']='0.23.0'
     report['textures']=[t.name for t in textures]
     (ROOT/'build'/(key+'-particles.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')

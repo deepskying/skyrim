@@ -1,7 +1,7 @@
 # Arcane Armory release requirements
 
 - Preserve Chinese names and user-approved geometric designs. Concepts first when requested; implement only after approval.
-- Keep existing reduced emission. Active weapons currently use base damage 90 and weapon Speed 1.5.
+- Keep existing reduced emission. Bows use base damage 90 and Speed 1.5; greatswords use base damage 99 and Speed 1.2.
 - Preserve plugin name `ArcaneArsenal.esp`, ESL flag, Skyrim SE 1.5.97 compatibility, and all existing FormIDs. Never reuse retired IDs; 0x90C–0x918 includes the retired crystal test chest.
 - For every newly added weapon, update the user's existing SPID file as part of delivery:
   `C:/Users/linos/Desktop/games/+skyrim/MO2/mods/功能模组-物品分发-SPID+CID配置-🟪🟨/-item_DISTR.ini`.

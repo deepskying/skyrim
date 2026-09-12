@@ -950,5 +950,137 @@
     "builder": "build_heteromorphic2.py",
     "stat_form": "000922",
     "series": "heteromorphic2"
+  },
+  {
+    "key": "greatswordred",
+    "name": "余烬·裂疆",
+    "series": "greatswords",
+    "weapon_type": "greatsword",
+    "stat_form": "0x925",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatswordgreen",
+    "name": "流萤·双岚",
+    "series": "greatswords",
+    "weapon_type": "greatsword",
+    "stat_form": "0x928",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatswordblue",
+    "name": "寒汐·错界",
+    "series": "greatswords",
+    "weapon_type": "greatsword",
+    "stat_form": "0x92b",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatswordpurple",
+    "name": "梦隙·悬劫",
+    "series": "greatswords",
+    "weapon_type": "greatsword",
+    "stat_form": "0x92e",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword2red",
+    "name": "余烬·偏蚀",
+    "series": "greatswords2",
+    "weapon_type": "greatsword",
+    "stat_form": "0x932",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword2green",
+    "name": "流萤·逐翎",
+    "series": "greatswords2",
+    "weapon_type": "greatsword",
+    "stat_form": "0x935",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword2blue",
+    "name": "寒汐·折矩",
+    "series": "greatswords2",
+    "weapon_type": "greatsword",
+    "stat_form": "0x938",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword2purple",
+    "name": "梦隙·回旋",
+    "series": "greatswords2",
+    "weapon_type": "greatsword",
+    "stat_form": "0x93b",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword3red",
+    "name": "余烬·断衡",
+    "series": "greatswords3",
+    "weapon_type": "greatsword",
+    "stat_form": "0x93e",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword3green",
+    "name": "流萤·掠弧",
+    "series": "greatswords3",
+    "weapon_type": "greatsword",
+    "stat_form": "0x941",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword3blue",
+    "name": "寒汐·空阙",
+    "series": "greatswords3",
+    "weapon_type": "greatsword",
+    "stat_form": "0x944",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "greatsword3purple",
+    "name": "梦隙·叠相",
+    "series": "greatswords3",
+    "weapon_type": "greatsword",
+    "stat_form": "0x947",
+    "weight": 18,
+    "damage": 99,
+    "weapon_speed": 1.2,
+    "enchantment": null
   }
 ]

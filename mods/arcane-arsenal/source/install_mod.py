@@ -22,7 +22,7 @@ version=meta['General']['version']
 backup=ROOT/'build'/('mo2-before-'+version+'-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
 backup.mkdir(parents=True,exist_ok=False)
 assets={p.relative_to(ROOT/'data'):p.read_bytes() for p in (ROOT/'data').rglob('*') if p.is_file()}
-assert len(assets)==107 and all(p.suffix in ('.esp','.nif','.dds','.pex','.seq') for p in assets)
+assert len(assets)==119 and all(p.suffix in ('.esp','.nif','.dds','.pex','.seq') for p in assets)
 assets[Path('README.md')]=(ROOT/'README.md').read_bytes()
 existing_meta=(DEST/'meta.ini').read_text(encoding='utf-8-sig')
 updated_meta,count=re.subn(r'(?m)^version=[^\r\n]*','version='+version,existing_meta)
@@ -56,7 +56,7 @@ except Exception:
     for rel in added:
         if (DEST/rel).is_file():(DEST/rel).unlink()
     raise
-report={'version':version,'destination':str(DEST),'backup':str(backup),'runtime_files_verified':107,
+report={'version':version,'destination':str(DEST),'backup':str(backup),'runtime_files_verified':119,
         'changed':changed,'added':added,'removed_obsolete':removed,'verified':True,
         'sha256':{str(rel):hashlib.sha256(data).hexdigest() for rel,data in assets.items()}}
 (ROOT/'build/install-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
