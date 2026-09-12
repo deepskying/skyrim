@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>魔法箭工坊</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="panel">
+<aside class="rail"><div class="brand"><span class="brand-mark">➶</span><b>魔法箭工坊</b><small>MAGIC ARROWS</small></div><nav aria-label="主视图"><button data-page="equipment" class="active"><span>➶</span>装备</button><button data-page="craft"><span>◇</span>制作</button><button data-page="settings"><span>⚙</span>设置</button></nav><div class="rail-foot"><i></i><span id="connection">正在连接游戏</span><small>0.9.0 · 面板试作</small></div></aside>
+<section class="workspace"><header><div><div class="eyebrow" id="eyebrow">YOUR QUIVER</div><h1 id="title">箭矢装备</h1><p id="subtitle">整理你的箭矢，为下一次冒险做好准备。</p></div><div class="header-actions"><button id="refresh" class="quiet">↻ 刷新</button><button id="close" class="close" aria-label="关闭面板">×</button></div></header>
+<div id="content"></div><footer><span id="status" role="status">等待游戏数据…</span><span><kbd id="binding-label">Shift + W</kbd> 打开 / 关闭　<kbd>Esc</kbd> 关闭</span></footer></section></main><script>
+const fixture={version:'charge-test',loaded:true,powerAvailable:true,hotkey:{key:'W',shift:true,ctrl:false,alt:false},runtimeSlots:{ready:true,capacity:256,free:256},resources:{magicka:500,gold:1000},quote:null,normalQuote:null,recipes:[],arrows:[{id:1,name:'铁箭',family:'normal',runtimeBase:true,count:10,damage:8},{id:2,name:'钢箭',family:'normal',runtimeBase:true,count:6,damage:10}],spells:[{id:99,name:'充能测试法术',source:'界面测试.esp',cost:40,craftable:true,adapter:{runtime:true,family:'ice',charge:10,mana:12,gold:5},eligibility:{status:'candidate',releaseMode:'instant',reasons:[]}}],materials:[{id:7,name:'冰霜材料',count:20,charges:{ice:10}},{id:8,name:'高效冰霜材料',count:5,charges:{ice:25}}],message:'模拟桥接，不连接游戏'};
+fixture.spells.push({id:0x4D3F2,name:'治愈之触',source:'Skyrim.esm',cost:28,craftable:false,adapter:null,eligibility:{status:new URLSearchParams(location.search).has('legacy')?'candidate':'excluded',releaseMode:'sustained',reasons:['仅支持瞄准投射型法术；锁定目标施法暂不支持']}});
+let serial=0;
+window.magicArrowsAction=raw=>{
+ const q=JSON.parse(raw);fixture.workshopReply={type:q.type,requestID:q.requestID,ok:true};
+ try {
+ if(q.type==='quote'){
+  const target=q.bases.reduce((n,b)=>n+b.count,0),energy=q.materials.reduce((n,m)=>n+m.count*fixture.materials.find(x=>x.id===m.id).charges.ice,0),total=Math.min(target,Math.floor(energy/10));
+  if(!total||target>100||q.bases.some(b=>b.count>fixture.arrows.find(a=>a.id===b.id).count)||q.materials.some(m=>m.count>fixture.materials.find(a=>a.id===m.id).count))throw Error('清单无效或库存不足');
+  if(total*12>fixture.resources.magicka||total*5>fixture.resources.gold)throw Error('资源不足');
+  let remaining=total;const outputs=q.bases.map(b=>{const count=Math.min(b.count,remaining);remaining-=count;return {id:b.id,count,name:fixture.arrows.find(a=>a.id===b.id).name};}).filter(b=>b.count);
+  fixture.quote={runtime:true,token:++serial,selection:q,total,requestedTotal:target,suppliedCharge:energy,charge:total*10,gold:total*5,magicka:total*12,ingredients:q.materials.map(m=>({...m,units:fixture.materials.find(x=>x.id===m.id).charges.ice})),outputs};
+ }
+ if(q.type==='craft'){
+  const p=fixture.quote;if(!p||q.token!==p.token)throw Error('过期清单');
+  p.outputs.forEach(b=>{fixture.arrows.find(a=>a.id===b.id).count-=b.count;fixture.arrows.push({id:100+b.id,name:'霜晶箭·测试〔'+b.name+'〕',family:'ice',count:b.count,damage:8,spellBound:true});});
+  p.ingredients.forEach(m=>fixture.materials.find(a=>a.id===m.id).count-=m.count);fixture.resources.magicka-=p.magicka;fixture.resources.gold-=p.gold;
+  fixture.message=`TEST 制作 ${p.total}/${p.requestedTotal} 支；铁箭剩余 ${fixture.arrows[0].count}；冰霜材料剩余 ${fixture.materials[0].count}；法力 ${fixture.resources.magicka}；金币 ${fixture.resources.gold}`;fixture.quote=null;
+ }
+ }catch(e){fixture.quote=null;fixture.workshopReply.ok=false;fixture.workshopReply.error=e.message;}
+ const snapshot=JSON.parse(JSON.stringify(fixture));if(q.type==='quote')setTimeout(()=>window.MagicArrows.receiveState(snapshot),80);else window.MagicArrows.receiveState(snapshot);
+};
+</script><script src="app.js"></script></body></html>

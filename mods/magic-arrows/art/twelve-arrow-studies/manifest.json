@@ -1,0 +1,86 @@
+[
+  {
+    "key": "fire",
+    "name": "火 · 焰刃",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\fire.nif",
+    "vertices": 208,
+    "triangles": 348
+  },
+  {
+    "key": "ice",
+    "name": "冰 · 霜晶",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\ice.nif",
+    "vertices": 232,
+    "triangles": 388
+  },
+  {
+    "key": "shock",
+    "name": "电 · 雷棱",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\shock.nif",
+    "vertices": 244,
+    "triangles": 412
+  },
+  {
+    "key": "poison",
+    "name": "毒 · 蛇牙",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\poison.nif",
+    "vertices": 184,
+    "triangles": 312
+  },
+  {
+    "key": "blood",
+    "name": "嗜血箭",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\blood.nif",
+    "vertices": 1790,
+    "triangles": 3484
+  },
+  {
+    "key": "holy",
+    "name": "圣辉箭",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\holy.nif",
+    "vertices": 623,
+    "triangles": 1170
+  },
+  {
+    "key": "wind",
+    "name": "风 · 旋翼",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\wind.nif",
+    "vertices": 208,
+    "triangles": 360
+  },
+  {
+    "key": "water",
+    "name": "水 · 碧波箭",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\water.nif",
+    "vertices": 632,
+    "triangles": 1208
+  },
+  {
+    "key": "earth",
+    "name": "土 · 岩锥",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\earth.nif",
+    "vertices": 234,
+    "triangles": 408
+  },
+  {
+    "key": "dark",
+    "name": "暗 · 影镰",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\dark.nif",
+    "vertices": 226,
+    "triangles": 384
+  },
+  {
+    "key": "soul",
+    "name": "星魂箭",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\soul.nif",
+    "vertices": 245,
+    "triangles": 410
+  },
+  {
+    "key": "arcane",
+    "name": "奥术 · 奥术箭",
+    "file": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\magic-arrows\\art\\twelve-arrow-studies\\arcane.nif",
+    "vertices": 312,
+    "triangles": 568
+  }
+]

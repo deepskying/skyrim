@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>魔法箭工坊</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="panel">
+<aside class="rail"><div class="brand"><span class="brand-mark">➶</span><b>魔法箭工坊</b><small>MAGIC ARROWS</small></div><nav aria-label="主视图"><button data-page="equipment" class="active"><span>➶</span>装备</button><button data-page="craft"><span>◇</span>制作</button><button data-page="settings"><span>⚙</span>设置</button></nav><div class="rail-foot"><i></i><span id="connection">正在连接游戏</span><small>0.9.1 · 面板试作</small></div></aside>
+<section class="workspace"><header><div><div class="eyebrow" id="eyebrow">YOUR QUIVER</div><h1 id="title">箭矢装备</h1><p id="subtitle">整理你的箭矢，为下一次冒险做好准备。</p></div><div class="header-actions"><button id="refresh" class="quiet">↻ 刷新</button><button id="close" class="close" aria-label="关闭面板">×</button></div></header>
+<div id="content"></div><footer><span id="status" role="status">等待游戏数据…</span><span><kbd id="binding-label">Shift + W</kbd> 打开 / 关闭　<kbd>Esc</kbd> 关闭</span></footer></section></main><script>const fixture={"version": "test", "loaded": true, "powerAvailable": true, "hotkey": {"key": "W", "shift": true, "ctrl": false, "alt": false}, "quote": null, "normalQuote": null, "arrows": [{"id": 2048, "name": "嗜血箭〔外观试作〕", "family": "blood", "spellBound": false, "count": 100, "damage": 8}, {"id": 2064, "name": "圣辉箭〔外观试作〕", "family": "holy", "spellBound": false, "count": 100, "damage": 8}, {"id": 2080, "name": "星魂箭〔外观试作〕", "family": "soul", "spellBound": false, "count": 100, "damage": 8}, {"id": 2560, "name": "火焰箭〔外观试作〕", "family": "fire", "spellBound": false, "count": 100, "damage": 8}, {"id": 2576, "name": "霜晶箭〔外观试作〕", "family": "ice", "spellBound": false, "count": 100, "damage": 8}, {"id": 2592, "name": "雷棱箭〔外观试作〕", "family": "shock", "spellBound": false, "count": 100, "damage": 8}, {"id": 2608, "name": "蛇牙箭〔外观试作〕", "family": "poison", "spellBound": false, "count": 100, "damage": 8}, {"id": 2624, "name": "旋翼箭〔外观试作〕", "family": "wind", "spellBound": false, "count": 100, "damage": 8}, {"id": 2640, "name": "碧波箭〔外观试作〕", "family": "water", "spellBound": false, "count": 100, "damage": 8}, {"id": 2656, "name": "岩锥箭〔外观试作〕", "family": "earth", "spellBound": false, "count": 100, "damage": 8}, {"id": 2672, "name": "影镰箭〔外观试作〕", "family": "dark", "spellBound": false, "count": 100, "damage": 8}, {"id": 2688, "name": "奥术箭〔外观试作〕", "family": "arcane", "spellBound": false, "count": 100, "damage": 8}, {"id": 2304, "name": "火焰箭·火球术〔铁箭〕", "family": "fire", "spellBound": true, "count": 10, "damage": 8}], "spells": [], "materials": [], "recipes": [{"id": 301, "name": "铁箭", "source": "Dawnguard.esm", "craftable": true, "maxBatches": 4, "ingredients": [{"id": 1, "name": "铁锭", "have": 4, "need": 1}, {"id": 2, "name": "木柴", "have": 8, "need": 1}], "yield": 24}, {"id": 302, "name": "精灵箭", "source": "Dawnguard.esm", "craftable": false, "maxBatches": 0, "reason": "尚未满足配方的天赋、技能或任务条件", "ingredients": [], "yield": 24}, {"id": 303, "name": "特殊工作台箭", "source": "测试兼容性.esp", "craftable": false, "maxBatches": 0, "reason": "配方依赖工作台、目标或任务别名，须在原工作台制作", "ingredients": [], "yield": 10}], "message": "桥接测试，不连接游戏"};
+
+fixture.recipes[0].conditions=[];fixture.recipes[1].conditions=[{name:'天赋：精灵锻造',met:false,orNext:false}];
+let sequence=1000;
+window.magicArrowsAction=raw=>{
+ const q=JSON.parse(raw);
+ if(q.type==='inspect'){fixture.message='TEST INSPECT '+q.id;return;}
+ if(q.type==='normalQuote'){
+  if(q.recipe!==301||q.batches<1||q.batches>fixture.recipes[0].maxBatches)throw Error('bad quote request');
+  fixture.normalQuote={token:++sequence,recipe:301,batches:q.batches,name:'铁箭',total:24*q.batches,ingredients:[{id:1,name:'铁锭',count:q.batches},{id:2,name:'木柴',count:q.batches}]};fixture.message='TEST NORMAL QUOTE OK';
+ }
+ if(q.type==='normalCraft'){
+  const quote=fixture.normalQuote;
+  if(!quote||q.token!==quote.token)throw Error('duplicate or bad token');
+  fixture.recipes[0].ingredients.forEach(i=>i.have-=quote.batches);fixture.recipes[0].maxBatches-=quote.batches;
+  fixture.arrows.push({id:80125,name:'铁箭',family:'normal',count:quote.total,damage:8});fixture.normalQuote=null;fixture.message='TEST NORMAL COMMIT OK';
+ }
+ window.MagicArrows.receiveState(JSON.parse(JSON.stringify(fixture)));
+};
+</script><script src="app.js"></script></body></html>

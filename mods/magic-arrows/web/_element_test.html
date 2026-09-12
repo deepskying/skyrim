@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>魔法箭工坊</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="panel">
+<aside class="rail"><div class="brand"><span class="brand-mark">➶</span><b>魔法箭工坊</b><small>MAGIC ARROWS</small></div><nav aria-label="主视图"><button data-page="equipment" class="active"><span>➶</span>装备</button><button data-page="craft"><span>◇</span>制作</button><button data-page="settings"><span>⚙</span>设置</button></nav><div class="rail-foot"><i></i><span id="connection">正在连接游戏</span><small>0.4.0 · 面板试作</small></div></aside>
+<section class="workspace"><header><div><div class="eyebrow" id="eyebrow">YOUR QUIVER</div><h1 id="title">箭矢装备</h1><p id="subtitle">整理你的箭矢，为下一次冒险做好准备。</p></div><div class="header-actions"><button id="refresh" class="quiet">↻ 刷新</button><button id="close" class="close" aria-label="关闭面板">×</button></div></header>
+<div id="content"></div><footer><span id="status" role="status">等待游戏数据…</span><span><kbd id="binding-label">Shift + W</kbd> 打开 / 关闭　<kbd>Esc</kbd> 关闭</span></footer></section></main><script>const fixture={"version": "test", "loaded": true, "powerAvailable": true, "hotkey": {"key": "W", "shift": true, "ctrl": false, "alt": false}, "quote": null, "normalQuote": null, "recipes": [], "arrows": [{"id": 80125, "name": "铁箭", "family": "normal", "fireballBase": true, "count": 10, "damage": 8}], "spells": [{"id": 116617, "name": "火球术", "cost": 50, "source": "Skyrim.esm", "craftable": true, "adapter": {"family": "fire", "material": "抗火／弱火", "damage": 40, "radius": 320, "gold": 5, "mana": 12, "charge": 10}, "eligibility": {"status": "candidate", "releaseMode": "instant", "reasons": ["固定元素适配测试夹具"]}}, {"id": 178540, "name": "冰锥术", "cost": 50, "source": "Skyrim.esm", "craftable": true, "adapter": {"family": "ice", "material": "抗冰／弱冰", "damage": 25, "radius": 96, "gold": 4, "mana": 8, "charge": 8}, "eligibility": {"status": "candidate", "releaseMode": "instant", "reasons": ["固定元素适配测试夹具"]}}, {"id": 187689, "name": "闪电术", "cost": 50, "source": "Skyrim.esm", "craftable": true, "adapter": {"family": "shock", "material": "抗电／弱电", "damage": 25, "radius": 96, "gold": 4, "mana": 8, "charge": 8}, "eligibility": {"status": "candidate", "releaseMode": "instant", "reasons": ["固定元素适配测试夹具"]}}], "materials": [{"id": 201, "name": "抗火测试材料", "count": 8, "charges": {"fire": 10, "ice": 0, "shock": 0}}, {"id": 202, "name": "抗冰测试材料", "count": 8, "charges": {"fire": 0, "ice": 8, "shock": 0}}, {"id": 203, "name": "抗电测试材料", "count": 8, "charges": {"fire": 0, "ice": 0, "shock": 8}}], "message": "三系桥接测试，不连接游戏"};
+
+let token=200;
+window.magicArrowsAction=raw=>{
+ const q=JSON.parse(raw);
+ if(q.type==='inspect')return;
+ if(q.type==='quote'){
+  const s=fixture.spells.find(s=>s.id===q.spell),m=fixture.materials.find(m=>m.id===q.materials[0]);
+  if(!s||q.materials.length!==1||!m.charges[s.adapter.family]||q.bases.length!==1||q.bases[0].id!==80125)throw Error('wrong element or recipe');
+  const n=q.bases[0].count,a=s.adapter;
+  fixture.quote={token:++token,selection:{spell:q.spell,bases:q.bases,materials:q.materials},total:n,gold:a.gold*n,magicka:a.mana*n,charge:a.charge*n,ingredients:[{id:m.id,name:m.name,count:n,units:m.charges[a.family]}],outputs:[{id:80125,name:s.name+'箭〔铁箭〕',count:n}]};fixture.message='TEST ELEMENT QUOTE '+a.family+' OK';
+ }
+ if(q.type==='craft'){
+  const quote=fixture.quote;if(!quote||q.token!==quote.token)throw Error('stale token');
+  const s=fixture.spells.find(s=>s.id===quote.selection.spell),n=quote.total;
+  fixture.arrows[0].count-=n;fixture.materials.find(m=>m.id===quote.ingredients[0].id).count-=n;
+  fixture.arrows.push({id:3000+s.id,name:s.name+'箭〔铁箭〕',family:s.adapter.family,spellBound:true,adapter:s.adapter,count:n,damage:8});
+  fixture.quote=null;fixture.message='TEST ELEMENT COMMIT '+s.adapter.family+' OK';
+ }
+ window.MagicArrows.receiveState(JSON.parse(JSON.stringify(fixture)));
+};
+</script><script src="app.js"></script></body></html>

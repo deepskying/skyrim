@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>魔法箭工坊</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="panel">
+<aside class="rail"><div class="brand"><span class="brand-mark">➶</span><b>魔法箭工坊</b><small>MAGIC ARROWS</small></div><nav aria-label="主视图"><button data-page="equipment" class="active"><span>➶</span>装备</button><button data-page="craft"><span>◇</span>制作</button><button data-page="settings"><span>⚙</span>设置</button></nav><div class="rail-foot"><i></i><span id="connection">正在连接游戏</span><small>0.8.0 · 面板试作</small></div></aside>
+<section class="workspace"><header><div><div class="eyebrow" id="eyebrow">YOUR QUIVER</div><h1 id="title">箭矢装备</h1><p id="subtitle">整理你的箭矢，为下一次冒险做好准备。</p></div><div class="header-actions"><button id="refresh" class="quiet">↻ 刷新</button><button id="close" class="close" aria-label="关闭面板">×</button></div></header>
+<div id="content"></div><footer><span id="status" role="status">等待游戏数据…</span><span><kbd id="binding-label">Shift + W</kbd> 打开 / 关闭　<kbd>Esc</kbd> 关闭</span></footer></section></main><script>const fixture={"version": "test", "loaded": true, "powerAvailable": true, "hotkey": {"key": "W", "shift": true, "ctrl": false, "alt": false}, "runtimeSlots": {"ready": true, "capacity": 256, "free": 256}, "quote": null, "normalQuote": null, "recipes": [], "arrows": [{"id": 4261417251, "name": "模组银箭", "family": "normal", "runtimeBase": true, "fireballBase": false, "count": 5, "damage": 18}, {"id": 4261417252, "name": "模组骨箭", "family": "normal", "runtimeBase": true, "fireballBase": false, "count": 4, "damage": 21}], "spells": [{"id": 305441741, "name": "秘术持续喷射", "cost": 80, "source": "第三方魔法测试.esp", "craftable": true, "adapter": {"runtime": true, "releaseMode": "sustained", "seconds": 3, "family": "arcane", "material": "恢复／伤害魔法值", "gold": 12, "mana": 120, "charge": 60}, "eligibility": {"status": "candidate", "releaseMode": "sustained", "reasons": ["运行时封存：命中点固定方向持续施放 3 秒", "无元素特征，采用奥术箭载体"]}}], "materials": [{"id": 777, "name": "已知恢复魔法材料", "count": 8, "charges": {"arcane": 20}}, {"id": 778, "name": "抗火材料", "count": 10, "charges": {"fire": 10, "arcane": 0}}], "message": "运行时桥接测试，不连接游戏"};
+
+fixture.followers={available:true,consumeMagicArrows:true};let serial=300;const identities=new Map();
+window.magicArrowsAction=raw=>{
+ const q=JSON.parse(raw);
+ if(q.type==='followerSettings'){if(typeof q.consumeMagicArrows!=='boolean')throw Error('invalid setting');fixture.followers.consumeMagicArrows=q.consumeMagicArrows;fixture.message='TEST FOLLOWER SETTING '+q.consumeMagicArrows;}
+ if(q.type==='inspect')return;
+ if(q.type==='quote'){
+  if(!q.runtime||q.spell!==0x1234ABCD||q.materials.length!==1||q.materials[0]!==777||q.bases.some(b=>![0xFE001123,0xFE001124].includes(b.id)))throw Error('not a valid runtime request');
+  const n=q.bases.reduce((n,b)=>n+b.count,0);
+  fixture.quote={runtime:true,token:++serial,selection:{spell:q.spell,bases:q.bases,materials:q.materials},total:n,gold:n*12,magicka:n*120,charge:n*60,ingredients:[{id:777,name:'已知恢复魔法材料',count:n*3,units:20}],outputs:q.bases.map(b=>({id:b.id,name:'奥术箭·秘术持续喷射〔'+fixture.arrows.find(a=>a.id===b.id).name+'·持续3秒封存〕',count:b.count}))};fixture.message='TEST SUSTAINED QUOTE OK';
+ }
+ if(q.type==='craft'){
+  const quote=fixture.quote;if(!q.runtime||!quote||q.token!==quote.token)throw Error('bad runtime confirmation');
+  for(const b of quote.selection.bases){
+   const key=quote.selection.spell+':'+b.id;let id=identities.get(key);
+   if(!id){id=4000+identities.size;identities.set(key,id);fixture.runtimeSlots.free--;fixture.arrows.push({id,name:quote.outputs.find(o=>o.id===b.id).name,family:'arcane',spellBound:true,usable:true,adapter:{runtime:true,family:'arcane',releaseMode:'sustained',seconds:3},count:0,damage:fixture.arrows.find(a=>a.id===b.id).damage});}
+   fixture.arrows.find(a=>a.id===b.id).count-=b.count;fixture.arrows.find(a=>a.id===id).count+=b.count;
+  }
+  fixture.materials[0].count-=quote.total*3;fixture.quote=null;fixture.message='TEST SUSTAINED COMMIT OK';
+ }
+ window.MagicArrows.receiveState(JSON.parse(JSON.stringify(fixture)));
+};
+</script><script src="app.js"></script></body></html>
