@@ -1,132 +1,86 @@
-# 异界弓藏 · Arcane Arsenal 0.4.1
+# 幻律兵装 · Arcane Armory 0.23.1
 
-合集现有八把中文武器。本次只给 **赤光·叠弦** 增加拉弓六芒星光效实验。已有八把武器、配方、第一人称模型记录和测试箱记录与 0.4.0 逐字节相同，沿用原 FormID；背包内已有的赤光·叠弦即可测试。
+当前收录 **76 把弓**：异构 4 把、几何律 24 把、十二星座各 4 把。全部基础伤害 **90**，武器攻速参数（Speed）**1.5**。
 
-## 0.4.1 拉弓六芒星实验
+## 本版调整
 
-完全退出游戏，再从 MO2 通过现有的 SKSE 启动。装备 **赤光·叠弦**（AAredplates）：开始拉弓时，握把前方应出现一个额外的红色六芒星；放箭、取消拉弓或切换武器时应消失。原有弓身中央的六芒星仍保留。另两把红弓暂不增加此效果，便于对照。
+移除四把水晶材质实验弓：余烬·绯晶、流萤·翠脉、寒汐·霜棱、梦隙·紫珀，同时移除其锻造配方、第一人称模型记录和「晶质·试武箱」。清理运行包中的 4 个独占模型、12 张独占贴图，并移除拉弓脚本中的四个绑定。全部武器试武箱恢复为 76 把弓。
 
-本轮只做显隐和位置跟随，不包含渐变、旋转或放箭闪光。新增光效平面垂直于箭矢方向，中心留空；默认隐藏，物品栏和地面模型也保持隐藏。它使用独立的非蒙皮节点 `AAHexagramDrawFX`，挂在 Bow_MidBone 下，与原弓的蒙皮网格分开。现有 SKSE 2.0.20 的 NetImmerse 接口负责切换该节点大小，同时处理第一、第三人称。没有增加 SKSE DLL，也不需要运行 Nemesis/Pandora。
+其余 76 把武器的编号、属性、模型、贴图和粒子参数保持不变。退役的 0x90C–0x918 编号保留，不分配给其他物品。素材和源码留在项目历史中，当前运行包不再包含水晶实验。
 
-触发脚本只管理玩家手中的赤光·叠弦，暂不支持 NPC。监听 bowDrawStart、bowDrawn、arrowRelease、bowReset 等事件；装备并拔出实验弓时，以 0.12 秒间隔读取 bBowDrawn，补偿事件缺失与视角切换。取消事件缺失且尚未进入满弓状态时，最多 3 秒后清理；具体动作包兼容性需要游戏内实测。
+MO2 版本 **0.23.1**，插件 **ArcaneArsenal.esp** 保留 ESL 标记。更新后重启游戏。
 
-先测试：第一、第三人称分别拉弓、保持、放箭、取消、收弓；拉弓时切换视角；再保存/读档检查恢复。重点反馈光效是否出现、是否挡准星、是否跟随和是否残留。预览 `art/redplates-fx-active.png` 是实际网格的离线展示，不是游戏截图。
+## 现有系列
 
-如果完全不出现，可用控制台 `sqv AARedDrawFXQuest` 查看任务是否运行；若没有运行，执行 `startquest AARedDrawFXQuest`，重新装备实验弓后再试。插件提供 SEQ 文件用于自动启动，不要求手动启动；该命令仅用于排查。旧版本备份位于工程 `build/mo2-before-0.4.1-*`。
+| 系列 | 款式 | 配色与命名 |
+| --- | --- | --- |
+| 异构 | 断层、繁枝、环阵、扇阙 | 每款独立配色，共 4 把 |
+| 几何律 | 叠弦、旋序、流菱、六垣、方旋、锋羽 | 每款四种配色，共 24 把 |
+| 星座 | 白羊、金牛、双子、巨蟹、狮子、处女、天秤、天蝎、射手、摩羯、水瓶、双鱼 | 每个星座四种配色，共 48 把 |
 
-| 游戏内名称 | 内部搜索名 | 造型与配色 | 原版附魔 | 基础伤害 / 重量 |
-| --- | --- | --- | --- | --- |
-| 霜璃王冠 | AAfrostglass | 纯冰晶、冰白与淡紫、半透明晶簇 | 冰霜 | 18 / 9 |
-| 烬翼 | AAemberwake | 黑曜石甲片、橙红熔岩缝、火焰形弓梢 | 火焰 | 20 / 12 |
-| 星轨 | AAastralorbit | 深靛弓臂、金色双轨、静态星环与紫晶 | 闪电 | 17 / 8 |
-| 月棘 | AAmoonthorn | 深绿藤蔓、银绿叶片、月牙弓梢 | 吸收生命 | 19 / 10 |
-| 冰龙脊骨 | AAfrostwyrm | 龙首、冰牙、层叠冰鳞、深色冰芯 | 冰霜 | 21 / 12 |
-| 赤光·叠弦 | AAredplates | 实心红光三角叠片、中央六芒星 | 吸收生命 | 20 / 6 |
-| 赤光·旋序 | AAredtriangles | 空心红光三角线框、中央六芒星 | 吸收生命 | 20 / 6 |
-| 赤光·流菱 | AAreddiamonds | 空心红光菱形线框、中央六芒星 | 吸收生命 | 20 / 6 |
+**余烬**为红/玫红、**流萤**为翠绿/薄荷青、**寒汐**为冰蓝/青蓝、**梦隙**为蓝紫/浅紫。例如余烬·六垣、寒汐·金牛。
 
-## 0.4.0 红色几何弓
+六款几何律现在都有各自的握把造型，全部取消静态六芒星。拉弓显示对应碎光，没有额外拉弓六芒星。几何律没有预设吸血附魔，经典三款在 0.8.0 已移除该附魔。
 
-三把弓均由有实际厚度的几何单元组成，沿平滑弧线逐渐转向并缩小。中央六芒星是两个等边三角形线框，整体使用纯红色自发光材质，没有金属包边、冰面或纹样。几何单元随弓骨架运动，保留连续的细红色弓脊连接。三把共享三张 64 × 64 DDS，单把约七千至一万三角面。
+## 发光与粒子
 
-为适配持握，星形在握把前方，后面保留一条细红色握把。弦端位置和骨骼层级沿用原版参考；弓弦权重从真正带 StringBone 权重的原版顶点取样，按长度连续插值，避免把附近弓臂权重混入弓弦。弓翼单元不额外旋转或漂浮，没有蓄力动画、红色箭矢或命中特效。
+原有几何光弓的主体、亮边、弦沿用 0.7.1 降低后的参数：
 
-自发光使用 Glow Shader；面、边线、弦的 Emissive Mult 分别为 6、12、8，RGB 为 (1,0,0)。这能让弓在暗处保持红色可见，周围光晕的强度仍取决于游戏与 ENB。Blender 预览使用少量后期泛光，不是游戏实拍，不能据此保证相同光晕。
+| 配色 | 主体 | 亮边 | 弓弦 |
+| --- | ---: | ---: | ---: |
+| 余烬 | 1.8 | 3.6 | 2.25 |
+| 流萤 | 2.25 | 4.5 | 3.15 |
+| 寒汐 | 2.25 | 5.4 | 3.6 |
+| 梦隙 | 2.7 | 5.4 | 3.6 |
 
-单独查询可用 help "AAredplates" 4、help "AAredtriangles" 4、help "AAreddiamonds" 4；对应本地 WEAP 编号为 000811、000814、000817。请使用查询返回的完整编号执行 player.additem。一次获取三把建议使用下方试武箱流程。
+经典三把余烬款弦值为 2.4。粒子发光：异构与几何律 2.4、白羊 3.6、金牛 3，其他十个星座均为 2.4。本版保持原有亮度与 ENB 不变。
 
-## 0.3.1 冰龙制作记录
+粒子在拉弓期间显示，放箭、取消、收弓、换武器时隐藏，并同步两个视角。当前为局部漂散，没有完整环绕轨道、放箭爆发、箭矢拖尾或命中特效。脚本只控制玩家，不支持 NPC 触发。
 
-本版改用体积融合、凹槽切削和密集表面细节构建高精度模型，再减面并烘焙法线、颜色与环境遮蔽。龙首包括连贯的颅骨、眉骨、颧弓、凹陷眼窝与鼻孔；上下颚、牙齿和颈鳞重新安排。冰片具有厚度、破损薄边、凸起脊线和相互叠压的凹隙。使用分部位投射烘焙，避免相邻冰片互相投射造成黑斑。
+## 获取武器
 
-这是可重复构建的程序化雕刻实验，并非人工雕刻成品，也未达到概念插画的全部精细度。高精度源模型保存在 art/frostwyrm-sculpt-master.blend；游戏模型约六万三角面。头部贴图 2048、弓臂贴图 4096，使用环境反射、独立反射遮罩和局部霜边；眼睛与弓弦单独发光。取消旧版覆盖整面的白色网纹。当前冰面使用不透明的反射材质模拟冰芯，没有物理折射。
-
-握点、弦端和七骨骼层级沿用已验证的参考。颚部不单独运动。本轮只试验第二张概念；第一、第三张高级设计尚未制作。旧版霜璃王冠原型继续保留，不代表第一张精修概念已实现。
-
-建议完全退出游戏后通过 MO2 重启，再获取新武器。可在物品搜索工具中按中文名称查找，或控制台输入：
-
-```text
-help "AAfrostwyrm" 4
-player.additem <查询返回的 WEAP 完整编号> 1
-```
-
-内部 EDID 保留 ASCII，游戏内名称使用中文；本地记录编号为 00080E。不要固定照抄其他配置中的 FE 加载前缀。
-
-## 安装
-
-MO2 从 ArcaneArsenal-0.4.1.zip 安装，勾选左侧 **Arcane Arsenal - Bow Collection** 和右侧 **ArcaneArsenal.esp**。
-
-MO2 元数据 meta.ini 包含版本 0.4.1。本地已安装目录也同步写入该信息；如果 MO2 正在运行，刷新列表或重启后查看左侧“版本”列。替换文件在工程 build/mo2-before-0.4.1-* 内备份。
-
-插件保留 .esp 扩展名，但 TES4 头带 ESL 标记，使用轻量槽位。头版本为 1.7，记录版本为 44，新记录编号均在 800–819，适用于 1.5.97，无需扩展 ESL 支持补丁。ESP 的主文件仍只有 Skyrim.esm；从 0.4.1 起，拉弓光效需要 SKSE64 2.0.20，包含一个 Papyrus 脚本和一个隐藏任务，没有新增 DLL。当前游戏已安装所需 SKSE 与 NetImmerse.pex。
-
-这是从 Glacial Crown 原型扩展出的新合集，使用独立插件名和资源路径。旧版 GlacialCrown.esp 可以保留作对照；旧背包内的 Glacial Crown 不会自动变成新版武器。只测试合集时，可在测试配置中停用旧版，启用本合集。没有修改旧版文件，也没有自动更改现有存档。
-
-## 一次取得全部武器
-
-控制台输入：
+从 MO2 的现有 SKSE 启动游戏，控制台查询对应箱子：
 
 ```text
 help "AAAllBowsTestChest" 4
 ```
 
-找到名称为 **异界弓藏·试武箱** 的 CONT 项，复制它的实际完整编号，再输入：
+用查询到的完整 CONT 编号生成箱子：
 
 ```text
-player.placeatme <CONT 的完整编号> 1
+player.placeatme <CONT的完整编号> 1
 ```
 
-关闭控制台，打开角色附近新生成的测试箱：里面有八把弓各一把，包括本次新增的三把赤光弓，以及铁箭 200 支。不要输入尖括号文字，也不要照抄固定加载序号；轻量插件编号前缀取决于当前加载顺序。箱子不会定期刷新。本模组不在现有地图中自动放置箱子，也不会自动把武器塞进背包。
+尖括号内容需要替换；不要把本地编号当作完整编号。FE 加载前缀以实际查询为准。
 
-单独获取也可以用 help "AAfrostglass" 4 等名称查询 WEAP，再用 player.additem <完整编号> 1。
+| 搜索名 | 显示名称 | 内容 |
+| --- | --- | --- |
+| AAGeometricTestChest | 几何律·试武箱 | 24 把几何弓 |
+| AAAriesTestChest | 白羊座·试武箱 | 4 把白羊弓 |
+| AATaurusTestChest | 金牛座·试武箱 | 4 把金牛弓 |
+| AAGeminiTestChest | 双子座·试武箱 | 4 把双子弓 |
+| AACancerTestChest | 巨蟹座·试武箱 | 4 把巨蟹弓 |
+| AALeoTestChest | 狮子座·试武箱 | 4 把狮子弓 |
+| AAVirgoTestChest | 处女座·试武箱 | 4 把处女弓 |
+| AALibraTestChest | 天秤座·试武箱 | 4 把天秤弓 |
+| AASagittariusTestChest | 射手座·试武箱 | 4 把射手弓 |
+| AACapricornTestChest | 摩羯座·试武箱 | 4 把摩羯弓 |
+| AAAquariusTestChest | 水瓶座·试武箱 | 4 把水瓶弓 |
+| AAPiscesTestChest | 双鱼座·试武箱 | 4 把双鱼弓 |
+| AAScorpioTestChest | 天蝎座·试武箱 | 4 把天蝎弓 |
+| AAHeteromorphicTestChest | 异构·试武箱 | 4 把异构弓 |
+| AAAllBowsTestChest | 幻律兵装·试武箱 | 全部 76 把弓 |
 
-八把弓均有锻造配方：银锭 2 个、精炼孔雀石 3 个，在铁匠锻造台制作，无技能条件。附魔容量均为 1800。当前使用普通箭矢，没有磨刀石强化配方。
+每个箱子另有铁箭 200 支。请生成新箱子，旧箱子的存档库存不一定跟随插件更新。已退役的武器不再提供；本次不编辑存档。
 
-已经取空的旧箱子不保证自动补上新武器。请重新生成一个测试箱，或直接获取三把赤光弓。
+## 安装、验证与工程
 
-## 本轮建议比较
+安装包为 **ArcaneArmory-0.23.1.zip**。已更新到 MO2 后不需要再次安装。本次不再改名，不修改启用状态、profile 或加载顺序。MO2 若缓存旧版本号，刷新或重启即可。
 
-1. 第一、第三人称持握和拉满弓：手掌与六芒星是否穿插，箭尾与弦是否对齐。
-2. 弓翼单元在拉弓时是否仍然连贯，弦端有没有脱离弓梢。
-3. 白天、夜间各观察一次：红色是否清楚、泛光是否过亮或盖住几何轮廓。
-4. 侧面、背负和物品栏中，实心三角片与两种镂空线框是否正常显示。
+目标 Skyrim SE 1.5.97；ESP 头版本 1.7、记录版本 44、ESL 标记保持不变，主文件只有 Skyrim.esm。沿用已安装的 SKSE64 2.0.20 / NetImmerse，无新增 DLL 或行为生成步骤。
 
-## 验证与当前范围
+本版检查武器数量、基础伤害、攻速、旧武器记录、ESL 标记和退役编号。验证粒子脚本编译及其 76 个绑定；与更新前逐文件核对，除插件和脚本更新、16 个水晶独占资源移除外，其余 101 个运行文件完全一致。安装包和 MO2 进行逐文件校验。
 
-- 每把 NIF 已重新导入；七根骨骼父子关系与原版弓一致。
-- 每把模型均经过静止、弓臂弯曲、握把带动三组受控姿态的导出前后对照。
-- 原有四把使用 1024 DDS；新版冰龙弓使用九张 DDS：三张头部 2048、三张弓臂 4096、一张原创六面反射图 128、两张眼睛与弦共用的 64 贴图。引用、尺寸、立方体标志、反射类型及强度经 NIF 重读检查。
-- 三把赤光弓的 Glow Shader、纯红色 Emissive RGB、发光强度、三张共用 DDS、非退化三角面及归一化骨骼权重经 NIF 重读检查。
-- xEdit / SSEDump64 检查通过：八条 WEAP、八条 STAT、八条 COBJ、一条 CONT 和一条隐藏 QUST，全部为新记录，无原版覆盖。八把武器的相关记录与测试箱与 0.4.0 逐记录相同。
-- 新增独立光效只有 168 个三角面，默认大小为零，不带蒙皮；原弓几何与七骨骼变换经 NIF 重读检查未改变。实验弓的三组受控姿态回归通过。
-- AARedDrawFX.psc 已使用现有 Creation Kit 编译，零错误、零警告。此项不等于游戏内事件、节点搜索和第一人称显示已验证。
-- 测试箱含八把弓与铁箭；压缩包和安装后的 44 个运行文件逐文件一致性检查。
+运行文件更新备份位于 `build/mo2-before-0.23.1-*`，本次改动前的源码、运行文件位于 `build/before-0.23.1/`。改名与 profile 历史备份位于 `build/mo2-rename-*`。源工程路径仍为 `mods/arcane-arsenal`，历史说明与建模素材保留，已移除武器的素材不进入运行包。
 
-本次拉弓光效尚待用户游戏内实测。预览图是实际 Blender 模型渲染，非游戏截图；Skyrim 的反射、发光和用户 ENB 不会与 Blender 预览完全一致。霜璃王冠仍采用 Alpha 混合，冰龙弓采用不透明反射，两者均无实时物理折射。星环和火焰造型是静态几何，没有旋转、冰雾、弹道拖尾或自定义命中特效。碰撞仍使用原版弓的简单盒体。
-
-## 工程
-
-- source/catalog.json：八把弓的名称、颜色和属性。
-- source/mesh_builder.py、source/build_models.py：模型与贴图构建。
-- source/sculpt_frostwyrm.py：新版冰龙弓高低精度表面、烘焙、材质与灰模/彩色预览；build_frostwyrm.py 保留为 0.3.0 旧实现。
-- source/build_red_bows.py：三种红色几何弓、发光材质与原版弓弦取样。
-- source/build_draw_fx.py：向基础赤光·叠弦追加默认隐藏的独立光效。可在 Blender 命令末尾用 `-- <基础 NIF 路径>` 指定输入；输入不能已经包含光效。不指定时使用 build/before-0.4.1/redplates.nif。重新生成基础红弓后须再次运行此步骤。
-- source/papyrus/AARedDrawFX.psc、source/compile_draw_fx.py：动作监听与节点显隐，以及可重复运行的编译命令。
-- source/render_draw_fx.py：实际模型的待机/光效开启预览。
-- source/render_red_lineup.py：三把赤光弓的实际模型合照与受控弯曲检查图。
-- source/build_plugin.py：ESP-FE 和测试箱构建。
-- source/verify_rig.py：骨架、受控姿态、DDS 和 Alpha 回归检查。
-- source/render_lineup.py：合集实际模型的合照渲染。
-- source/package_mod.py：安装包和哈希校验。
-- source/install_mod.py：更新已有 MO2 模组、备份与逐文件验证。
-- art/*.blend：各武器可编辑工程；art/arcane-arsenal-lineup.png 为合照。
-
-三把赤光弓分别运行 Blender --background --python-exit-code 1 --python source/build_red_bows.py -- redplates（另外两个 key 为 redtriangles、reddiamonds），之后对每个 key 运行 verify_rig.py。art/red-bows-lineup.png 是本轮三把新模型的合照，red-bows-flex.png 是受控姿态检查，不是游戏满弓动作。
-
-使用本项目 reference/bow-tools 下已配置的 Blender 4.5.13 / PyNifly 28.2、从已安装游戏导入的 ironbow-textured-check.blend 参考骨架，以及本机 texconv。脚本内包含本机工具与游戏路径，换电脑需调整；参考骨架工程不随安装包分发。
-
-单把构建命令示例：Blender --background --python-exit-code 1 --python source/build_models.py -- frostglass。其余 key 为 emberwake、astralorbit、moonthorn。verify_rig.py 使用同样的 key。之后运行 Python source/build_plugin.py 和 Python source/package_mod.py。
-
-新版冰龙弓先运行 source/sculpt_frostwyrm.py -- clay，检查灰模后运行同一脚本 -- finish；均通过 Blender 后台执行。其回归检查使用 verify_rig.py -- frostwyrm。渲染合照会加载 Windows 微软雅黑字体以显示中文。
-
-插件的中文 FULL 字段使用 UTF-8，并在文件头描述中保留 `<cp:utf8>` 供 xEdit 正确识别。编码约定参考 [xEdit 文档](https://tes5edit.github.io/docs/18-whatsnew.html#182112---codepage-support)。
+现有系列参数在 `source/geometric_catalog.json`、`source/aries_catalog.json`、`source/taurus_catalog.json`、`source/gemini_catalog.json`、`source/cancer_catalog.json`、`source/leo_catalog.json`、`source/virgo_catalog.json`、`source/libra_catalog.json`、`source/sagittarius_catalog.json`、`source/capricorn_catalog.json`、`source/aquarius_catalog.json`、`source/pisces_catalog.json`、`source/scorpio_catalog.json`、`source/heteromorphic_catalog.json`；固定编号在 `source/catalog.json`，退役编号在 `source/retired_weapons.json`，清理列表在 `source/obsolete_assets.json`。

@@ -423,7 +423,7 @@ def game_material(name,diffuse,normal,mask=None,cube=None,glow=False):
     shader.inputs['Glossiness'].default_value=160
     shader.inputs['Specular Color'].default_value=(.65,.76,.80,1)
     shader.inputs['Emission Color'].default_value=(.20,.65,.8,1)
-    shader.inputs['Emission Strength'].default_value=.7 if glow else 0
+    shader.inputs['Emission Strength'].default_value=.21 if glow else 0
     for slot,im,inlet in [('Diffuse',diffuse,'Diffuse'),('Normal',normal,'Normal')]+([('Glow',diffuse,'Glow Map')] if glow else []):
         mat['BSShaderTextureSet_'+slot]='textures\\weapons\\arcanearsenal\\'+Path(im.filepath).name
         node=nodes.new('ShaderNodeTexImage');node.image=im;node.name={'Diffuse':'Diffuse_Texture','Normal':'Normal_Texture','Glow':'Glow_Map_Texture'}[slot]

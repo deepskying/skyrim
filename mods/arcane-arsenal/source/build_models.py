@@ -45,7 +45,7 @@ for index,category in enumerate(['body','edge','core','light']):
     for node in list(nodes):
         if node.type=='TEX_IMAGE':nodes.remove(node)
     shader.inputs['Emission Color'].default_value=(*spec['glow'],1)
-    shader.inputs['Emission Strength'].default_value=[.015,.018,.60,.27][index]
+    shader.inputs['Emission Strength'].default_value=[.0045,.0054,.18,.081][index]
     shader.inputs['Specular Color'].default_value=(.83,.87,.94,1)
     shader.inputs['Glossiness'].default_value=160 if key=='frostglass' else 90
     mat.pyn_shader.Shader_Type='Glow_Shader'

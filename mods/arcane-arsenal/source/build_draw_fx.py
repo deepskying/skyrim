@@ -52,7 +52,7 @@ for field in ('Shader_Type','Shader_Flags_1','Shader_Flags_2','Emissive_Mult','G
     setattr(props,field,getattr(source.shader.properties,field))
 props.Shader_Flags_1 &= ~int(ShaderFlags1.SKINNED)
 props.Emissive_Color[:3]=(1,0,0)
-props.Emissive_Mult=8.0
+props.Emissive_Mult=2.4
 props.Spec_Color[:]=(0,0,0)
 shape.save_shader_attributes()
 for slot,path in source.textures.items():
@@ -67,7 +67,7 @@ assert light.parent.name==fx.name and not light.has_skin_instance
 assert len(light.tris)==len(tris)
 assert not (light.shader.properties.Shader_Flags_1 & int(ShaderFlags1.SKINNED))
 assert list(light.shader.properties.Emissive_Color)[:3]==[1,0,0]
-assert light.shader.properties.Emissive_Mult==8
+assert abs(light.shader.properties.Emissive_Mult-2.4)<1e-6
 assert light.textures==source.textures
 assert all((Vector(verts[b])-Vector(verts[a])).cross(Vector(verts[c])-Vector(verts[a])).length>1e-7 for a,b,c in tris)
 # Verify the visible node maps its center and all three axes to bow coordinates.
@@ -81,7 +81,7 @@ for name,original in nif.nodes.items():
         assert check.nodes[name].transform.NearEqual(original.transform)
 report={'version':'0.4.1','weapon':'AAredplates','node':fx.name,'parent':fx.parent.name,
         'hidden_by_default':True,'skinned':False,'triangles':len(tris),'center':list(center),
-        'radius':radius,'emission':8,'old_geometry_unchanged':True,'gameplay_tested':False}
+        'radius':radius,'emission':2.4,'old_geometry_unchanged':True,'gameplay_tested':False}
 (ROOT/'build/draw-fx-model.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 # Preserve an actual-model preview with visible FX, without altering the runtime.
 visible=fx.transform;visible.scale=1;fx.transform=visible

@@ -1,0 +1,962 @@
+[
+  {
+    "key": "redplates",
+    "name": "余烬·叠弦",
+    "design": "plates",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.4
+    ],
+    "fx": "streak",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 8,
+    "speed": 2.6,
+    "radius": 1.15,
+    "life": 1.05,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "classic_source": "redplates",
+    "color_key": "red"
+  },
+  {
+    "key": "geoplatesgreen",
+    "name": "流萤·叠弦",
+    "design": "plates",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "streak",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 8,
+    "speed": 2.6,
+    "radius": 1.15,
+    "life": 1.05,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "classic_source": "redplates",
+    "color_key": "green"
+  },
+  {
+    "key": "geoplatesblue",
+    "name": "寒汐·叠弦",
+    "design": "plates",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "streak",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 8,
+    "speed": 2.6,
+    "radius": 1.15,
+    "life": 1.05,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "classic_source": "redplates",
+    "color_key": "blue"
+  },
+  {
+    "key": "geoplatespurple",
+    "name": "梦隙·叠弦",
+    "design": "plates",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "streak",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 8,
+    "speed": 2.6,
+    "radius": 1.15,
+    "life": 1.05,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "classic_source": "redplates",
+    "color_key": "purple"
+  },
+  {
+    "key": "redtriangles",
+    "name": "余烬·旋序",
+    "design": "triangles",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.4
+    ],
+    "fx": "triangle",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 8,
+    "speed": 2.0,
+    "radius": 1.15,
+    "life": 1.15,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "classic_source": "redtriangles",
+    "color_key": "red"
+  },
+  {
+    "key": "geotrianglesgreen",
+    "name": "流萤·旋序",
+    "design": "triangles",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "triangle",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 8,
+    "speed": 2.0,
+    "radius": 1.15,
+    "life": 1.15,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "classic_source": "redtriangles",
+    "color_key": "green"
+  },
+  {
+    "key": "geotrianglesblue",
+    "name": "寒汐·旋序",
+    "design": "triangles",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "triangle",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 8,
+    "speed": 2.0,
+    "radius": 1.15,
+    "life": 1.15,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "classic_source": "redtriangles",
+    "color_key": "blue"
+  },
+  {
+    "key": "geotrianglespurple",
+    "name": "梦隙·旋序",
+    "design": "triangles",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "triangle",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 8,
+    "speed": 2.0,
+    "radius": 1.15,
+    "life": 1.15,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "classic_source": "redtriangles",
+    "color_key": "purple"
+  },
+  {
+    "key": "reddiamonds",
+    "name": "余烬·流菱",
+    "design": "diamonds",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.4
+    ],
+    "fx": "diamond",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 8,
+    "speed": 1.4,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "classic_source": "reddiamonds",
+    "color_key": "red"
+  },
+  {
+    "key": "geodiamondsgreen",
+    "name": "流萤·流菱",
+    "design": "diamonds",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "diamond",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 8,
+    "speed": 1.4,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "classic_source": "reddiamonds",
+    "color_key": "green"
+  },
+  {
+    "key": "geodiamondsblue",
+    "name": "寒汐·流菱",
+    "design": "diamonds",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "diamond",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 8,
+    "speed": 1.4,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "classic_source": "reddiamonds",
+    "color_key": "blue"
+  },
+  {
+    "key": "geodiamondspurple",
+    "name": "梦隙·流菱",
+    "design": "diamonds",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "diamond",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 8,
+    "speed": 1.4,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "classic_source": "reddiamonds",
+    "color_key": "purple"
+  },
+  {
+    "key": "geohexagonred",
+    "name": "余烬·六垣",
+    "design": "hexagon",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.25
+    ],
+    "fx": "hexagon",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 8,
+    "speed": 1.1,
+    "radius": 1.15,
+    "life": 1.4,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "classic_source": null,
+    "color_key": "red"
+  },
+  {
+    "key": "geohexagongreen",
+    "name": "流萤·六垣",
+    "design": "hexagon",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "hexagon",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 8,
+    "speed": 1.1,
+    "radius": 1.15,
+    "life": 1.4,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "classic_source": null,
+    "color_key": "green"
+  },
+  {
+    "key": "geohexagonblue",
+    "name": "寒汐·六垣",
+    "design": "hexagon",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "hexagon",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 8,
+    "speed": 1.1,
+    "radius": 1.15,
+    "life": 1.4,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "classic_source": null,
+    "color_key": "blue"
+  },
+  {
+    "key": "geohexagonpurple",
+    "name": "梦隙·六垣",
+    "design": "hexagon",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "hexagon",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 8,
+    "speed": 1.1,
+    "radius": 1.15,
+    "life": 1.4,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "classic_source": null,
+    "color_key": "purple"
+  },
+  {
+    "key": "geosquaresred",
+    "name": "余烬·方旋",
+    "design": "squares",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.25
+    ],
+    "fx": "square",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 8,
+    "speed": 1.7,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "classic_source": null,
+    "color_key": "red"
+  },
+  {
+    "key": "geosquaresgreen",
+    "name": "流萤·方旋",
+    "design": "squares",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "square",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 8,
+    "speed": 1.7,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "classic_source": null,
+    "color_key": "green"
+  },
+  {
+    "key": "geosquaresblue",
+    "name": "寒汐·方旋",
+    "design": "squares",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "square",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 8,
+    "speed": 1.7,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "classic_source": null,
+    "color_key": "blue"
+  },
+  {
+    "key": "geosquarespurple",
+    "name": "梦隙·方旋",
+    "design": "squares",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "square",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 8,
+    "speed": 1.7,
+    "radius": 1.15,
+    "life": 1.3,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "classic_source": null,
+    "color_key": "purple"
+  },
+  {
+    "key": "geochevronred",
+    "name": "余烬·锋羽",
+    "design": "chevron",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.25
+    ],
+    "fx": "needle",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 8,
+    "speed": 3.5,
+    "radius": 1.15,
+    "life": 0.9,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "classic_source": null,
+    "color_key": "red"
+  },
+  {
+    "key": "geochevrongreen",
+    "name": "流萤·锋羽",
+    "design": "chevron",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "needle",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 8,
+    "speed": 3.5,
+    "radius": 1.15,
+    "life": 0.9,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "classic_source": null,
+    "color_key": "green"
+  },
+  {
+    "key": "geochevronblue",
+    "name": "寒汐·锋羽",
+    "design": "chevron",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "needle",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 8,
+    "speed": 3.5,
+    "radius": 1.15,
+    "life": 0.9,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "classic_source": null,
+    "color_key": "blue"
+  },
+  {
+    "key": "geochevronpurple",
+    "name": "梦隙·锋羽",
+    "design": "chevron",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "needle",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 8,
+    "speed": 3.5,
+    "radius": 1.15,
+    "life": 0.9,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "classic_source": null,
+    "color_key": "purple"
+  }
+]

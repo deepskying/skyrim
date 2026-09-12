@@ -1,0 +1,182 @@
+[
+  {
+    "key": "virgored",
+    "name": "余烬·处女",
+    "design": "harvest_lozenges",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.25
+    ],
+    "fx": "diamond",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 12,
+    "speed": 2.2,
+    "radius": 0.85,
+    "life": 0.9,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "spread": 0.25,
+    "particle_secondary": [
+      1,
+      0.12,
+      0.22
+    ],
+    "fx_secondary": "triangle"
+  },
+  {
+    "key": "virgogreen",
+    "name": "流萤·处女",
+    "design": "woven_loom",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "mote",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 14,
+    "speed": 1.7,
+    "radius": 0.72,
+    "life": 1.1,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "spread": 0.65,
+    "particle_secondary": [
+      0.2,
+      1,
+      0.75
+    ],
+    "fx_secondary": "streak"
+  },
+  {
+    "key": "virgoblue",
+    "name": "寒汐·处女",
+    "design": "crystalline_measure",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "square",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 10,
+    "speed": 2.4,
+    "radius": 0.9,
+    "life": 1,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "spread": 0.12,
+    "particle_secondary": [
+      0.12,
+      0.7,
+      1
+    ],
+    "fx_secondary": "hexagon"
+  },
+  {
+    "key": "virgopurple",
+    "name": "梦隙·处女",
+    "design": "folded_silk",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "kite",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 10,
+    "speed": 1.8,
+    "radius": 0.85,
+    "life": 1.1,
+    "particle_power": 2.4,
+    "pool": 32,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "spread": 0.55,
+    "particle_secondary": [
+      0.65,
+      0.3,
+      1
+    ],
+    "fx_secondary": "needle"
+  }
+]

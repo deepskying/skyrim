@@ -1,0 +1,234 @@
+[
+  {
+    "key": "ariesgold",
+    "name": "鎏金·白羊",
+    "chinese": "鎏金·白羊",
+    "enchantment": null,
+    "damage": 20,
+    "weight": 6,
+    "builder": "build_aries.py",
+    "stat_form": "00081D"
+  },
+  {
+    "key": "ariesblack",
+    "name": "夜蚀·白羊",
+    "chinese": "夜蚀·白羊",
+    "enchantment": null,
+    "damage": 20,
+    "weight": 6,
+    "builder": "build_aries.py",
+    "stat_form": "000829"
+  },
+  {
+    "key": "arieswhite",
+    "name": "月华·白羊",
+    "chinese": "月华·白羊",
+    "enchantment": null,
+    "damage": 20,
+    "weight": 6,
+    "builder": "build_aries.py",
+    "stat_form": "00082C"
+  },
+  {
+    "key": "frostglass",
+    "name": "霜璃王冠",
+    "chinese": "霜璃王冠",
+    "enchantment": "EnchWeaponFrostDamage02",
+    "damage": 18,
+    "weight": 9,
+    "materials": [
+      [
+        0.62,
+        0.57,
+        0.77
+      ],
+      [
+        0.87,
+        0.93,
+        0.97
+      ],
+      [
+        0.4,
+        0.24,
+        0.64
+      ],
+      [
+        0.52,
+        0.78,
+        0.74
+      ]
+    ],
+    "glow": [
+      0.67,
+      0.45,
+      1.0
+    ],
+    "stat_form": "000800"
+  },
+  {
+    "key": "emberwake",
+    "name": "烬翼",
+    "chinese": "烬翼",
+    "enchantment": "EnchWeaponFireDamage02",
+    "damage": 20,
+    "weight": 12,
+    "materials": [
+      [
+        0.025,
+        0.019,
+        0.026
+      ],
+      [
+        0.2,
+        0.08,
+        0.045
+      ],
+      [
+        0.85,
+        0.19,
+        0.025
+      ],
+      [
+        1.0,
+        0.57,
+        0.08
+      ]
+    ],
+    "glow": [
+      1.0,
+      0.24,
+      0.025
+    ],
+    "stat_form": "000803"
+  },
+  {
+    "key": "astralorbit",
+    "name": "星轨",
+    "chinese": "星轨",
+    "enchantment": "EnchWeaponShockDamage02",
+    "damage": 17,
+    "weight": 8,
+    "materials": [
+      [
+        0.055,
+        0.045,
+        0.15
+      ],
+      [
+        0.68,
+        0.48,
+        0.23
+      ],
+      [
+        0.35,
+        0.2,
+        0.8
+      ],
+      [
+        0.46,
+        0.76,
+        0.94
+      ]
+    ],
+    "glow": [
+      0.52,
+      0.29,
+      1.0
+    ],
+    "stat_form": "000806"
+  },
+  {
+    "key": "moonthorn",
+    "name": "月棘",
+    "chinese": "月棘",
+    "enchantment": "EnchWeaponAbsorbHealth02",
+    "damage": 19,
+    "weight": 10,
+    "materials": [
+      [
+        0.045,
+        0.105,
+        0.1
+      ],
+      [
+        0.45,
+        0.62,
+        0.53
+      ],
+      [
+        0.1,
+        0.55,
+        0.36
+      ],
+      [
+        0.73,
+        0.88,
+        0.6
+      ]
+    ],
+    "glow": [
+      0.32,
+      0.88,
+      0.58
+    ],
+    "stat_form": "000809"
+  },
+  {
+    "key": "frostwyrm",
+    "name": "冰龙脊骨",
+    "chinese": "冰龙脊骨",
+    "enchantment": "EnchWeaponFrostDamage02",
+    "damage": 21,
+    "weight": 12,
+    "builder": "sculpt_frostwyrm.py",
+    "stat_form": "00080D"
+  },
+  {
+    "key": "crystalred",
+    "name": "余烬·绯晶",
+    "chinese": "余烬·绯晶",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_crystal.py",
+    "stat_form": "00090C",
+    "series": "crystal"
+  },
+  {
+    "key": "crystalgreen",
+    "name": "流萤·翠脉",
+    "chinese": "流萤·翠脉",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_crystal.py",
+    "stat_form": "00090F",
+    "series": "crystal"
+  },
+  {
+    "key": "crystalblue",
+    "name": "寒汐·霜棱",
+    "chinese": "寒汐·霜棱",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_crystal.py",
+    "stat_form": "000912",
+    "series": "crystal"
+  },
+  {
+    "key": "crystalpurple",
+    "name": "梦隙·紫珀",
+    "chinese": "梦隙·紫珀",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_crystal.py",
+    "stat_form": "000915",
+    "series": "crystal"
+  }
+]

@@ -1,0 +1,182 @@
+[
+  {
+    "key": "crystalred",
+    "name": "余烬·绯晶",
+    "design": "ruby",
+    "color": [
+      1,
+      0.1,
+      0.16
+    ],
+    "edge": [
+      1,
+      0.3,
+      0.35
+    ],
+    "power": [
+      1.25,
+      1.0,
+      1.4
+    ],
+    "fx": "embers",
+    "fx_secondary": "diamond",
+    "particle_color": [
+      1,
+      0.1,
+      0.16
+    ],
+    "particle_secondary": [
+      1,
+      0.3,
+      0.35
+    ],
+    "particle_power": 1.8,
+    "rate": 9,
+    "speed": 1.2,
+    "radius": 0.7,
+    "life": 0.8,
+    "pool": 24,
+    "spread": 0.6,
+    "diffuse_name": "crystalred_d",
+    "diffuse_color": [
+      1,
+      0.1,
+      0.16
+    ]
+  },
+  {
+    "key": "crystalgreen",
+    "name": "流萤·翠脉",
+    "design": "emerald",
+    "color": [
+      0.08,
+      0.85,
+      0.43
+    ],
+    "edge": [
+      0.25,
+      1,
+      0.7
+    ],
+    "power": [
+      1.25,
+      1.0,
+      1.4
+    ],
+    "fx": "mote",
+    "fx_secondary": "triangle",
+    "particle_color": [
+      0.08,
+      0.85,
+      0.43
+    ],
+    "particle_secondary": [
+      0.25,
+      1,
+      0.7
+    ],
+    "particle_power": 1.8,
+    "rate": 9,
+    "speed": 1.2,
+    "radius": 0.7,
+    "life": 0.8,
+    "pool": 24,
+    "spread": 0.6,
+    "diffuse_name": "crystalgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.85,
+      0.43
+    ]
+  },
+  {
+    "key": "crystalblue",
+    "name": "寒汐·霜棱",
+    "design": "frost",
+    "color": [
+      0.12,
+      0.6,
+      1
+    ],
+    "edge": [
+      0.4,
+      0.85,
+      1
+    ],
+    "power": [
+      1.25,
+      1.0,
+      1.4
+    ],
+    "fx": "flake",
+    "fx_secondary": "streak",
+    "particle_color": [
+      0.12,
+      0.6,
+      1
+    ],
+    "particle_secondary": [
+      0.4,
+      0.85,
+      1
+    ],
+    "particle_power": 1.8,
+    "rate": 9,
+    "speed": 1.2,
+    "radius": 0.7,
+    "life": 0.8,
+    "pool": 24,
+    "spread": 0.6,
+    "diffuse_name": "crystalblue_d",
+    "diffuse_color": [
+      0.12,
+      0.6,
+      1
+    ]
+  },
+  {
+    "key": "crystalpurple",
+    "name": "梦隙·紫珀",
+    "design": "amethyst",
+    "color": [
+      0.54,
+      0.18,
+      1
+    ],
+    "edge": [
+      0.8,
+      0.45,
+      1
+    ],
+    "power": [
+      1.25,
+      1.0,
+      1.4
+    ],
+    "fx": "kite",
+    "fx_secondary": "diamond",
+    "particle_color": [
+      0.54,
+      0.18,
+      1
+    ],
+    "particle_secondary": [
+      0.8,
+      0.45,
+      1
+    ],
+    "particle_power": 1.8,
+    "rate": 9,
+    "speed": 1.2,
+    "radius": 0.7,
+    "life": 0.8,
+    "pool": 24,
+    "spread": 0.6,
+    "diffuse_name": "crystalpurple_d",
+    "diffuse_color": [
+      0.54,
+      0.18,
+      1
+    ]
+  }
+]

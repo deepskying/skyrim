@@ -15,6 +15,11 @@ from mathutils.kdtree import KDTree
 ROOT = Path(__file__).resolve().parents[1]
 key = sys.argv[sys.argv.index('--') + 1]
 is_red=key in ('redplates','redtriangles','reddiamonds')
+is_geometric=key.startswith('geo') or is_red
+is_aries=key.startswith(('aries','taurus','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic')) or is_geometric
+series='crystal' if key.startswith('crystal') else 'heteromorphic' if key.startswith('heteromorphic') else 'scorpio' if key.startswith('scorpio') else 'pisces' if key.startswith('pisces') else 'aquarius' if key.startswith('aquarius') else 'capricorn' if key.startswith('capricorn') else 'sagittarius' if key.startswith('sagittarius') else 'libra' if key.startswith('libra') else 'virgo' if key.startswith('virgo') else 'leo' if key.startswith('leo') else 'cancer' if key.startswith('cancer') else 'gemini' if key.startswith('gemini') else 'geometric' if is_geometric else 'taurus' if key.startswith('taurus') else 'aries'
+shape_prefix=series.title()
+aries=next((s for s in json.loads((ROOT/'source'/(series+'_catalog.json')).read_text(encoding='utf-8')) if s['key']==key),None)
 NIF = ROOT / 'data/meshes/weapons/arcanearsenal' / (key+'.nif')
 REFERENCE = ROOT.parents[1] / 'reference/bow-tools/validation/ironbow-textured-check.blend'
 POSES = {
@@ -31,7 +36,7 @@ def armature():
     return next(o for o in bpy.data.objects if o.type == 'ARMATURE')
 
 def hierarchy(rig):
-    return {b.name: b.parent.name if b.parent else None for b in rig.data.bones}
+    return {b.name: b.parent.name if b.parent else None for b in rig.data.bones if b.name.startswith("Bow_")}
 
 def snapshots(rig):
     basis = {b.name: b.matrix_basis.copy() for b in rig.pose.bones}
@@ -83,12 +88,12 @@ for obj in bpy.data.objects:
                 path=Path(bpy.path.abspath(node.image.filepath))
                 assert path.is_file(), str(path)
                 resolution=1024
-                if is_red:resolution=64
+                if is_red or is_aries:resolution=1024 if path.name.startswith('crystal') else 64
                 if key=='frostwyrm':
                     resolution=4096 if '_body_' in path.name else 64 if '_eye_' in path.name else 2048
                 assert tuple(node.image.size)==(resolution,resolution), (path,tuple(node.image.size))
                 texture_paths.add(str(path))
-        if is_red:
+        if is_red or is_aries:
             shader=material.pyn_shader
             assert shader.Shader_Type=='Glow_Shader'
             assert 'OWN_EMIT' in shader.Shader_Flags_1
@@ -96,11 +101,15 @@ for obj in bpy.data.objects:
             node=material.node_tree.nodes['SkyrimShader:Default']
             color=tuple(node.inputs['Emission Color'].default_value)
             strength=node.inputs['Emission Strength'].default_value
-            expected_strength={'AA_redface':6.0,'AA_redline':12.0,'AA_redstring':8.0}[obj.name]
+            expected_strength=dict(zip(tuple('AA_'+shape_prefix+part for part in ('Body','Edge','String')),aries['power']))[obj.name] if is_aries else {'AA_redface':1.8,'AA_redline':3.6,'AA_redstring':2.4}[obj.name]
+            expected_color=(aries['color'] if obj.name=='AA_'+shape_prefix+'Body' else aries['edge']) if is_aries else (1,0,0)
             assert abs(strength-expected_strength)<1e-5,(obj.name,strength)
             # Skyrim stores emissive RGB, not Blender's fourth color component.
-            assert max(abs(a-b) for a,b in zip(color[:3],(1,0,0)))<1e-5,color
-            assert material.get('BSShaderTextureSet_Glow','').endswith('aa_red_g.dds')
+            assert max(abs(a-b) for a,b in zip(color[:3],expected_color))<1e-5,color
+            assert material.get('BSShaderTextureSet_Glow','').endswith(key+'_g.dds' if series=='crystal' and obj.name=='AA_CrystalBody' else 'aa_red_g.dds')
+            if series=='crystal' and obj.name=='AA_CrystalBody':
+                assert 'SPECULAR' in shader.Shader_Flags_1
+                assert node.inputs['Glossiness'].default_value==110
             red_shaders[obj.name]={'type':shader.Shader_Type,'emissive_color':color,'emissive_strength':strength}
         if key=='frostwyrm':
             for prop,value in material.items():
@@ -122,11 +131,15 @@ for obj in bpy.data.objects:
                 assert material.get('BSShaderTextureSet_EnvMap','').endswith('frostwyrm_v2_cube.dds')
                 assert '_m.dds' in material.get('BSShaderTextureSet_EnvMask','')
                 ice_shaders[obj.name]={'type':shader.Shader_Type,'environment_scale':shader.Env_Map_Scale}
-assert len(texture_paths)==(3 if is_red else 9 if key=='frostwyrm' else 6), texture_paths
-if is_red:
+assert len(texture_paths)==(6 if series=='crystal' else 3 if is_red or is_aries else 9 if key=='frostwyrm' else 6), texture_paths
+if is_red or is_aries:
     assert len(alpha_materials)==0
     assert len(red_shaders)==3
-    assert {Path(p).name for p in texture_paths}=={'aa_red_d.dds','aa_red_n.dds','aa_red_g.dds'}
+    expected_textures={aries['diffuse_name']+'.dds' if is_aries else 'aa_red_d.dds','aa_red_n.dds','aa_red_g.dds'}
+    if series=='crystal':
+        flat='aa_red_d' if key=='crystalred' else 'aa_aries'+key.replace('crystal','')+'_d'
+        expected_textures={key+'_'+x+'.dds' for x in ('d','n','g')}|{flat+'.dds','aa_red_n.dds','aa_red_g.dds'}
+    assert {Path(p).name for p in texture_paths}==expected_textures
 if key=='frostglass':assert len(alpha_materials)==2,alpha_materials
 if key=='frostwyrm':
     assert len(alpha_materials)==0,alpha_materials
@@ -134,7 +147,7 @@ if key=='frostwyrm':
 actual_hierarchy = hierarchy(rig)
 assert actual_hierarchy == expected_hierarchy, (expected_hierarchy, actual_hierarchy)
 mesh_quality={}
-if is_red:
+if is_red or is_aries:
     for obj in bpy.data.objects:
         if obj.type!='MESH' or not obj.name.startswith('AA_'):continue
         obj.data.calc_loop_triangles()
@@ -151,7 +164,7 @@ if is_red:
         assert weight_error<.001,(obj.name,weight_error)
         mesh_quality[obj.name]={'triangles':len(areas),'minimum_triangle_area':min(areas),'maximum_weight_error':weight_error}
 bone_error = max(abs(b.matrix_local[i][j] - expected_bones[b.name][i][j])
-                 for b in rig.data.bones for i in range(4) for j in range(4))
+                 for b in rig.data.bones if b.name in expected_bones for i in range(4) for j in range(4))
 assert bone_error < 0.01, bone_error
 actual_poses = snapshots(rig)
 errors = {}

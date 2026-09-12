@@ -1,0 +1,154 @@
+[
+  {
+    "key": "taurusred",
+    "name": "余烬·金牛",
+    "design": "bull_crown",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6,
+      2.25
+    ],
+    "fx": "triangle",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 14,
+    "speed": 4.5,
+    "radius": 1.7,
+    "life": 1,
+    "particle_power": 3.0,
+    "pool": 48,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ]
+  },
+  {
+    "key": "taurusgreen",
+    "name": "流萤·金牛",
+    "design": "jade_horn",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5,
+      3.15
+    ],
+    "fx": "mote",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 10,
+    "speed": 1.3,
+    "radius": 1.65,
+    "life": 1.4,
+    "particle_power": 3.0,
+    "pool": 48,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ]
+  },
+  {
+    "key": "taurusblue",
+    "name": "寒汐·金牛",
+    "design": "tidal_gate",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4,
+      3.6
+    ],
+    "fx": "square",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 12,
+    "speed": 3,
+    "radius": 1.8,
+    "life": 1.15,
+    "particle_power": 3.0,
+    "pool": 48,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ]
+  },
+  {
+    "key": "tauruspurple",
+    "name": "梦隙·金牛",
+    "design": "rift_horns",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4,
+      3.6
+    ],
+    "fx": "diamond",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 10,
+    "speed": 1.8,
+    "radius": 1.9,
+    "life": 1.3,
+    "particle_power": 3.0,
+    "pool": 48,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ]
+  }
+]

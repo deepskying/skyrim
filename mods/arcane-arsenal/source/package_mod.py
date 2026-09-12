@@ -4,15 +4,16 @@ import hashlib,json,zipfile,struct,configparser
 ROOT=Path(__file__).resolve().parents[1]
 metadata=configparser.ConfigParser();metadata.read(ROOT/'packaging/meta.ini',encoding='utf-8')
 version=metadata['General']['version']
-archive=ROOT/('packaging/ArcaneArsenal-'+version+'.zip')
+archive=ROOT/('packaging/ArcaneArmory-'+version+'.zip')
 archive.parent.mkdir(parents=True,exist_ok=True)
 assets=sorted(p for p in (ROOT/'data').rglob('*') if p.is_file())
 assert len([p for p in assets if p.suffix=='.esp'])==1
-assert len([p for p in assets if p.suffix=='.nif'])==8
-assert len([p for p in assets if p.suffix=='.dds'])==33
+assert len([p for p in assets if p.suffix=='.nif'])==76
+assert len([p for p in assets if p.suffix=='.dds'])==24
 assert len([p for p in assets if p.suffix=='.pex'])==1
 assert len([p for p in assets if p.suffix=='.seq'])==1
 assert all(p.suffix.lower() in {'.esp','.nif','.dds','.pex','.seq'} for p in assets)
+assert not any((ROOT/'data'/rel).exists() for rel in json.loads((ROOT/'source/obsolete_assets.json').read_text(encoding='utf-8')))
 plugin=(ROOT/'data/ArcaneArsenal.esp').read_bytes()
 assert plugin[:4]==b'TES4' and struct.unpack_from('<I',plugin,8)[0]&0x200, 'ESL flag missing'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as package:

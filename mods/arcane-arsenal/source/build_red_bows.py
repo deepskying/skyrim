@@ -56,7 +56,7 @@ def texture(name,color,normal=False):
     image.filepath=str(path);image.reload();return image
 
 di=texture('aa_red_d',(.32,0,0,1));ni=texture('aa_red_n',(.5,.5,1,0),True);gi=texture('aa_red_g',(1,1,1,1))
-for category,power in [('redface',6.0),('redline',12.0),('redstring',8.0)]:
+for category,power in [('redface',1.8),('redline',3.6),('redstring',2.4)]:
     mat=mb.base_mat.copy();mat.name=KEY+'_'+category
     nodes=mat.node_tree.nodes;shader=nodes['SkyrimShader:Default']
     for node in list(nodes):

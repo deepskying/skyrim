@@ -50,7 +50,7 @@ for category,tint in palette.items():
     for node in list(nodes):
         if node.type=='TEX_IMAGE':nodes.remove(node)
     shader.inputs['Emission Color'].default_value=(.20,.69,.85,1)
-    shader.inputs['Emission Strength'].default_value=.9 if category=='eye' else .012
+    shader.inputs['Emission Strength'].default_value=.27 if category=='eye' else .0036
     shader.inputs['Specular Color'].default_value=(.75,.90,1,1)
     shader.inputs['Glossiness'].default_value=210 if category in ('ice','deep') else 85
     mat.pyn_shader.Shader_Type='Glow_Shader'
