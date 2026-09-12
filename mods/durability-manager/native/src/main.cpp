@@ -1,3 +1,4 @@
+#include "../../../../shared/panel-power/panel_power.h"
 #include "PrismaUI_API.h"
 #include "input_handler.h"
 #include "enhancement_rules.h"
@@ -3449,8 +3450,13 @@ namespace
         PreparePlayerRuntimeEffectsForStateChange();
     }
 
+    panel_power::Power g_panelPower("DurabilityManager.esp", [] {
+        if (g_prisma && g_view && !g_prisma->HasAnyActiveFocus()) TogglePanel();
+    });
+
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
+        g_panelPower.OnMessage(a_message);
         if (a_message->type == SKSE::MessagingInterface::kPreLoadGame) {
             ResetViewForLoad();
             PreparePlayerRuntimeEffectsForStateChange();

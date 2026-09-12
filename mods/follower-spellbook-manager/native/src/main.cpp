@@ -1,3 +1,4 @@
+#include "../../../../shared/panel-power/panel_power.h"
 #include "PrismaUI_API.h"
 #include "input_handler.h"
 
@@ -886,8 +887,13 @@ namespace
         return true;
     }
 
+    panel_power::Power g_panelPower("FollowerSpellbookManager.esp", [] {
+        if (g_prisma && g_view && !g_prisma->HasAnyActiveFocus()) TogglePanel();
+    });
+
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
+        g_panelPower.OnMessage(a_message);
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
             if (const auto tasks = SKSE::GetTaskInterface()) tasks->AddTask([] {
                 ReapplyAllTrackedSpells();

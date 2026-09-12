@@ -48,3 +48,9 @@ The generated `release` directory can be installed as one mod in MO2 or Vortex.
 - The inventory page reads the player's items, actual count, weight, value, favorite/equipped/enchanted/quest markers, and the agreed categories.
 - The magic page reads base and learned spells, dragon shouts, powers, passive abilities, and live active effects. Schools are classified from the game data.
 - Magic favorites and spell/shout equipping use Skyrim's native managers. Inventory favorites, equipping, using, and dismantling are available through their native game systems. Equipment state is refreshed again on the following frame so the UI reflects Skyrim's final slot-conflict result.
+
+## 面板能力
+
+启用随包提供的 `InventoryManager.esp`（ESL 标记），进入新游戏或成功读档后自动获得「打开物品管理」。在魔法菜单的能力分类中装备，按能力键释放；可以加入收藏。能力零消耗、无每日次数限制，与现有快捷键打开同一个面板。各模组独立安装，无需额外 Papyrus 脚本。
+
+如只使用快捷键，将 `SKSE/Plugins/InventoryManager.ini` 的 `[PanelPower] Enabled=0`，下次读档会移除该能力；改回 `1` 后读档可恢复。更新安装时请同时更新 DLL 和 ESP，并在 MO2 右侧插件列表启用 ESP。

@@ -1,15 +1,17 @@
 [CmdletBinding()]
-param([string]$OutputDirectory = (Join-Path $PSScriptRoot 'release'))
+param([string]$OutputDirectory = (Join-Path $PSScriptRoot 'release'), [string]$Version = '0.3.0')
 $ErrorActionPreference = 'Stop'
 $taskModule = Split-Path $PSScriptRoot -Parent
 $taskDll = Join-Path $taskModule 'native\build\windows\x64\release\MusicManager.dll'
+$taskPower = Join-Path $PSScriptRoot 'MusicManager.esp'
 $taskWeb = Join-Path $taskModule 'web\dist'
-foreach ($taskRequired in @($taskDll, (Join-Path $taskWeb 'index.html'))) {
+foreach ($taskRequired in @($taskPower, $taskDll, (Join-Path $taskWeb 'index.html'))) {
     if (-not (Test-Path -LiteralPath $taskRequired)) { throw "Missing build output: $taskRequired" }
 }
 $taskPlugins = Join-Path $OutputDirectory 'Data\SKSE\Plugins'
 $taskView = Join-Path $OutputDirectory 'Data\PrismaUI\views\MusicManager'
 New-Item -ItemType Directory -Force -Path $taskPlugins,$taskView | Out-Null
+Copy-Item -LiteralPath $taskPower -Destination (Join-Path $OutputDirectory 'Data') -Force
 Copy-Item -LiteralPath $taskDll -Destination $taskPlugins -Force
 foreach ($taskConfig in @('MusicManager.ini','MusicManager.rules.json')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $taskConfig) -Destination $taskPlugins -Force
@@ -22,7 +24,7 @@ foreach ($taskFolder in @('野外白天','野外夜晚','城镇','酒馆','住�
 }
 Copy-Item -LiteralPath (Join-Path $taskModule 'README.md') -Destination $OutputDirectory -Force
 Copy-Item -LiteralPath (Join-Path $taskModule 'native\vendor\LICENSE.miniaudio') -Destination $OutputDirectory -Force
-$taskZip = Join-Path $PSScriptRoot 'MusicManager-0.3.0-MO2.zip'
+$taskZip = Join-Path $PSScriptRoot ("MusicManager-{0}-MO2.zip" -f $Version)
 # Keep release/Data for the local installer, but put Data's contents directly
 # at the archive root for MO2. Explicit inputs exclude stale/personal files.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -30,6 +32,7 @@ $taskArchiveStream = [IO.File]::Open($taskZip, [IO.FileMode]::Create)
 $taskArchive = [IO.Compression.ZipArchive]::new($taskArchiveStream, [IO.Compression.ZipArchiveMode]::Create, $false, [Text.Encoding]::UTF8)
 try {
     $taskEntries = @(
+        'MusicManager.esp',
         'SKSE/Plugins/MusicManager.dll',
         'SKSE/Plugins/MusicManager.ini',
         'SKSE/Plugins/MusicManager.rules.json',

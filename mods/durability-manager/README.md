@@ -90,3 +90,11 @@ Rule-only verification (no Skyrim runtime required), from `native`:
 xmake build -y DurabilityRulesTests
 .\build\windows\x64\release\DurabilityRulesTests.exe ..\packaging\DurabilityManager.rules.json
 ```
+
+## 面板能力
+
+启用随包提供的 `DurabilityManager.esp`（ESL 标记），进入新游戏或成功读档后自动获得「打开装备维护」。在魔法菜单的能力分类中装备，按能力键释放；可以加入收藏。能力零消耗、无每日次数限制，与现有快捷键打开同一个面板。各模组独立安装，无需额外 Papyrus 脚本。
+
+如只使用快捷键，将 `SKSE/Plugins/DurabilityManager.ini` 的 `[PanelPower] Enabled=0`，下次读档会移除该能力；改回 `1` 后读档可恢复。更新安装时请同时更新 DLL 和 ESP，并在 MO2 右侧插件列表启用 ESP。
+
+能力只提供面板入口，强化操作仍受现有工作台条件限制。

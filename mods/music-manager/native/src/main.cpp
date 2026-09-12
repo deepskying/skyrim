@@ -1,3 +1,4 @@
+#include "../../../../shared/panel-power/panel_power.h"
 #include "PrismaUI_API.h"
 #include "music_service.h"
 #include "music_settings.h"
@@ -188,7 +189,11 @@ public:
         return RE::BSEventNotifyControl::kContinue;
     }
 } events;
+panel_power::Power panelPower("MusicManager.esp", [] {
+    if (prisma && view && !prisma->HasAnyActiveFocus()) togglePanel();
+});
 void onMessage(SKSE::MessagingInterface::Message* message) {
+    panelPower.OnMessage(message);
     switch (message->type) {
     case SKSE::MessagingInterface::kPreLoadGame:
         loaded = false; ++epoch; dragonEnemies.clear(); muteNative(false); closePanel();

@@ -7,6 +7,7 @@ $moduleRoot = Split-Path -Parent $PSScriptRoot
 $packageManifestPath = Join-Path $moduleRoot "web\package.json"
 $dllPath = Join-Path $moduleRoot "native\build\windows\x64\release\FollowerSpellbookManager.dll"
 $viewSource = Join-Path $moduleRoot "web\dist"
+$powerPath = Join-Path $PSScriptRoot "FollowerSpellbookManager.esp"
 $iniPath = Join-Path $PSScriptRoot "FollowerSpellbookManager.ini"
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
@@ -16,7 +17,7 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     throw "Package version is missing from $packageManifestPath"
 }
 
-foreach ($requiredPath in @($dllPath, $viewSource, $iniPath)) {
+foreach ($requiredPath in @($powerPath, $dllPath, $viewSource, $iniPath)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
         throw "Required build output is missing: $requiredPath"
     }
@@ -30,6 +31,7 @@ if (Test-Path -LiteralPath $stageRoot) {
 $pluginDestination = Join-Path $stageRoot "SKSE\Plugins"
 $viewDestination = Join-Path $stageRoot "PrismaUI\views\FollowerSpellbookManager"
 New-Item -ItemType Directory -Force -Path $pluginDestination, $viewDestination | Out-Null
+Copy-Item -LiteralPath $powerPath -Destination $stageRoot -Force
 Copy-Item -LiteralPath $dllPath -Destination (Join-Path $pluginDestination "FollowerSpellbookManager.dll")
 Copy-Item -LiteralPath $iniPath -Destination (Join-Path $pluginDestination "FollowerSpellbookManager.ini")
 Copy-Item -Path (Join-Path $viewSource "*") -Destination $viewDestination -Recurse

@@ -1,6 +1,6 @@
 # 天际音乐管理器 / Music Manager 0.3.0
 
-Skyrim SE **1.5.97** 的独立 SKSE 模组。默认 Shift+M 打开或关闭 Prisma UI 面板，快捷键可在配置面板修改；音乐在独立线程持续播放，关闭面板不影响播放。不需要 ESP、固定曲目编号或手动转码。
+Skyrim SE **1.5.97** 的独立 SKSE 模组。默认 Shift+M 打开或关闭 Prisma UI 面板，快捷键可在配置面板修改；音乐在独立线程持续播放，关闭面板不影响播放。面板能力使用随包提供的轻量 ESP；不需要固定曲目编号或手动转码。
 
 ## 使用
 
@@ -96,3 +96,9 @@ build/windows/x64/release/MusicServiceTests.exe ../packaging/validation/service-
 音频测试逐个使用正式播放器的 miniaudio 解码器打开并读取开头 1,024 帧，验证格式和中文路径；不等同于整首试听。服务测试验证环境优先级、暂停冻结、剧情让行、加载重置、回退、禁用、重新扫描、播放配置即时生效和持久化。设置测试覆盖范围校验、昼夜边界、自定义切换等待、快捷键映射及精确组合匹配。
 
 miniaudio **0.11.23** 源码随附于 `native/vendor`，许可证见 `LICENSE.miniaudio`。Windows 音频由原生引擎播放，网页仅用于管理，不依赖浏览器自动播放策略。
+
+## 面板能力
+
+启用随包提供的 `MusicManager.esp`（ESL 标记），进入新游戏或成功读档后自动获得「打开音乐管理」。在魔法菜单的能力分类中装备，按能力键释放；可以加入收藏。能力零消耗、无每日次数限制，与现有快捷键打开同一个面板。各模组独立安装，无需额外 Papyrus 脚本。
+
+如只使用快捷键，将 `SKSE/Plugins/MusicManager.ini` 的 `[PanelPower] Enabled=0`，下次读档会移除该能力；改回 `1` 后读档可恢复。更新安装时请同时更新 DLL 和 ESP，并在 MO2 右侧插件列表启用 ESP。

@@ -20,7 +20,7 @@ $taskReport = Get-Content -LiteralPath (Join-Path $taskMigration 'migration-repo
 if ($taskReport.errors.Count -gt 0) { throw 'Migration has unresolved errors.' }
 $taskDependencies = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'validation\dcs-dependencies.json') -Raw -Encoding utf8 | ConvertFrom-Json
 if ($taskDependencies.dependents.Count -gt 0 -or $taskDependencies.missing.Count -gt 0) { throw 'DCS dependency check has unresolved entries.' }
-foreach ($taskRequired in @((Join-Path $taskRelease 'Data\SKSE\Plugins\MusicManager.dll'),(Join-Path $taskSource 'modlist.txt'),(Join-Path $taskMigration 'Data\Music\MusicManager'))) {
+foreach ($taskRequired in @((Join-Path $taskRelease 'Data\MusicManager.esp'),(Join-Path $taskRelease 'Data\SKSE\Plugins\MusicManager.dll'),(Join-Path $taskSource 'modlist.txt'),(Join-Path $taskMigration 'Data\Music\MusicManager'))) {
     if (-not (Test-Path -LiteralPath $taskRequired)) { throw "Missing: $taskRequired" }
 }
 New-Item -ItemType Directory -Path $taskDestination,$taskProfile | Out-Null
@@ -57,7 +57,13 @@ foreach ($taskLine in $taskLines) {
 [IO.File]::WriteAllLines($taskModlistPath,$taskNewLines,[Text.UTF8Encoding]::new($false))
 $taskPluginPath = Join-Path $taskProfile 'plugins.txt'
 $taskPlugins = [IO.File]::ReadAllLines($taskPluginPath,[Text.Encoding]::UTF8) | ForEach-Object { if ($_ -match '^\*DCS - ') { $_.Substring(1) } else { $_ } }
+$taskPlugins = @($taskPlugins | Where-Object { $_ -notmatch '^\*?MusicManager\.esp$' }) + '*MusicManager.esp'
 [IO.File]::WriteAllLines($taskPluginPath,$taskPlugins,[Text.UTF8Encoding]::new($false))
+$taskLoadOrderPath = Join-Path $taskProfile 'loadorder.txt'
+$taskLoadOrder = @()
+if (Test-Path -LiteralPath $taskLoadOrderPath) { $taskLoadOrder = @([IO.File]::ReadAllLines($taskLoadOrderPath,[Text.Encoding]::UTF8) | Where-Object { $_ -ne 'MusicManager.esp' }) }
+$taskLoadOrder += 'MusicManager.esp'
+[IO.File]::WriteAllLines($taskLoadOrderPath,$taskLoadOrder,[Text.UTF8Encoding]::new($false))
 # Copy only the latest save and its co-save into the isolated profile.
 $taskSaves = Join-Path $taskSource 'saves'
 $taskSaveTarget = Join-Path $taskProfile 'saves'
