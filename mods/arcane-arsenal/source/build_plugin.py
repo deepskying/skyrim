@@ -155,8 +155,8 @@ greatswords_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k
 swords_chest=changed(by_name['treaschestsmallemptynorespawn'],0x01000956,
     {b'EDID':Z('AAHeteromorphicSwordsChest'),b'FULL':Z('异构单手剑·试武箱')},(b'MODT',b'COCT',b'CNTO'))
 sword_inventory=[(w['form'],1) for w,spec in zip(weapons,catalog) if spec.get('weapon_type')=='sword']
-assert len(sword_inventory)==4
-extra=sub(b'COCT',U32(4))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in sword_inventory)
+assert len(sword_inventory)==8
+extra=sub(b'COCT',U32(8))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in sword_inventory)
 swords_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(swords_chest['data']))
 # A hidden start-game quest with one forced player alias. No stages/objectives,
 # no actor edits, and no dependency on load-order-specific light-plugin indices.
@@ -178,7 +178,7 @@ seq=ROOT/'data/seq/ArcaneArsenal.seq';seq.parent.mkdir(parents=True,exist_ok=Tru
 seq.write_bytes(U32(quest_id))
 # Crystal experiment IDs 0x90C..0x918 are retired, including chest 0x918. Never reuse.
 header={'sig':b'TES4','flags':0x200,'form':0,'version':44,'data':
-    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x957))+
+    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x963))+
     sub(b'CNAM',Z('Arcane Armory'))+
     sub(b'SNAM',Z(f'{len(catalog)} original weapons and seventeen test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
     sub(b'MAST',b'Skyrim.esm\0')+sub(b'DATA',b'\0'*8)}
@@ -205,6 +205,6 @@ result.update(pisces_chest='0008F1',pisces_chest_contents='4 Pisces bows, 200 ir
 result.update(scorpio_chest='0008FE',scorpio_chest_contents='4 Scorpio bows, 200 iron arrows')
 result.update(heteromorphic_chest='00090B',heteromorphic_chest_contents='8 Heteromorphic bows, 200 iron arrows')
 result.update(greatswords_chest='000931',greatswords_chest_contents='12 Heteromorphic greatswords')
-result.update(swords_chest='000956',swords_chest_contents='4 Heteromorphic one-handed swords')
+result.update(swords_chest='000956',swords_chest_contents='8 Heteromorphic one-handed swords')
 (ROOT/'build/plugin-report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

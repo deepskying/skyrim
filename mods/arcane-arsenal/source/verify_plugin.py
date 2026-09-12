@@ -14,11 +14,11 @@ expected.update({'AA'+s['key']:0x01000000|int(s['stat_form'],16)+1 for s in cata
 header=items[0];hp=dict(subrecords(header['data']))
 assert header['flags']==0x200
 assert abs(struct.unpack_from('<f',hp[b'HEDR'])[0]-1.7)<1e-6
-assert len(items)==307 and len(by_form)==307
-assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(306,0x957)
+assert len(items)==319 and len(by_form)==319
+assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(318,0x963)
 assert all(r['version']==44 for r in items)
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in items[1:])
-weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==96
+weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==100
 names=[]
 for r in weapons:
     assert r['form']==expected[edid(r)]
@@ -42,23 +42,23 @@ chest=next(r for r in items if edid(r)=='AAAllBowsTestChest')
 assert chest['form']==expected['AAAllBowsTestChest']
 parts=list(subrecords(chest['data']))
 inventory=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
-assert len(inventory)==97
-assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==97
+assert len(inventory)==101
+assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==101
 assert all((r['form'],1) in inventory for r in weapons)
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='幻律兵装·试武箱'
-# Add the first Heteromorphic one-handed sword set; preserve old weapons and all container identity fields.
-baseline=list(records(ROOT/'build/before-0.28.0/data/ArcaneArsenal.esp'))
+# Add the second Heteromorphic one-handed sword set; preserve old weapons and all container identity fields.
+baseline=list(records(ROOT/'build/before-0.29.0/data/ArcaneArsenal.esp'))
 retired={0x01000000|(int(s['stat_form'],16)+j) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for j in range(3)}
 assert len(retired)==36 and retired.isdisjoint(by_form)
 old_forms={r['form'] for r in baseline}
 assert old_forms <= set(by_form)
-assert set(by_form)-old_forms=={0x01000000|i for i in range(0x94A,0x957)}
+assert set(by_form)-old_forms=={0x01000000|i for i in range(0x957,0x963)}
 assert 0x01000918 not in by_form
 strip=lambda r:[(k,v) for k,v in subrecords(r['data']) if k not in (b'COCT',b'CNTO')]
 for old in baseline:
     if old['form'] in retired or old['form']==0x01000918:continue
     current=by_form[old['form']]
-    if edid(old)=='AAAllBowsTestChest':assert strip(old)==strip(current)
+    if edid(old) in ('AAAllBowsTestChest','AAHeteromorphicSwordsChest'):assert strip(old)==strip(current)
     elif old['sig']!=b'TES4':assert current==old,edid(old)
 aries_chest=next(r for r in items if edid(r)=='AAAriesTestChest')
 assert aries_chest['form']==0x0100082F
@@ -177,14 +177,14 @@ for r in weapons:
 swords=by_form[0x01000956]
 assert edid(swords)=='AAHeteromorphicSwordsChest'
 sparts=list(subrecords(swords['data']))
-assert dict(sparts)[b'COCT']==struct.pack('<I',4)
-assert {struct.unpack('<II',v) for k,v in sparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x94B,0x94E,0x951,0x954)}
+assert dict(sparts)[b'COCT']==struct.pack('<I',8)
+assert {struct.unpack('<II',v) for k,v in sparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x94B,0x94E,0x951,0x954,0x958,0x95B,0x95E,0x961)}
 base=next(r for r in master if edid(r)=='IronSword');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAsword'):
         fields=dict(subrecords(r['data']))
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert b'EITM' not in fields and b'EAMT' not in fields
-report={'version':'0.28.0','passed':True,'weapons':96,'test_chests':17,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'new_records':13,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
+report={'version':'0.29.0','passed':True,'weapons':100,'test_chests':17,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'new_records':12,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
 (ROOT/'build/plugin-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report))

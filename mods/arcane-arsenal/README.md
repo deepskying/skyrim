@@ -1,22 +1,22 @@
-# 幻律兵装 · Arcane Armory 0.28.0
+# 幻律兵装 · Arcane Armory 0.29.0
 
-当前收录 **96 把武器**：80 把弓（异构 8、几何律 24、十二星座 48），以及异构巨剑 12 把、异构单手剑 4 把。弓的基础伤害 **90**、攻速参数 **1.5**；巨剑的基础伤害 **99**、攻速参数 **1.2**；单手剑测试版暂用基础伤害 **75**、攻速参数 **1.2**。
+当前收录 **100 把武器**：80 把弓（异构 8、几何律 24、十二星座 48），以及异构巨剑 12 把、异构单手剑 8 把。弓的基础伤害 **90**、攻速参数 **1.5**；巨剑的基础伤害 **99**、攻速参数 **1.2**；单手剑测试版暂用基础伤害 **75**、攻速参数 **1.2**。
 
 ## 本版调整
 
-0.28.0 新增第一组异构单手剑：**余烬·截锋、流萤·游梭、寒汐·棱隙、梦隙·错影**。分别采用偏刃缺口、S 形曲刃与梭形开口、镂空剑根与悬浮三角核心、错层刃板与连接桥。每款都有独立护手与常驻碎光。
+0.29.0 新增第二组异构单手剑：**余烬·破阙、流萤·穿岚、寒汐·环衡、梦隙·开屏**。分别采用双矩形缺口宽刃与折角护手、直棱细刃与单侧弧翼、偏心八角环与连续剑脊、三片错层扇刃与折扇护手。每款都有独立护手与常驻碎光。
 
-使用原版 IronSword 的单手握持基准、单手装备类型、WeaponSword 挂点与声音。短握把对齐原点，绿色护手留出手部空间；去掉原版剑身、血迹覆盖片与旧剑鞘。几何体为独立刚性网格，沿用已有低强度发光，没有附魔染色或 ENB 改动。
+使用原版 IronSword 的单手握持基准、单手装备类型、WeaponSword 挂点与声音。短握把对齐原点，红色框形护手留出手部空间；去掉原版剑身、血迹覆盖片与旧剑鞘。几何体为独立刚性网格，沿用已有低强度发光，没有附魔染色或 ENB 改动。
 
-新增「异构单手剑·试武箱」，内含四把新剑；全部武器试武箱扩充至 96 把。旧武器编号、属性、模型、贴图、脚本和其他箱子保持不变。四把新剑加入现有 SPID 名单，概率字段均为 `0.01`。
+「异构单手剑·试武箱」扩充至八把，含两组单手剑；全部武器试武箱扩充至 100 把。旧武器编号、属性、模型、贴图、脚本和其他箱子保持不变。四把新剑加入现有 SPID 名单，概率字段均为 `0.01`。
 
-MO2 版本 **0.28.0**，插件 **ArcaneArsenal.esp** 保留 ESL 标记。更新后重启游戏。
+MO2 版本 **0.29.0**，插件 **ArcaneArsenal.esp** 保留 ESL 标记。更新后重启游戏。
 
 ## 现有系列
 
 | 系列 | 款式 | 配色与命名 |
 | --- | --- | --- |
-| 异构单手剑 | 截锋、游梭、棱隙、错影 | 每款独立配色，共 4 把 |
+| 异构单手剑 | 截锋、游梭、棱隙、错影、破阙、穿岚、环衡、开屏 | 每款独立配色，共 8 把 |
 | 异构巨剑 | 裂疆、双岚、错界、悬劫、偏蚀、逐翎、折矩、回旋、断衡、掠弧、空阙、叠相 | 每款独立配色，共 12 把 |
 | 异构弓 | 断层、繁枝、环阵、扇阙、错翼、折岚、叠门、悬棱 | 每款独立配色，共 8 把 |
 | 几何律 | 叠弦、旋序、流菱、六垣、方旋、锋羽 | 每款四种配色，共 24 把 |
@@ -79,19 +79,19 @@ player.placeatme <CONT的完整编号> 1
 | AAPiscesTestChest | 双鱼座·试武箱 | 4 把双鱼弓 |
 | AAScorpioTestChest | 天蝎座·试武箱 | 4 把天蝎弓 |
 | AAHeteromorphicTestChest | 异构·试武箱 | 8 把异构弓 |
-| AAHeteromorphicSwordsChest | 异构单手剑·试武箱 | 4 把异构单手剑 |
+| AAHeteromorphicSwordsChest | 异构单手剑·试武箱 | 8 把异构单手剑 |
 | AAHeteromorphicGreatswordsChest | 异构巨剑·试武箱 | 12 把异构巨剑 |
-| AAAllBowsTestChest | 幻律兵装·试武箱 | 全部 96 把武器 |
+| AAAllBowsTestChest | 幻律兵装·试武箱 | 全部 100 把武器 |
 
-弓与全部武器箱另有铁箭 200 支，巨剑专用箱只含十二把巨剑，单手剑专用箱只含四把单手剑。请生成新箱子，旧箱子的存档库存不一定跟随插件更新。已退役的武器不再提供；本次不编辑存档。
+弓与全部武器箱另有铁箭 200 支，巨剑专用箱只含十二把巨剑，单手剑专用箱只含八把单手剑。请生成新箱子，旧箱子的存档库存不一定跟随插件更新。已退役的武器不再提供；本次不编辑存档。
 
 ## 安装、验证与工程
 
-安装包为 **ArcaneArmory-0.28.0.zip**。已更新到 MO2 后不需要再次安装。本次不再改名，不修改启用状态、profile 或加载顺序。MO2 若缓存旧版本号，刷新或重启即可。
+安装包为 **ArcaneArmory-0.29.0.zip**。已更新到 MO2 后不需要再次安装。本次不再改名，不修改启用状态、profile 或加载顺序。MO2 若缓存旧版本号，刷新或重启即可。
 
 目标 Skyrim SE 1.5.97；ESP 头版本 1.7、记录版本 44、ESL 标记保持不变，主文件只有 Skyrim.esm。沿用已安装的 SKSE64 2.0.20 / NetImmerse，无新增 DLL 或行为生成步骤。
 
-本版核对 96 把武器的属性、单手与双手剑装备类型、中文名、模型链接、ESL 标记及旧记录身份，并用 xEdit 检查插件。四把新单手剑重新导入 NIF 与源模型比对，检查握持区、发光材质、粒子位置与原生文件序列化。旧版 119 个运行文件中仅插件更新，另新增 4 个单手剑模型；其余 118 个文件保持一致。游戏内握持、挥砍、挂点与粒子表现仍需实测。
+本版核对 100 把武器的属性、单手与双手剑装备类型、中文名、模型链接、ESL 标记及旧记录身份，并用 xEdit 检查插件。四把新单手剑重新导入 NIF 与源模型比对，检查握持区、发光材质、粒子位置与原生文件序列化。旧版 123 个运行文件中仅插件更新，另新增 4 个单手剑模型；其余 122 个文件保持一致。游戏内握持、挥砍、挂点与粒子表现仍需实测。
 
 ### SPID 分发维护
 
@@ -99,11 +99,11 @@ player.placeatme <CONT的完整编号> 1
 
 目标文件：`C:/Users/linos/Desktop/games/+skyrim/MO2/mods/功能模组-物品分发-SPID+CID配置-🟪🟨/-item_DISTR.ini`。
 
-规则沿用 `Item = <EditorID>|NONE|NONE|NONE|NONE|1|0.01`。保留原内容、编码和换行，写入前备份到 `build/spid-before-*.ini`，匹配已有规则避免重复。本版新增四条 `AAswordred/green/blue/purple` 规则。
+规则沿用 `Item = <EditorID>|NONE|NONE|NONE|NONE|1|0.01`。保留原内容、编码和换行，写入前备份到 `build/spid-before-*.ini`，匹配已有规则避免重复。本版新增四条 `AAsword2red/green/blue/purple` 规则。
 
-0.28.0 更新备份位于 `build/mo2-before-0.28.0-*`，改动前的源码、运行文件位于 `build/before-0.28.0/`。改名与 profile 历史备份位于 `build/mo2-rename-*`。源工程路径仍为 `mods/arcane-arsenal`，历史说明与建模素材保留，已移除武器的素材不进入运行包。
+0.29.0 更新备份位于 `build/mo2-before-0.29.0-*`，改动前的源码、运行文件位于 `build/before-0.29.0/`。改名与 profile 历史备份位于 `build/mo2-rename-*`。源工程路径仍为 `mods/arcane-arsenal`，历史说明与建模素材保留，已移除武器的素材不进入运行包。
 
-现有系列参数在 `source/geometric_catalog.json`、`source/aries_catalog.json`、`source/taurus_catalog.json`、`source/gemini_catalog.json`、`source/cancer_catalog.json`、`source/leo_catalog.json`、`source/virgo_catalog.json`、`source/libra_catalog.json`、`source/sagittarius_catalog.json`、`source/capricorn_catalog.json`、`source/aquarius_catalog.json`、`source/pisces_catalog.json`、`source/scorpio_catalog.json`、`source/heteromorphic_catalog.json`、`source/heteromorphic2_catalog.json`、`source/greatswords_catalog.json`、`source/greatswords2_catalog.json`、`source/greatswords3_catalog.json`、`source/swords_catalog.json`；固定编号在 `source/catalog.json`，退役编号在 `source/retired_weapons.json`，清理列表在 `source/obsolete_assets.json`。
+现有系列参数在 `source/geometric_catalog.json`、`source/aries_catalog.json`、`source/taurus_catalog.json`、`source/gemini_catalog.json`、`source/cancer_catalog.json`、`source/leo_catalog.json`、`source/virgo_catalog.json`、`source/libra_catalog.json`、`source/sagittarius_catalog.json`、`source/capricorn_catalog.json`、`source/aquarius_catalog.json`、`source/pisces_catalog.json`、`source/scorpio_catalog.json`、`source/heteromorphic_catalog.json`、`source/heteromorphic2_catalog.json`、`source/greatswords_catalog.json`、`source/greatswords2_catalog.json`、`source/greatswords3_catalog.json`、`source/swords_catalog.json`、`source/swords2_catalog.json`；固定编号在 `source/catalog.json`，退役编号在 `source/retired_weapons.json`，清理列表在 `source/obsolete_assets.json`。
 
 巨剑构建：便携 Blender 运行 `source/build_greatswords.py -- greatswordred`（以及 green、blue、purple），随后运行 `source/build_aries_particles.py -- --greatswords` 添加常驻粒子。使用 `source/verify_greatswords.py`、`source/verify_aries_particles.py -- --greatswords` 和 `source/verify_plugin.py` 检查；`source/render_greatswords.py` 生成实际模型预览。
 
@@ -111,4 +111,6 @@ player.placeatme <CONT的完整编号> 1
 
 第三组巨剑：建模参数为 `greatsword3red`、`greatsword3green`、`greatsword3blue`、`greatsword3purple`，配套脚本参数为 `--greatswords3`；造型在 `source/greatswords3_geometry.py`。独立模型比对以 `build/before-0.27.0/` 为基线。
 
-单手剑构建：先用普通 Python 运行 `source/prepare_sword_reference.py` 提取本地 IronSword，再用便携 Blender 运行 `source/build_swords.py -- swordred`（以及 green、blue、purple）。粒子构建和位置检查使用 `--swords` 参数；模型检查为 `source/verify_swords.py`，整组预览为 `source/render_swords.py`。具体造型在 `source/swords_geometry.py`，模型和旧文件检查以 `build/before-0.28.0/` 为基线。
+单手剑构建：先用普通 Python 运行 `source/prepare_sword_reference.py` 提取本地 IronSword，再用便携 Blender 运行 `source/build_swords.py -- swordred`（以及 green、blue、purple）。粒子构建和位置检查使用 `--swords` 参数；模型检查为 `source/verify_swords.py`，整组预览为 `source/render_swords.py`。具体造型在 `source/swords_geometry.py`，第一组最初以 `build/before-0.28.0/` 为基线。
+
+第二组单手剑：建模参数为 `sword2red`、`sword2green`、`sword2blue`、`sword2purple`。粒子构建、粒子检查、模型检查、整组预览均使用 `--swords2`；造型在 `source/swords2_geometry.py`，以 `build/before-0.29.0/` 为基线。粒子依次为方形余烬、针状微光、空心圆环和三角碎光，均搭配细小光点。

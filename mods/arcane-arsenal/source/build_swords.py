@@ -15,7 +15,7 @@ if not (ROOT/'build/ironsword-reference.nif').is_file():
     import subprocess
     subprocess.run(['python',str(ROOT/'source/prepare_sword_reference.py')],check=True,creationflags=subprocess.CREATE_NO_WINDOW)
 KEY=sys.argv[sys.argv.index('--')+1]
-SERIES='swords'
+SERIES='swords2' if KEY.startswith('sword2') else 'swords'
 SPEC=next(s for s in json.loads((ROOT/'source'/(SERIES+'_catalog.json')).read_text(encoding='utf-8')) if s['key']==KEY)
 materials=[]
 for i,label in enumerate(('Body','Edge')):
@@ -86,7 +86,8 @@ slab([(-1.15,-8),(1.15,-8),(1.15,5),(-1.15,5)],2.2,bevel=.16)
 for y in (-7.5,4):slab([(-1.35,y-.28),(1.35,y-.28),(1.35,y+.28),(-1.35,y+.28)],2.5,bevel=.10)
 slab([(-1.0,4),(1.0,4),(1.0,10),(-1.0,10)],2,bevel=.12)
 slab([(-.65,-10),(.65,-10),(.65,-7),(-.65,-7)],1.8,bevel=.10)
-from swords_geometry import build
+from importlib import import_module
+build=import_module(SERIES+'_geometry').build
 anchors=build(SPEC,slab,rail,frame,solid)
 
 # Join by material into exactly two unskinned game shapes.
@@ -147,6 +148,6 @@ scene.render.resolution_x=750;scene.render.resolution_y=1300;scene.render.resolu
 cd=bpy.data.cameras.new('Preview');cam=bpy.data.objects.new('Preview',cd);scene.collection.objects.link(cam);cam.location=(30,29,230);cam.rotation_euler=(0,math.atan2(30,230),0);cd.type='ORTHO';cd.ortho_scale=99;scene.camera=cam
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'art'/(KEY+'.blend')))
 scene.render.filepath=str(ROOT/'art'/(KEY+'.png'));bpy.ops.render.render(write_still=True)
-report={'version':'0.28.0','key':KEY,'design':SPEC['design'],'triangles':sum(len(o.data.polygons) for o in shapes),'shapes':2,'particle_anchors':[{'bone':'AASwordAnchor','side':1,'position':p,'direction':[0,1,0]} for p in anchors],'power':SPEC['power'],'reference':'IronLongSword01 / WeaponSword','gameplay_tested':False}
+report={'version':'0.29.0' if SERIES=='swords2' else '0.28.0','key':KEY,'design':SPEC['design'],'triangles':sum(len(o.data.polygons) for o in shapes),'shapes':2,'particle_anchors':[{'bone':'AASwordAnchor','side':1,'position':p,'direction':[0,1,0]} for p in anchors],'power':SPEC['power'],'reference':'IronLongSword01 / WeaponSword','gameplay_tested':False}
 (ROOT/'build'/(KEY+'-model.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
 print('SWORD_BUILT',KEY,report['triangles'])

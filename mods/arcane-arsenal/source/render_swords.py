@@ -2,7 +2,7 @@
 import bpy,math,json,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-SERIES='swords'
+SERIES='swords2' if '--swords2' in sys.argv else 'swords'
 specs=json.loads((ROOT/'source'/(SERIES+'_catalog.json')).read_text(encoding='utf-8'))
 for spec in ([] if '--lineup-only' in sys.argv else specs):
     key=spec['key'];bpy.ops.wm.open_mainfile(filepath=str(ROOT/'art'/(key+'.blend')))

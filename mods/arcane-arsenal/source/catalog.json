@@ -1126,5 +1126,49 @@
     "damage": 75,
     "weapon_speed": 1.2,
     "enchantment": null
+  },
+  {
+    "key": "sword2red",
+    "name": "余烬·破阙",
+    "series": "swords2",
+    "weapon_type": "sword",
+    "stat_form": "0x957",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "sword2green",
+    "name": "流萤·穿岚",
+    "series": "swords2",
+    "weapon_type": "sword",
+    "stat_form": "0x95a",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "sword2blue",
+    "name": "寒汐·环衡",
+    "series": "swords2",
+    "weapon_type": "sword",
+    "stat_form": "0x95d",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "sword2purple",
+    "name": "梦隙·开屏",
+    "series": "swords2",
+    "weapon_type": "sword",
+    "stat_form": "0x960",
+    "weight": 9,
+    "damage": 75,
+    "weapon_speed": 1.2,
+    "enchantment": null
   }
 ]

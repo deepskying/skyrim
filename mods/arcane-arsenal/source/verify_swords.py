@@ -11,7 +11,7 @@ from mathutils.bvhtree import BVHTree
 from mathutils import Vector
 ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'source'))
 from nif_blocks import NifBlocks
-SERIES='swords'
+SERIES='swords2' if '--swords2' in sys.argv else 'swords'
 specs=json.loads((ROOT/'source'/(SERIES+'_catalog.json')).read_text(encoding='utf-8'))
 def snapshot():
     return {o.name:[o.matrix_world@v.co for v in o.data.vertices] for o in bpy.context.scene.objects if o.type=='MESH' and o.name.startswith('AA_Sword')}
@@ -32,7 +32,7 @@ for spec in specs:
     assert not any(o.type=='ARMATURE' for o in bpy.context.scene.objects)
     coords=[p for pts in current.values() for p in pts]
     bounds=[(min(p[i] for p in coords),max(p[i] for p in coords)) for i in range(3)]
-    assert -17<bounds[1][0]<-11 and 70<bounds[1][1]<75
+    assert -17<bounds[1][0]<-11 and 70<bounds[1][1]<75,(key,bounds)
     # Long grip faces need not have vertices inside the palm. Intersect their
     # edges at three grip sections rather than relying on vertex placement.
     palm=[]
@@ -60,6 +60,16 @@ for spec in specs:
         assert not hit(5,0) and hit(0,0),'Knuckle guard intersects hand space'
     if key=='swordblue':
         assert not hit(0,30) and hit(.2,21),'Aperture or floating core missing'
+    if key=='sword2red':
+        assert not hit(-5,38) and not hit(-5,53),'Rectangular recesses filled'
+        assert hit(-5,46) and hit(0,38) and hit(0,53),'Continuous blade missing'
+        assert not hit(-6,0) and hit(0,0),'Knuckle guard clearance'
+    if key=='sword2green':
+        assert not hit(3,23) and hit(0,23) and hit(0,60) and hit(0,9.5),'Side fin opening or main blade'
+    if key=='sword2blue':
+        assert not hit(-3.6,18) and hit(3,18) and hit(0,45) and hit(-2,25),'Octagonal window or spine'
+    if key=='sword2purple':
+        assert hit(-4.8,69) and hit(.3,59) and hit(5.5,49),'Three descending tips missing'
     for o in bpy.context.scene.objects:
         if o.name not in current:continue
         o.data.calc_loop_triangles()
@@ -93,12 +103,12 @@ for spec in specs:
     assert not any('SkinInstance' in k for k,b in n.blocks)
     assert len([k for k,b in n.blocks if k=='NiParticleSystem'])==6
     reports.append({'key':key,'passed':True,'source_export_max_error':max(errors.values()),'bounds':bounds,'palm_clearance':True,'rigid_mesh':True,'attachment':'WeaponSword'})
-baseline=ROOT/'build/before-0.28.0/data'
+baseline=ROOT/('build/before-0.29.0/data' if SERIES=='swords2' else 'build/before-0.28.0/data')
 old={p.relative_to(baseline).as_posix():p for p in baseline.rglob('*') if p.is_file()}
 now={p.relative_to(ROOT/'data').as_posix():p for p in (ROOT/'data').rglob('*') if p.is_file()}
 assert set(old)<=set(now)
 assert set(now)-set(old)=={'meshes/weapons/arcanearsenal/'+s['key']+'.nif' for s in specs}
 changed=[p for p in old if old[p].read_bytes()!=now[p].read_bytes()]
 assert changed==['ArcaneArsenal.esp'],changed
-report={'version':'0.28.0','passed':True,'weapons':reports,'unchanged_old_runtime_files':len(old)-len(changed),'changed_old_runtime_files':changed,'gameplay_tested':False}
+report={'version':'0.29.0' if SERIES=='swords2' else '0.28.0','passed':True,'weapons':reports,'unchanged_old_runtime_files':len(old)-len(changed),'changed_old_runtime_files':changed,'gameplay_tested':False}
 (ROOT/'build'/(SERIES+'-verification.json')).write_text(json.dumps(report,indent=2),encoding='utf-8');print(json.dumps(report))
