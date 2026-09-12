@@ -1,6 +1,7 @@
 #pragma once
 #include "crafting_plan.h"
 #include "spell_adapters.h"
+#include "arrow_identity.h"
 #include <unordered_map>
 namespace crafting {
 using json=nlohmann::json;
@@ -32,7 +33,7 @@ inline void Sync(){
     ammoAdapters.clear();
     for(const auto& a:adapters)for(int i=0;i<8;++i){auto* base=RE::TESForm::LookupByID<RE::TESAmmo>(baseIDs[i]);auto* out=Output(i,a);if(!base||!out)continue;
         ammoAdapters.emplace(out,&a);
-        out->GetRuntimeData().data.damage=base->GetRuntimeData().data.damage;
+        out->GetRuntimeData().data.damage=arrow_identity::physicalDamage;
         out->fullName=(std::string(a.arrow)+"·"+a.spellName).c_str();
     }
 }
@@ -56,7 +57,8 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& request){
         if(units<=0||selected.count<1||count<selected.count)throw std::runtime_error("材料已耗尽或没有已发现的适用功效");
         ingredients.push_back({id,selected.count,units});
     }
-    return MakeChargedPlan(request.bases,stock,ingredients,Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xf)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),RecipeCosts(*a,p));
+    auto plan=MakeChargedPlan(request.bases,stock,ingredients,Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xf)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),RecipeCosts(*a,p));
+    if(!arrow_identity::Fits(Count(p,Output(0,*a)),plan.total))throw std::runtime_error("成品库存数量超限");return plan;
 }
 inline std::optional<Request> pending;inline json quote=nullptr;inline std::uint64_t serial=0;
 inline void Reset(){pending.reset();quote=nullptr;++serial;}
@@ -66,10 +68,11 @@ inline void Quote(RE::PlayerCharacter* p,const json& q){
     if(q.at("bases").size()>8||q.at("materials").size()>128)throw std::runtime_error("选择数量过多");
     for(auto& b:q.at("bases")){if(!b.at("count").is_number_integer()||b.at("count")<1||b.at("count")>100)throw std::runtime_error("数量必须为整数");request.bases.push_back({b.at("id").get<RE::FormID>(),b.at("count").get<int>(),0});}
     request.materials=ReadMaterials(q.at("materials"));auto p1=Evaluate(p,request);
-    json items=json::array(),outputs=json::array();
+    json items=json::array(),outputs=json::array(),bases=json::array();
+    for(auto x:p1.bases)bases.push_back({{"id",x.id},{"count",x.count}});
     for(auto x:p1.ingredients)items.push_back({{"id",x.id},{"name",Name(RE::TESForm::LookupByID(x.id))},{"count",x.count},{"units",x.units}});
-    for(auto x:p1.bases)outputs.push_back({{"id",x.id},{"name",Name(Output(Index(x.id),*a))},{"count",x.count}});
-    quote={{"selection",{{"spell",q.at("spell")},{"bases",q.at("bases")},{"materials",q.at("materials")}}},{"requestedTotal",p1.requestedTotal},{"suppliedCharge",p1.suppliedCharge},{"token",serial},{"gold",p1.gold},{"magicka",p1.magicka},{"charge",p1.charge},{"ingredients",items},{"outputs",outputs},{"total",p1.total}};pending=std::move(request);
+    outputs.push_back({{"id",Output(0,*a)->GetFormID()},{"name",Name(Output(0,*a))},{"count",p1.total}});
+    quote={{"selection",{{"spell",q.at("spell")},{"bases",q.at("bases")},{"materials",q.at("materials")}}},{"requestedTotal",p1.requestedTotal},{"suppliedCharge",p1.suppliedCharge},{"token",serial},{"gold",p1.gold},{"magicka",p1.magicka},{"charge",p1.charge},{"ingredients",items},{"outputs",outputs},{"bases",bases},{"total",p1.total}};pending=std::move(request);
 }
 inline void Commit(RE::PlayerCharacter* p,std::uint64_t token){
     if(!pending||quote.is_null()||token!=serial)throw std::runtime_error("报价已失效，请重新计算");
@@ -92,10 +95,9 @@ inline void Commit(RE::PlayerCharacter* p,std::uint64_t token){
         av->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,RE::ActorValue::kMagicka,-plan.magicka);
         manaRemoved=std::max(0.f,before-av->GetActorValue(RE::ActorValue::kMagicka));
         if(std::abs(manaRemoved-plan.magicka)>.1f)throw std::runtime_error("魔法值扣除异常，已尝试恢复");
-        for(auto s:plan.bases){auto* out=Output(Index(s.id),*a);int beforeCount=Count(p,out);p->AddObjectToContainer(out,nullptr,s.count,nullptr);
-            int delta=Count(p,out)-beforeCount;if(delta>0)added.push_back({out->GetFormID(),delta,0});
-            if(delta!=s.count)throw std::runtime_error("成品添加异常，已尝试恢复");
-        }
+        auto* out=Output(0,*a);int beforeCount=Count(p,out);p->AddObjectToContainer(out,nullptr,plan.total,nullptr);
+        int delta=Count(p,out)-beforeCount;if(delta>0)added.push_back({out->GetFormID(),delta,0});
+        if(delta!=plan.total)throw std::runtime_error("成品添加异常，已尝试恢复");
     }catch(...){
         for(auto s:added)p->RemoveItem(RE::TESForm::LookupByID<RE::TESBoundObject>(s.id),s.count,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);
         for(auto s:removed)p->AddObjectToContainer(RE::TESForm::LookupByID<RE::TESBoundObject>(s.id),nullptr,s.count,nullptr);

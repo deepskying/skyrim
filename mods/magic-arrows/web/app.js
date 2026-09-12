@@ -4,10 +4,11 @@ const $=id=>document.getElementById(id);
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colors={normal:'#9ca8b5',ice:'#55caff',shock:'#94aeff',poison:'#9afc48',wind:'#55e7b0',water:'#36d6e6',earth:'#d59a53',dark:'#a77cdd',arcane:'#f075da',fire:'#ff8b32',blood:'#ff4c69',holy:'#f0cc72',soul:'#b29afa'};
 const labels={normal:'普通弹药',ice:'冰 · 霜晶箭',shock:'电 · 雷棱箭',poison:'毒 · 蛇牙箭',wind:'风 · 旋翼箭',water:'水 · 碧波箭',earth:'土 · 岩锥箭',dark:'暗 · 影镰箭',arcane:'奥术 · 奥术箭',fire:'火 · 火焰箭',blood:'嗜血 · 外观试作',holy:'圣辉 · 外观试作',soul:'星魂 · 外观试作'};
-let state={version:'0.9.6',nativeEscape:true,arrows:[],spells:[],materials:[],recipes:[],loaded:false,hotkey:{key:'W',shift:true,ctrl:false,alt:false}};
+let state={version:'0.9.8',nativeEscape:true,arrows:[],spells:[],materials:[],recipes:[],loaded:false,hotkey:{key:'W',shift:true,ctrl:false,alt:false}};
 let page='equipment',filter='all',search='',selected=0,mode='magic',spell=0,recipe=0;
 let normalBatches=1,normalSearch='';
 let equipPending=0;
+let queueDrag=0;
 let modalOpen=false,quoteTimer=0,quoteVersion=0,acceptedQuote=null,quoteBusy=false,craftBusy=false,quoteError='';
 let spellFilter='candidate',spellSearch='';const batches=new Map();const ingredientSelection=new Map();
 let readySent=false;const demo=new URLSearchParams(location.search).get('demo')==='1';
@@ -30,15 +31,40 @@ function header(){
     $('connection').textContent=demo?'浏览器预览':state.loaded?'已连接游戏':'等待游戏数据';
 }
 function render(){header();if(page==='equipment')equipment();else if(page==='craft')craft();else settings();}
+function queueIDs(){return state.ammoQueue?.ids||[];}
+function queueMove(ids,from,to){const next=[...ids],index=next.indexOf(from),target=next.indexOf(to);if(index<0||target<0||index===target)return next;next.splice(index,1);next.splice(target,0,from);return next;}
+function queueEdit(ids,enabled=!!state.ammoQueue?.enabled){
+    if(!state.ammoQueue?.available)return;
+    const unique=[...new Set(ids)];if(unique.length>(state.ammoQueue.limit||64)){$('status').textContent='队列最多 64 种箭矢';return;}
+    state.ammoQueue={...state.ammoQueue,ids:unique,enabled};queuePanel();grid();send('queueEdit',{ids:unique,enabled});
+}
+function queuePanel(){
+    const root=$('ammo-queue');if(!root)return;
+    const q=state.ammoQueue||{},ids=queueIDs();
+    const items=ids.map(id=>state.arrows.find(a=>a.id===id)||q.items?.find(a=>a.id===id)||{id,name:'来源缺失的箭矢',count:0,usable:false});
+    root.innerHTML=`<div class="queue-heading"><div><h2>使用队列 <span>${ids.length} / ${q.limit||64}</span></h2><p>用完一种再换下一种 · 跳过缺货 · 拖拽排序</p></div><div class="queue-controls"><label><input id="queue-enabled" type="checkbox" ${q.enabled?'checked':''} ${q.available?'':'disabled'}>自动接续</label><button id="queue-start" class="primary" ${q.available&&items.some(a=>a.count>0&&a.usable!==false)?'':'disabled'}>从队首开始</button></div></div><div class="queue-list" role="list">${items.map((a,i)=>`<div class="queue-item ${a.equipped?'is-current':''} ${a.count<=0?'is-empty':''}" role="listitem" draggable="true" data-queue-item="${a.id}"><div class="queue-item-top"><span class="queue-position">${i+1} <span aria-hidden="true">⠿</span></span><span class="inventory-stock">×${a.count}</span></div><b>${escape(a.name)}</b><div class="queue-item-bottom"><span>${a.equipped?'使用中':a.usable===false?'不可用 · 跳过':a.count<=0?'缺货 · 跳过':'等待使用'}</span><div><button data-queue-up="${a.id}" aria-label="前移${escape(a.name)}" ${i?'':'disabled'}>←</button><button data-queue-down="${a.id}" aria-label="后移${escape(a.name)}" ${i<ids.length-1?'':'disabled'}>→</button><button data-queue-remove="${a.id}" aria-label="移除${escape(a.name)}">×</button></div></div></div>`).join('')||'<div class="queue-empty">点击下方箭矢的「＋ 加入队列」，安排使用顺序。</div>'}</div>${q.finished?'<p class="queue-finished">本轮队列已用尽。补充库存后可从队首重新开始。</p>':''}`;
+    $('queue-enabled').onchange=e=>queueEdit(ids,e.target.checked);
+    $('queue-start').onclick=()=>{$('queue-start').disabled=true;send('queueStart');};
+    root.querySelectorAll('[data-queue-remove]').forEach(b=>b.onclick=()=>queueEdit(ids.filter(id=>id!==Number(b.dataset.queueRemove))));
+    for(const [key,step] of [['queueUp',-1],['queueDown',1]])root.querySelectorAll(key==='queueUp'?'[data-queue-up]':'[data-queue-down]').forEach(b=>b.onclick=()=>{const id=Number(b.dataset[key]),i=ids.indexOf(id);queueEdit(queueMove(ids,id,ids[i+step]));});
+    root.querySelectorAll('[data-queue-item]').forEach(item=>{
+        item.ondragstart=e=>{if(e.target.closest('button')){e.preventDefault();return;}queueDrag=Number(item.dataset.queueItem);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(queueDrag));item.classList.add('dragging');};
+        item.ondragover=e=>{if(queueDrag){e.preventDefault();e.dataTransfer.dropEffect='move';item.classList.add('drop-target');}};
+        item.ondragleave=()=>item.classList.remove('drop-target');
+        item.ondrop=e=>{e.preventDefault();const id=queueDrag;queueDrag=0;if(id)queueEdit(queueMove(ids,id,Number(item.dataset.queueItem)));};
+        item.ondragend=()=>{queueDrag=0;root.querySelectorAll('.dragging,.drop-target').forEach(x=>x.classList.remove('dragging','drop-target'));};
+    });
+}
 function equipment(){
-    $('content').innerHTML=`<div class="toolbar"><div class="pills">${[['all','全部'],['normal','普通'],['magic','魔法']].map(([id,title])=>`<button data-filter="${id}" class="${filter===id?'active':''}">${title}</button>`).join('')}</div><input id="search" class="search" aria-label="搜索箭矢" placeholder="搜索箭矢…" value="${escape(search)}"></div><div class="summary"><span>库存 <b>${state.arrows.length}</b> 类</span><span>共 <b>${state.arrows.reduce((n,a)=>n+a.count,0)}</b> 支</span></div><div class="inventory-layout"><div id="grid" class="grid"></div><aside id="detail" class="detail"></aside></div>`;
+    $('content').innerHTML=`<section id="ammo-queue" class="ammo-queue" aria-label="箭矢使用队列"></section><div class="toolbar"><div class="pills">${[['all','全部'],['normal','普通'],['magic','魔法']].map(([id,title])=>`<button data-filter="${id}" class="${filter===id?'active':''}">${title}</button>`).join('')}</div><input id="search" class="search" aria-label="搜索箭矢" placeholder="搜索箭矢…" value="${escape(search)}"></div><div class="summary"><span>库存 <b>${state.arrows.length}</b> 类</span><span>共 <b>${state.arrows.reduce((n,a)=>n+a.count,0)}</b> 支</span></div><div class="inventory-layout"><div id="grid" class="grid"></div><aside id="detail" class="detail"></aside></div>`;
     $('search').addEventListener('input',e=>{search=e.target.value;grid();});
-    document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;equipment();});grid();
+    document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;equipment();});queuePanel();grid();
 }
 function grid(){
     const items=state.arrows.filter(a=>(filter==='all'||(filter==='normal'?a.family==='normal':a.family!=='normal'))&&a.name.toLowerCase().includes(search.toLowerCase()));
-    $('grid').innerHTML=items.length?items.map(a=>`<button class="card inventory-card ${a.family==='normal'?'normal':''} ${a.equipped?'is-equipped':''}" data-arrow="${a.id}" aria-pressed="${!!a.equipped}" ${equipPending?'disabled':''} style="--arrow:${colors[a.family]||colors.normal}"><div class="inventory-card-top"><span class="type-badge ${a.family==='normal'?'mundane':'enchanted'}">${a.family==='normal'?'普通':a.usable===false?'封存 · 失效':a.adapter?.runtime?(a.adapter.releaseMode==='sustained'?'持续 3 秒封存':'原法术封存'):a.spellBound?'固定适配':'魔法 · 试作'}${a.bolt?'弩矢':'箭'}</span><span class="inventory-stock" title="库存 ${a.count} 支" aria-label="库存 ${a.count} 支">×${a.count}</span></div><div class="visual">${arrow(a.family)}</div><div class="card-body"><h3>${escape(a.name)}</h3><div class="meta"><span>${a.bolt?'弩矢':a.family==='normal'?'普通箭':'魔法箭'}</span>${a.equipped?'<span class="tag">已装备</span>':''}</div></div></button>`).join(''):`<div class="empty">${state.loaded?'没有符合条件的箭矢':'正在等待库存数据'}<br><small>${state.loaded?'可在右侧补充十二种外观试作箭。':'请从游戏中打开面板。'}</small></div>`;
-    document.querySelectorAll('[data-arrow]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.arrow);detail();equipArrow(selected);});detail();
+    $('grid').innerHTML=items.length?items.map(a=>`<div class="inventory-item"><button class="card inventory-card ${a.family==='normal'?'normal':''} ${a.equipped?'is-equipped':''}" data-arrow="${a.id}" aria-pressed="${!!a.equipped}" ${equipPending?'disabled':''} style="--arrow:${colors[a.family]||colors.normal}"><div class="inventory-card-top"><span class="type-badge ${a.family==='normal'?'mundane':'enchanted'}">${a.family==='normal'?'普通':a.usable===false?'封存 · 失效':a.adapter?.runtime?(a.adapter.releaseMode==='sustained'?'持续 3 秒封存':'原法术封存'):a.spellBound?'固定适配':'魔法 · 试作'}${a.bolt?'弩矢':'箭'}</span><span class="inventory-stock" title="库存 ${a.count} 支" aria-label="库存 ${a.count} 支">×${a.count}</span></div><div class="visual">${arrow(a.family)}</div><div class="card-body"><h3>${escape(a.name)}</h3><div class="meta"><span>${a.bolt?'弩矢':a.family==='normal'?'普通箭':'魔法箭'}</span>${a.equipped?'<span class="tag">已装备</span>':''}</div></div></button><button class="queue-add" data-queue-add="${a.id}" ${a.bolt||a.usable===false||a.count<=0||!state.ammoQueue?.available||queueIDs().includes(a.id)?'disabled':''}>${queueIDs().includes(a.id)?'已加入队列':'＋ 加入队列'}</button></div>`).join(''):`<div class="empty">${state.loaded?'没有符合条件的箭矢':'正在等待库存数据'}<br><small>${state.loaded?'可在右侧补充十二种外观试作箭。':'请从游戏中打开面板。'}</small></div>`;
+    document.querySelectorAll('[data-arrow]').forEach(b=>b.onclick=()=>{selected=Number(b.dataset.arrow);detail();equipArrow(selected);});
+    document.querySelectorAll('[data-queue-add]').forEach(b=>b.onclick=()=>queueEdit([...queueIDs(),Number(b.dataset.queueAdd)]));detail();
 }
 function equipArrow(id){
     const a=state.arrows.find(a=>a.id===id);
@@ -177,7 +203,7 @@ function updateMagicSummary(){
     $('magic-total').textContent=`· 计划 ${p.target} 支`;
     updateResourceMeter('mana',state.resources?.magicka,q?.magicka??p.cost.mana);
     updateResourceMeter('gold',state.resources?.gold,q?.gold??p.cost.gold);
-    const baseUse=q?new Map(q.outputs.map(b=>[b.id,b.count])):p.baseUse;
+    const baseUse=q?new Map((q.bases??q.outputs).map(b=>[b.id,b.count])):p.baseUse;
     document.querySelectorAll('[data-base-use]').forEach(el=>el.textContent=baseUse.get(Number(el.dataset.baseUse))??0);
     const capacity=p.target*p.perArrow,energy=q?.suppliedCharge??p.energy;
     $('charge-value').textContent=`${energy} / ${capacity}`;
@@ -209,7 +235,7 @@ function scheduleQuote(){
 
 function settings(){
     const h=state.hotkey;const keys=[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ',...Array.from({length:12},(_,i)=>'F'+(i+1))];
-    $('content').innerHTML=`<div class="settings"><section class="section-box"><h2>唤起面板快捷键</h2><p>在游戏中打开面板；面板打开时，再按一次关闭。字母键需搭配修饰键，避免影响行走。</p><div class="key-row"><select id="key" aria-label="快捷键主键">${keys.map(k=>`<option ${k===h.key?'selected':''}>${k}</option>`).join('')}</select>${['shift','ctrl','alt'].map(k=>`<label><input type="checkbox" id="${k}" ${h[k]?'checked':''}>${k==='ctrl'?'Ctrl':k==='alt'?'Alt':'Shift'}</label>`).join('')}</div><div class="buttons"><button class="primary" id="save">保存快捷键</button><button id="reset">恢复 Shift + W</button></div></section><section class="section-box"><h2>能力入口 · 打开魔法箭工坊</h2><p>${state.powerAvailable?'已找到能力记录。读取存档或开始新游戏时自动加入「魔法 → 能力」。装备后按龙吼／能力键施放，可收藏、无魔法值消耗。':'尚未找到能力记录，请确认 MagicArrows.esp 已启用，并重新启动游戏。'}</p></section><section class="section-box"><h2>随从魔法箭消耗</h2><p>开启后，队友使用本模组封存箭或固定适配箭时按射击数量消耗，射空也消耗。已由游戏扣除的数量会计入，普通箭和外观试作箭沿用游戏规则。</p><label><input type="checkbox" id="follower-consume" ${(state.followers?.consumeMagicArrows??true)?'checked':''} ${state.followers?.available?'':'disabled'}>按射击数量消耗魔法箭</label><p>关闭后沿用游戏及其他模组的消耗规则。随从不需要掌握被封存的法术。此设置不改变友伤或随从自行选择箭矢的行为。</p><button id="save-followers" ${state.followers?.available?'':'disabled'}>保存随从设置</button></section><section class="section-box"><h2>当前版本</h2><p>0.9.6 · 炼金术每级减少 0.5% 材料充能需求，100 级最多减少 50%，向上取整且每支至少 1 点；法力和金币不受此减耗影响。Esc 优先关闭制作弹窗，再关闭面板。</p></section></div>`;
+    $('content').innerHTML=`<div class="settings"><section class="section-box"><h2>唤起面板快捷键</h2><p>在游戏中打开面板；面板打开时，再按一次关闭。字母键需搭配修饰键，避免影响行走。</p><div class="key-row"><select id="key" aria-label="快捷键主键">${keys.map(k=>`<option ${k===h.key?'selected':''}>${k}</option>`).join('')}</select>${['shift','ctrl','alt'].map(k=>`<label><input type="checkbox" id="${k}" ${h[k]?'checked':''}>${k==='ctrl'?'Ctrl':k==='alt'?'Alt':'Shift'}</label>`).join('')}</div><div class="buttons"><button class="primary" id="save">保存快捷键</button><button id="reset">恢复 Shift + W</button></div></section><section class="section-box"><h2>能力入口 · 打开魔法箭工坊</h2><p>${state.powerAvailable?'已找到能力记录。读取存档或开始新游戏时自动加入「魔法 → 能力」。装备后按龙吼／能力键施放，可收藏、无魔法值消耗。':'尚未找到能力记录，请确认 MagicArrows.esp 已启用，并重新启动游戏。'}</p></section><section class="section-box"><h2>随从魔法箭消耗</h2><p>开启后，队友使用本模组封存箭或固定适配箭时按射击数量消耗，射空也消耗。已由游戏扣除的数量会计入，普通箭和外观试作箭沿用游戏规则。</p><label><input type="checkbox" id="follower-consume" ${(state.followers?.consumeMagicArrows??true)?'checked':''} ${state.followers?.available?'':'disabled'}>按射击数量消耗魔法箭</label><p>关闭后沿用游戏及其他模组的消耗规则。随从不需要掌握被封存的法术。此设置不改变友伤或随从自行选择箭矢的行为。</p><button id="save-followers" ${state.followers?.available?'':'disabled'}>保存随从设置</button></section><section class="section-box"><h2>当前版本</h2><p>0.9.8 · 炼金术每级减少 0.5% 材料充能需求，100 级最多减少 50%，向上取整且每支至少 1 点；法力和金币不受此减耗影响。Esc 优先关闭制作弹窗，再关闭面板。</p></section></div>`;
     $('save-followers').onclick=()=>{const consumeMagicArrows=$('follower-consume').checked;$('save-followers').disabled=true;send('followerSettings',{consumeMagicArrows});};
     $('save').onclick=()=>send('settings',{key:$('key').value,shift:$('shift').checked,ctrl:$('ctrl').checked,alt:$('alt').checked});
     $('reset').onclick=()=>send('settings',{key:'W',shift:true,ctrl:false,alt:false});
@@ -252,12 +278,14 @@ function demoAction(type,data){
     if(type==='close'){$('status').textContent='预览模式：游戏内此操作会关闭面板';return;}
     if(type==='followerSettings'){state.followers={available:true,consumeMagicArrows:data.consumeMagicArrows};}
     if(type==='settings'){if(!data.shift&&!data.ctrl&&!data.alt&&data.key.length===1){$('status').textContent='字母快捷键至少需要一个修饰键';return;}state.hotkey=data;}
+    if(type==='queueEdit'){state.ammoQueue={...state.ammoQueue,...data,available:true,items:[]};}
+    if(type==='queueStart'){state.ammoQueue.enabled=true;const id=queueIDs().find(id=>state.arrows.some(a=>a.id===id&&a.count>0));if(id)state.arrows.forEach(a=>a.equipped=a.id===id);}
     if(type==='equip'){state.arrows.forEach(a=>a.equipped=a.id===data.id);equipPending=0;}
     if(type==='supply')state.arrows.filter(a=>a.family!=='normal'&&!a.spellBound).forEach(a=>a.count=Math.max(a.count,100));
     render();$('status').textContent='浏览器预览 · 操作未写入游戏';
 }
 render();
-if(demo){document.body.classList.add('demo');state.loaded=true;state.powerAvailable=true;
+if(demo){document.body.classList.add('demo');state.loaded=true;state.powerAvailable=true;state.ammoQueue={available:true,enabled:false,ids:[],items:[],limit:64};
     state.arrows=[{id:1,name:'嗜血箭〔外观试作〕',family:'blood',count:100,damage:8,equipped:true},{id:2,name:'圣辉箭〔外观试作〕',family:'holy',count:100,damage:8},{id:3,name:'星魂箭〔外观试作〕',family:'soul',count:100,damage:8},...['铁箭','钢箭','精灵箭','矮人箭','魔族箭'].map((name,i)=>({id:10+i,name,family:'normal',count:24+i*18,damage:8+i*4,fireballBase:true}))];
     state.spells=[{id:101,name:'火球术',cost:95},{id:102,name:'冰风暴',cost:126},{id:103,name:'血液虹吸',cost:70}].map(s=>({...s,source:'Skyrim.esm',craftable:s.id===101,eligibility:{status:'candidate',reasons:['示例：通过结构初筛，仍需命中验证']}}));state.spells.push({id:106,name:'烈焰术',cost:14,source:'Skyrim.esm',eligibility:{status:'candidate',releaseMode:'sustained',reasons:['示例：持续型结构候选','命中点固定朝向，持续 3 秒；结构兼容时可制作']}},{id:104,name:'烈焰斗篷',cost:110,source:'Skyrim.esm',eligibility:{status:'excluded',reasons:['自身施法','包含斗篷效果']}},{id:105,name:'秘术印记',cost:80,source:'示例魔法模组.esp',eligibility:{status:'review',reasons:['脚本效果需要单独适配']}});state.materials=[{id:201,name:'龙舌兰',count:8,units:6},{id:202,name:'火盐',count:5,units:10}];state.recipes=[{id:301,name:'铁箭',yield:24,craftable:true,maxBatches:4,source:'Dawnguard.esm',ingredients:[{name:'铁锭',need:1,have:4},{name:'木柴',need:1,have:8}]}];selected=1;render();$('status').textContent='浏览器预览 · 示例数据';
 }else{

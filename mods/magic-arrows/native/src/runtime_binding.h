@@ -2,15 +2,18 @@
 #include "runtime_rules.h"
 #include "spell_compatibility.h"
 #include "prototype_catalog.h"
+#include "arrow_identity.h"
+#include "arrow_transfer.h"
 #ifdef AddForm
 #undef AddForm
 #endif
 namespace runtime_binding {
 using json=nlohmann::json;using crafting::Stack;using crafting::Plan;
 constexpr int capacity=256;
-struct Binding {RE::TESAmmo* ammo=nullptr;RE::BGSListForm* refs=nullptr;RE::SpellItem* spell=nullptr;RE::TESAmmo* base=nullptr;int family=11;bool occupied=false,active=false;};
+struct Binding {RE::TESAmmo* ammo=nullptr;RE::BGSListForm* refs=nullptr;RE::SpellItem* spell=nullptr;RE::TESAmmo* base=nullptr;int family=11;bool occupied=false,active=false,canonical=false;};
 inline std::array<Binding,capacity> slots{};
 inline std::unordered_map<RE::FormID,int> slotIDs;
+inline RE::TESObjectSTAT* canonicalMarker=nullptr;
 inline bool initialized=false,ready=false,hookReady=false,sustainedReady=false;
 inline std::atomic<std::uint64_t> generation{0};
 inline const std::array<const char*,12> names{"火焰箭","霜晶箭","雷棱箭","蛇牙箭","嗜血箭","圣辉箭","旋翼箭","碧波箭","岩锥箭","影镰箭","星魂箭","奥术箭"};
@@ -70,7 +73,7 @@ inline int Classify(RE::SpellItem* s){
 inline json Info(RE::SpellItem* s,RE::PlayerCharacter* p){int f=Classify(s);auto c=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p));return {{"runtime",true},{"castRoute",RouteName(s)},{"releaseMode",Sustained(s)?"sustained":"instant"},{"seconds",Sustained(s)?sustained_rules::seconds:0.f},{"family",runtime_rules::families[f]},{"material",MaterialName(f)},{"gold",c.gold},{"mana",c.mana},{"charge",c.charge}};}
 inline std::string OutputName(RE::SpellItem* s,RE::TESAmmo*){return std::string(names[Classify(s)])+"·"+crafting::Name(s);}
 inline void Neutral(Binding& b){
-    b.spell=nullptr;b.base=nullptr;b.active=false;b.family=11;
+    b.spell=nullptr;b.base=nullptr;b.active=false;b.canonical=false;b.family=11;
     if(b.ammo){b.ammo->fullName="封存箭〔绑定待恢复〕";b.ammo->SetModel("magicarrows\\arcane.nif");auto& d=b.ammo->GetRuntimeData().data;d.damage=0;d.flags.set(RE::AMMO_DATA::Flag::kNonPlayable);}
 }
 inline void Refresh(Binding& b){
@@ -80,31 +83,64 @@ inline void Refresh(Binding& b){
     b.ammo->fullName="封存箭〔来源缺失或不兼容〕";
     runtime_rules::SavedRefs state{true,b.refs->HasForm(b.ammo),0,0,0};
     b.refs->ForEachForm([&](RE::TESForm* f){if(f==b.ammo)return RE::BSContainer::ForEachResult::kContinue;
+        if(f==canonicalMarker){b.canonical=true;return RE::BSContainer::ForEachResult::kContinue;}
         if(auto* s=f->As<RE::SpellItem>()){b.spell=s;++state.spellCount;}else if(auto* a=f->As<RE::TESAmmo>()){b.base=a;++state.baseCount;}else ++state.otherCount;
         return RE::BSContainer::ForEachResult::kContinue;});
-    if(!runtime_rules::Resolvable(state)||!Base(b.base)||!Unsupported(b.spell).empty())return;
+    if(!runtime_rules::Resolvable(state)||!Unsupported(b.spell).empty())return;
     b.family=Classify(b.spell);auto* d=RE::TESDataHandler::GetSingleton();RE::TESAmmo* proto=nullptr;
     for(auto e:prototypes::entries)if(std::string_view(e.family)==runtime_rules::families[b.family])proto=d->LookupForm<RE::TESAmmo>(e.id,"MagicArrows.esp");
-    if(!proto||!std::isfinite(b.base->GetRuntimeData().data.damage))return;
+    if(!proto)return;
     b.ammo->SetModel(proto->GetModel());b.ammo->fullName=OutputName(b.spell,b.base).c_str();
-    auto& data=b.ammo->GetRuntimeData().data;data.projectile=proto->GetRuntimeData().data.projectile;data.damage=b.base->GetRuntimeData().data.damage;data.flags=RE::AMMO_DATA::Flag::kNonBolt;b.active=true;
-    logger::info("Binding ready ammo={:08X} spell={:08X} family={} model={} projectile={:08X}",b.ammo->GetFormID(),b.spell->GetFormID(),runtime_rules::families[b.family],b.ammo->GetModel(),data.projectile?data.projectile->GetFormID():0);
+    auto& data=b.ammo->GetRuntimeData().data;data.projectile=proto->GetRuntimeData().data.projectile;data.damage=arrow_identity::physicalDamage;data.flags=RE::AMMO_DATA::Flag::kNonBolt;b.active=true;
+    logger::info("Binding ready ammo={:08X} spell={:08X} legacyBase={:08X} canonical={} damage={} family={}",b.ammo->GetFormID(),b.spell->GetFormID(),b.base?b.base->GetFormID():0,b.canonical,data.damage,runtime_rules::families[b.family]);
 }
 inline void Init(){
     auto* d=RE::TESDataHandler::GetSingleton();slotIDs.clear();initialized=d!=nullptr;
+    canonicalMarker=d?d->LookupForm<RE::TESObjectSTAT>(0xE00,"MagicArrows.esp"):nullptr;if(!canonicalMarker)initialized=false;
     logger::info("Spell compatibility: full native casting; aimed, hostile actor/location and instant hostile area routes");
     for(int i=0;i<capacity;++i){auto& b=slots[i];b.ammo=d?d->LookupForm<RE::TESAmmo>(0xC00+i,"MagicArrows.esp"):nullptr;b.refs=d?d->LookupForm<RE::BGSListForm>(0xD00+i,"MagicArrows.esp"):nullptr;
         if(b.ammo)slotIDs.emplace(b.ammo->GetFormID(),i);if(!b.ammo||!b.refs)initialized=false;Neutral(b);}
 }
 inline void Suspend(){ready=false;++generation;for(auto& b:slots)Neutral(b);}
 inline void Restore(){if(!initialized)return;++generation;for(auto& b:slots)Refresh(b);ready=hookReady;logger::info("Runtime bindings restored: {} occupied; ready={}",std::count_if(slots.begin(),slots.end(),[](auto& b){return b.occupied;}),ready);}
-inline Binding* Existing(RE::SpellItem* s,RE::TESAmmo* a){for(auto& b:slots)if(b.active&&b.spell==s&&b.base==a)return &b;return nullptr;}
+inline Binding* Existing(RE::SpellItem* s,RE::FormID preferred=0){
+    std::array<arrow_identity::Entry,capacity> entries{};
+    for(int i=0;i<capacity;++i){auto& b=slots[i];entries[i]={b.ammo?b.ammo->GetFormID():0,b.spell?b.spell->GetFormID():0,b.active,b.canonical};}
+    int i=arrow_identity::Find(entries,s?s->GetFormID():0,preferred);return i>=0?&slots[i]:nullptr;
+}
+inline void Designate(Binding& b){
+    // The existing helper base Form is an explicit persistent canonical marker.
+    // Legacy source references and all old AMMO identities remain intact.
+    if(!b.canonical){b.refs->AddForm(canonicalMarker);b.refs->AddChange(RE::BGSListForm::ChangeFlags::kAddedForm);b.canonical=b.refs->HasForm(canonicalMarker);}
+    if(!b.canonical)throw std::runtime_error("箭矢合并身份保存失败");
+}
+inline bool PlainEntry(const RE::InventoryEntryData& entry){
+    if(entry.IsQuestObject()||entry.IsEnchanted()||entry.IsWorn())return false;
+    if(entry.extraLists)for(auto* list:*entry.extraLists)if(list)for(auto& extra:*list)if(extra.GetType()!=RE::ExtraDataType::kCount)return false;
+    return true;
+}
+inline void MergeInventory(RE::PlayerCharacter* p){
+    if(!ready||!p)return;
+    auto inventory=p->GetInventory();auto* worn=p->GetCurrentAmmo();
+    for(auto& b:slots)if(b.active){auto* canonical=Existing(b.spell,worn?worn->GetFormID():0);if(canonical)Designate(*canonical);}
+    for(auto& [object,value]:inventory){auto* source=object?object->As<RE::TESAmmo>():nullptr;auto* binding=Bound(source);
+        if(!binding||value.first<=0||!value.second)continue;
+        auto* target=Existing(binding->spell);if(!target||target->ammo==source)continue;
+        // Never replace equipment or strip meaningful per-item data while merging.
+        if(source==worn||!PlainEntry(*value.second))continue;
+        const int moved=arrow_identity::Transfer([&]{return crafting::Count(p,source);},[&]{return crafting::Count(p,target->ammo);},
+            [&](int n){p->RemoveItem(source,n,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);},
+            [&](int n){p->AddObjectToContainer(target->ammo,nullptr,n,nullptr);},
+            [&](int n){p->AddObjectToContainer(source,nullptr,n,nullptr);});
+        logger::info("Arrow merge spell={:08X} source={:08X} target={:08X} moved={}",binding->spell->GetFormID(),source->GetFormID(),target->ammo->GetFormID(),moved);
+    }
+}
 inline int Free(){return static_cast<int>(std::count_if(slots.begin(),slots.end(),[](auto& b){return !b.occupied;}));}
-inline RE::TESAmmo* Allocate(RE::SpellItem* s,RE::TESAmmo* a){
-    if(auto* b=Existing(s,a))return b->ammo;
+inline RE::TESAmmo* Allocate(RE::SpellItem* s){
+    if(auto* b=Existing(s)){Designate(*b);return b->ammo;}
     for(auto& b:slots)if(!b.occupied){
         b.occupied=true; // partial allocation stays reserved, never repurposed
-        b.refs->AddForm(b.ammo);b.refs->AddForm(s);b.refs->AddForm(a);b.refs->AddChange(RE::BGSListForm::ChangeFlags::kAddedForm);
+        b.refs->AddForm(b.ammo);b.refs->AddForm(s);b.refs->AddForm(canonicalMarker);b.refs->AddChange(RE::BGSListForm::ChangeFlags::kAddedForm);
         Refresh(b);if(!b.active)throw std::runtime_error("封存记录写入失败，交易已撤销");return b.ammo;
     }
     throw std::runtime_error("本存档的 256 组封存身份已用满");
@@ -122,7 +158,8 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& q){
     for(auto selected:q.materials){auto id=selected.id;if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");auto* i=RE::TESForm::LookupByID<RE::IngredientItem>(id);auto it=inv.find(i);
         int units=crafting::Units(i,MaterialAV(f));if(units<=0||it==inv.end()||!it->second.second||it->second.second->IsQuestObject()||selected.count<1||it->second.first<selected.count)throw std::runtime_error("材料无适用的已发现功效或库存不足");ingredients.push_back({id,selected.count,units});}
     auto costs=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p));auto result=crafting::MakeChargedPlan(q.bases,stock,ingredients,crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),costs);
-    int needed=0;for(auto b:result.bases){auto* base=RE::TESForm::LookupByID<RE::TESAmmo>(b.id);auto* existing=Existing(s,base);if(!existing)++needed;else if(crafting::Count(p,existing->ammo)>std::numeric_limits<int>::max()-b.count)throw std::runtime_error("成品库存数量超限");}
+    auto* existing=Existing(s);int needed=existing?0:1;
+    if(existing&&!arrow_identity::Fits(crafting::Count(p,existing->ammo),result.total))throw std::runtime_error("成品库存数量超限");
     if(needed>Free())throw std::runtime_error("剩余封存身份不足（每存档最多 256 组）");return result;
 }
 inline void Quote(RE::PlayerCharacter* p,const json& q){
@@ -130,9 +167,10 @@ inline void Quote(RE::PlayerCharacter* p,const json& q){
     if(!q.at("bases").is_array()||!q.at("materials").is_array()||q.at("bases").size()>32||q.at("materials").size()>128)throw std::runtime_error("材料选择无效");
     for(auto& b:q.at("bases")){if(!b.at("count").is_number_integer()||b.at("count")<1||b.at("count")>100)throw std::runtime_error("数量必须是 1–100 的整数");req.bases.push_back({b.at("id").get<RE::FormID>(),b.at("count").get<int>(),0});}
     req.materials=crafting::ReadMaterials(q.at("materials"));auto plan=Evaluate(p,req);auto* s=RE::TESForm::LookupByID<RE::SpellItem>(req.spell);
-    json items=json::array(),outputs=json::array();for(auto x:plan.ingredients)items.push_back({{"id",x.id},{"name",crafting::Name(RE::TESForm::LookupByID(x.id))},{"count",x.count},{"units",x.units}});
-    for(auto x:plan.bases)outputs.push_back({{"id",x.id},{"name",OutputName(s,RE::TESForm::LookupByID<RE::TESAmmo>(x.id))},{"count",x.count}});
-    quote={{"runtime",true},{"sustained",Sustained(s)},{"family",Classify(s)},{"selection",{{"spell",req.spell},{"bases",q.at("bases")},{"materials",q.at("materials")}}},{"requestedTotal",plan.requestedTotal},{"suppliedCharge",plan.suppliedCharge},{"token",serial},{"gold",plan.gold},{"magicka",plan.magicka},{"charge",plan.charge},{"total",plan.total},{"ingredients",items},{"outputs",outputs}};pending=req;
+    json items=json::array(),outputs=json::array(),bases=json::array();for(auto x:plan.ingredients)items.push_back({{"id",x.id},{"name",crafting::Name(RE::TESForm::LookupByID(x.id))},{"count",x.count},{"units",x.units}});
+    for(auto x:plan.bases)bases.push_back({{"id",x.id},{"count",x.count}});
+    outputs.push_back({{"id",s->GetFormID()},{"name",OutputName(s,nullptr)},{"count",plan.total}});
+    quote={{"runtime",true},{"sustained",Sustained(s)},{"family",Classify(s)},{"selection",{{"spell",req.spell},{"bases",q.at("bases")},{"materials",q.at("materials")}}},{"requestedTotal",plan.requestedTotal},{"suppliedCharge",plan.suppliedCharge},{"token",serial},{"gold",plan.gold},{"magicka",plan.magicka},{"charge",plan.charge},{"total",plan.total},{"ingredients",items},{"outputs",outputs},{"bases",bases}};pending=req;
 }
 inline void Commit(RE::PlayerCharacter* p,std::uint64_t token){
     if(!pending||quote.is_null()||token!=serial)throw std::runtime_error("报价已失效，请重新计算");auto req=*pending;auto old=quote;Reset();
@@ -144,7 +182,8 @@ inline void Commit(RE::PlayerCharacter* p,std::uint64_t token){
     try{
         for(auto x:required){auto* obj=RE::TESForm::LookupByID<RE::TESBoundObject>(x.id);int before=crafting::Count(p,obj);if(before<x.count)throw std::runtime_error("库存变化，交易取消");p->RemoveItem(obj,x.count,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);int delta=before-crafting::Count(p,obj);if(delta>0)removed.push_back({x.id,delta,0});if(delta!=x.count)throw std::runtime_error("扣除异常，已尝试恢复");}
         auto* av=p->AsActorValueOwner();float before=av->GetActorValue(RE::ActorValue::kMagicka);if(!std::isfinite(before)||before<plan.magicka)throw std::runtime_error("魔法值不足");av->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,RE::ActorValue::kMagicka,-plan.magicka);mana=std::max(0.f,before-av->GetActorValue(RE::ActorValue::kMagicka));if(std::abs(mana-plan.magicka)>.1f)throw std::runtime_error("魔法值扣除异常");
-        for(auto x:plan.bases){auto* out=Allocate(spell,RE::TESForm::LookupByID<RE::TESAmmo>(x.id));int beforeCount=crafting::Count(p,out);p->AddObjectToContainer(out,nullptr,x.count,nullptr);int delta=crafting::Count(p,out)-beforeCount;if(delta>0)added.push_back({out->GetFormID(),delta,0});if(delta!=x.count)throw std::runtime_error("成品添加异常");}
+        auto* out=Allocate(spell);int beforeCount=crafting::Count(p,out);p->AddObjectToContainer(out,nullptr,plan.total,nullptr);int delta=crafting::Count(p,out)-beforeCount;if(delta>0)added.push_back({out->GetFormID(),delta,0});if(delta!=plan.total)throw std::runtime_error("成品添加异常");
+        logger::info("Runtime output spell={:08X} ammo={:08X} count={} stock={}",spell->GetFormID(),out->GetFormID(),plan.total,crafting::Count(p,out));
     }catch(...){for(auto x:added)p->RemoveItem(RE::TESForm::LookupByID<RE::TESBoundObject>(x.id),x.count,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);for(auto x:removed)p->AddObjectToContainer(RE::TESForm::LookupByID<RE::TESBoundObject>(x.id),nullptr,x.count,nullptr);if(mana>0)p->AsActorValueOwner()->RestoreActorValue(RE::ACTOR_VALUE_MODIFIER::kDamage,RE::ActorValue::kMagicka,mana);throw;}
     logger::info("Runtime crafted spell={:08X} count={} free slots={}",req.spell,plan.total,Free());
 }

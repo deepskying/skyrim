@@ -23,5 +23,5 @@ inline crafting::Costs Costs(float cost,bool sustained=false,float alchemy=0.f){
 }
 // Source lists are interpreted by type, never by insertion order.
 struct SavedRefs {bool occupied=false,marker=false;int spellCount=0,baseCount=0,otherCount=0;};
-inline bool Resolvable(SavedRefs r){return r.occupied&&r.marker&&r.spellCount==1&&r.baseCount==1&&!r.otherCount;}
+inline bool Resolvable(SavedRefs r){return r.occupied&&r.marker&&r.spellCount==1&&r.baseCount<=1&&!r.otherCount;}
 }

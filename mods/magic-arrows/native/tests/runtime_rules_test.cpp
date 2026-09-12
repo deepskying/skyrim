@@ -15,7 +15,8 @@ int main(){
     check(Resolvable({true,true,1,1,0}));
     check(!Resolvable({false,false,0,0,0})); // no identity assigned yet
     check(!Resolvable({true,true,0,1,0})); // source spell missing: keep occupied
-    check(!Resolvable({true,true,1,0,0})); // source ammo missing
+    check(Resolvable({true,true,1,0,0})); // spell-only identity; legacy base may also be missing
+    check(!Resolvable({true,true,1,2,0})); // ambiguous legacy records
     check(!Resolvable({true,false,1,1,0})); // corrupt marker
     check(!Resolvable({true,true,2,1,0})); // ambiguous spell identity
     check(!Resolvable({true,true,1,1,1})); // unrelated record in identity list
