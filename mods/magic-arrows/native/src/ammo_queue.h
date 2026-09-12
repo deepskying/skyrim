@@ -16,16 +16,25 @@ inline void Normalize(){
     if(updated!=order){order=std::move(updated);Suspend();}
 }
 inline int Count(RE::PlayerCharacter* p,RE::FormID id){auto* a=Ammo(id);return p&&a?crafting::Count(p,a):0;}
-inline void Observe(RE::PlayerCharacter* p,RE::FormID id){tracker.Reset();if(enabled)tracker.Observe(id,Count(p,id),order);}
+inline void Observe(RE::PlayerCharacter*,RE::FormID){tracker.Reset();}
+inline void Prune(RE::PlayerCharacter* p){
+    // Do not treat temporarily neutral forms during loading as empty inventory.
+    if(!p||!runtime_binding::ready)return;
+    auto inventory=p->GetInventory();
+    if(ammo_queue_rules::Prune(order,[&](RE::FormID id){auto* ammo=Ammo(id);auto it=inventory.find(ammo);return ammo&&it!=inventory.end()?std::max(0,it->second.first):0;})){
+        Suspend();tracker.finished=order.empty();logger::info("Ammo queue removed empty entries; remaining={}",order.size());
+    }
+}
 inline void Edit(RE::PlayerCharacter* p,const json& q){
     if(!available)throw std::runtime_error("队列保存组件不可用");
     const auto& rows=q.at("ids");if(!rows.is_array()||rows.size()>ammo_queue_rules::limit)throw std::runtime_error("队列最多 64 种箭矢");
     std::vector<RE::FormID> next;
     for(const auto& row:rows){if(!row.is_number_integer()||row<=0||row>std::numeric_limits<RE::FormID>::max())throw std::runtime_error("队列条目 ID 无效");auto id=row.get<RE::FormID>();if(ammo_queue_rules::Contains(next,id))throw std::runtime_error("队列条目重复或无效");
         if(!ammo_queue_rules::Contains(order,id)&&(!Ammo(id)||Count(p,id)<=0))throw std::runtime_error("只能加入背包中的可用弓箭");next.push_back(id);}
-    const bool on=q.at("enabled").get<bool>();order=std::move(next);enabled=on;Suspend();
+    const bool on=q.at("enabled").get<bool>();order=std::move(next);enabled=on;Suspend();Prune(p);
 }
 inline json State(RE::PlayerCharacter* p){
+    Prune(p);
     json rows=json::array();auto* worn=p?p->GetCurrentAmmo():nullptr;
     for(auto id:order){auto* a=RE::TESForm::LookupByID<RE::TESAmmo>(id);rows.push_back({{"id",id},{"name",a?crafting::Name(a):"来源缺失的箭矢"},{"count",Count(p,id)},{"usable",Ammo(id)!=nullptr},{"equipped",a&&a==worn}});}
     return {{"available",available},{"enabled",enabled},{"ids",order},{"items",rows},{"limit",ammo_queue_rules::limit},{"finished",tracker.finished}};

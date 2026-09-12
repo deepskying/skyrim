@@ -14,19 +14,18 @@ template<class Available> ID Next(std::span<const ID> order,ID after,Available a
     return 0; // one forward pass, no wrap and no out-of-queue selection
 }
 struct Tracker {
-    ID watched=0;int previous=0;bool waiting=false,finished=false;
-    void Reset(){watched=0;previous=0;waiting=false;finished=false;}
-    void Observe(ID id,int count,std::span<const ID> order){watched=Contains(order,id)&&count>0?id:0;previous=watched?count:0;}
+    ID attempted=0;bool waiting=false,finished=false;
+    void Reset(){attempted=0;waiting=false;finished=false;}
+    void Cancel(){waiting=false;} // failed equip is not retried every poll
     template<class Count> ID Tick(std::span<const ID> order,ID current,Count count){
-        if(waiting||finished)return 0;
-        if(watched&&previous>0&&count(watched)==0){
-            const auto next=Next(order,watched,[&](ID id){return count(id)>0;});
-            watched=0;previous=0;waiting=next!=0;finished=!next;return next;
-        }
-        // A manual selection is respected while the previous stack still exists.
-        if(current!=watched)finished=false;
-        if(!finished)Observe(current,count(current),order);
-        return 0;
+        const auto head=Next(order,0,[&](ID id){return count(id)>0;});finished=!head;
+        if(!head){waiting=false;attempted=0;return 0;}
+        if(current==head){waiting=false;attempted=0;return 0;}
+        if(waiting||attempted==head)return 0;
+        attempted=head;waiting=true;return head;
     }
 };
+template<class Count> bool Prune(std::vector<ID>& order,Count count){
+    const auto before=order.size();std::erase_if(order,[&](ID id){return count(id)<=0;});return order.size()!=before;
+}
 }

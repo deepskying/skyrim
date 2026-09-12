@@ -1,7 +1,7 @@
 set_xmakever("2.8.2")
 includes("../../../reference/example-skse-plugin/lib/commonlibsse-ng")
 set_project("MagicArrows")
-set_version("0.9.8")
+set_version("0.9.9")
 set_languages("c++23")
 set_warnings("allextra")
 set_policy("package.requires_lock", true)

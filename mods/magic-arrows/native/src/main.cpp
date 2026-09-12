@@ -109,7 +109,7 @@ json State(std::string message={}) {
     } // spell and recipe data are only requested by the crafting page
     auto sort=[](json& xs){std::sort(xs.begin(),xs.end(),[](const json& a,const json& b){return a["name"].get<std::string>()<b["name"].get<std::string>();});};
     sort(arrows);sort(spells);sort(materials);sort(recipes);
-    return {{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","0.9.8"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
+    return {{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","0.9.9"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
         {"hotkey",{{"key",binding.key},{"shift",binding.shift},{"ctrl",binding.ctrl},{"alt",binding.alt}}},
         {"loaded",loaded},{"powerAvailable",RE::TESDataHandler::GetSingleton()&&RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(0x840,"MagicArrows.esp")!=nullptr}};
 }
@@ -126,13 +126,12 @@ void Close(){
     logger::info("Panel closed; focus released");
 }
 // Only the SKSE task mutates pending state; the frame hook merely schedules it.
-struct PendingEquip { RE::FormID id;std::uint64_t epoch;ULONGLONG started;unsigned frames=0;bool submitted=false;bool automatic=false;std::uint64_t queueRevision=0;RE::FormID expectedCurrent=0; };
+struct PendingEquip { RE::FormID id;std::uint64_t epoch;ULONGLONG started;unsigned frames=0;bool submitted=false;bool automatic=false;std::uint64_t queueRevision=0; };
 std::optional<PendingEquip> pendingEquip;
 std::atomic<bool> equipActive{false},equipTickQueued{false};
-void CancelEquip(){if(pendingEquip&&pendingEquip->automatic)ammo_queue::tracker.Reset();pendingEquip.reset();equipActive=false;}
+void CancelEquip(){if(pendingEquip&&pendingEquip->automatic)ammo_queue::tracker.Cancel();pendingEquip.reset();equipActive=false;}
 void RequestEquip(RE::FormID id,bool automatic=false){
-    auto* p=RE::PlayerCharacter::GetSingleton();auto* current=p?p->GetCurrentAmmo():nullptr;
-    pendingEquip=PendingEquip{id,generation,GetTickCount64(),0,false,automatic,ammo_queue::revision,current?current->GetFormID():0};equipActive=true;
+    pendingEquip=PendingEquip{id,generation,GetTickCount64(),0,false,automatic,ammo_queue::revision};equipActive=true;
 }
 void EquipTick(){
     if(!pendingEquip)return;
@@ -148,7 +147,7 @@ void EquipTick(){
     if(request.automatic&&(!ammo_queue::enabled||request.queueRevision!=ammo_queue::revision)){CancelEquip();return;}
     if(request.automatic){auto* object=p->GetEquippedObject(false);auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon||weapon->GetWeaponType()!=RE::WEAPON_TYPE::kBow){CancelEquip();return;}}
     if(p->GetCurrentAmmo()==ammo){logger::info("Equip confirmed form={:08X} elapsed={}ms",request.id,elapsed);const auto id=request.id;CancelEquip();ammo_queue::Observe(p,id);return;}
-    if(request.automatic){auto* current=p->GetCurrentAmmo();if((current?current->GetFormID():0)!=request.expectedCurrent){CancelEquip();return;}}
+    if(request.automatic&&(ammo_queue::order.empty()||ammo_queue::order.front()!=request.id||ammo_queue::Count(p,request.id)<=0)){CancelEquip();return;}
     if(request.submitted||++request.frames<2||elapsed<250)return;
     if(ui->IsMenuOpen("Loading Menu")||ui->IsMenuOpen("Main Menu")||!p->Is3DLoaded())return;
     auto inventory=p->GetInventory();auto it=inventory.find(ammo);
@@ -166,14 +165,15 @@ void EquipFrame(){
     if(equipTickQueued.exchange(true))return;lastQueueTick=now;
     if(auto* tasks=SKSE::GetTaskInterface())tasks->AddTask([]{equipTickQueued=false;
         if(pendingEquip){EquipTick();return;}
-        if(!loaded||panelVisible||!ammo_queue::enabled||ammo_queue::order.empty())return;
+        if(!loaded||panelVisible||ammo_queue::order.empty())return;
         auto* p=RE::PlayerCharacter::GetSingleton();auto* ui=RE::UI::GetSingleton();
         if(!p||p->IsDead()||!p->Is3DLoaded()||!ui||ui->GameIsPaused()||ui->IsMenuOpen("Loading Menu")||ui->IsMenuOpen("Main Menu")||(api&&api->HasAnyActiveFocus()))return;
+        ammo_queue::Prune(p);if(!ammo_queue::enabled||ammo_queue::order.empty())return;
         auto* item=p->GetEquippedObject(false);auto* bow=item?item->As<RE::TESObjectWEAP>():nullptr;
         if(!bow||bow->GetWeaponType()!=RE::WEAPON_TYPE::kBow){ammo_queue::tracker.Reset();return;}
         const auto inventory=p->GetInventory();auto count=[&](RE::FormID id){auto* a=ammo_queue::Ammo(id);auto it=inventory.find(a);return a&&it!=inventory.end()?std::max(0,it->second.first):0;};
         auto* current=p->GetCurrentAmmo();auto next=ammo_queue::tracker.Tick(ammo_queue::order,current?current->GetFormID():0,count);
-        if(next){logger::info("Ammo queue advance target={:08X}",next);RequestEquip(next,true);}
+        if(next){logger::info("Ammo queue priority head={:08X}",next);RequestEquip(next,true);}
     });
     else equipTickQueued=false;
 }
@@ -202,6 +202,7 @@ void Action(const char* raw){
             auto* player=RE::PlayerCharacter::GetSingleton();if(!player)return;
             if(type=="queueEdit"){ammo_queue::Edit(player,q);Send("使用队列已更新，将随角色存档保存");return;}
             if(type=="queueStart"){
+                ammo_queue::Prune(player);
                 auto next=ammo_queue_rules::Next(ammo_queue::order,0,[&](RE::FormID id){return ammo_queue::Count(player,id)>0;});
                 if(!next){Send("队列中没有可用库存");return;}
                 ammo_queue::enabled=true;ammo_queue::Suspend();Close();RequestEquip(next);return;
@@ -282,7 +283,7 @@ void Message(SKSE::MessagingInterface::Message* m){
     if(!view){logger::error("Failed to create MagicArrows view");return;}
     api->RegisterJSListener(view,"magicArrowsAction",Action);api->Hide(view);
     if(auto* device=RE::BSInputDeviceManager::GetSingleton())device->AddEventSink(&input);
-    logger::info("MagicArrows 0.9.8 loaded; ability local ID 840; key {}",binding.key);
+    logger::info("MagicArrows 0.9.9 loaded; ability local ID 840; key {}",binding.key);
 }
 }
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* skse){
