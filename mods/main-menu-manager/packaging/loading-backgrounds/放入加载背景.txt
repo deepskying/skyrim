@@ -1,0 +1,14 @@
+这里管理读档、过门、快速旅行时的加载画面，与主菜单 backgrounds 相互独立。
+
+当前支持从本地 SDLoadingScreens.esp 导入的独立 LSCR/STAT 画面。
+每个目录包含 theme.json、records.bin、assets.json、Data/ 和预览图。
+_system 保存插件模板、迁移来源和部署校验信息，不要移动或删除。
+
+在管理窗口顶部选择“加载背景”，预览、删除、恢复。删除和恢复自动同步插件。
+手动添加、移动主题目录或修改 enabled 后，关闭游戏，点击“同步加载库”。
+纯 PNG/JPG/DDS 不能直接作为一个加载主题；复制已有目录也不会生成新的记录编号。
+新主题需要独立 FormID 和配套资源路径。当前不支持任意 ESP 合并。
+
+安装包不附第三方作品或插件模板。未导入时，加载功能为空，不影响现有加载画面。
+
+生成的插件名称：sky-backgrounds-loading.esp。启用它，并停用旧的 SDLoadingScreens.esp。

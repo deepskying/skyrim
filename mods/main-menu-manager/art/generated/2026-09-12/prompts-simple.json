@@ -1,0 +1,16 @@
+{
+  "generator": "built-in image_gen",
+  "retained": "sky-backgrounds-frostbound-dragon.png",
+  "assets": [
+    {
+      "file": "sky-backgrounds-silent-pine-lake.png",
+      "name": "松影静湖",
+      "prompt": "Use case: stylized-concept. Generate ONE new, refined minimalist fantasy game main-menu background, not a collage. Landscape widescreen approximately 16:9. Quiet Nordic nature: a single graceful old pine tree on a small weathered rock beside an utterly still alpine lake at early morning. Restrained, sparse composition, the tree and its soft reflection are the only focal subject, with pale distant mountain silhouettes almost disappearing into cool mist. A dusting of snow on the rock, fine delicate needles and believable bark, exquisite subtle surface texture. Muted sage green, slate blue and pearl grey, one gentle touch of warm dawn light. Sophisticated cinematic environmental artwork with naturalistic rendering, soft atmospheric depth, contemplative and elegant rather than epic. Most of the image is calm water and layered mist; use generous negative space that can accommodate a separately overlaid Skyrim main menu, with restrained contrast towards the right. Carefully balanced composition, beautiful nuanced illumination. No people, no dragon, no castle, no dramatic storm, no glowing magic, no decorative clutter, no text, no UI, no logo, no watermark, no borders. Entire frame is artwork."
+    },
+    {
+      "file": "sky-backgrounds-golden-claw.png",
+      "name": "鎏金龙爪",
+      "prompt": "Use case: stylized-concept. Generate ONE new, elegantly minimal fantasy game main-menu background focused on a single collectible object. Landscape widescreen approximately 16:9. One exquisitely crafted ancient Nordic golden dragon-claw key rests naturally on a dark weathered slate surface: a palm-sized sculpted three-taloned artifact of aged warm bronze and softly worn gold, graceful dragon-scale relief and fine engraved geometric ornament, no lettering. A tactile, carefully designed tangible object with coherent shape, three distinct curved talons, quiet craftsmanship, restrained patina and subtle wear. Object placed slightly left of center, viewed from an intimate low three-quarter angle, with plenty of clean near-black negative space extending right for a separate menu overlay. A narrow soft beam of amber window light reveals the raised metal detailing while the surrounding slate falls smoothly into deep cool shadow. Premium museum artifact photography meets refined dark fantasy still-life, exquisitely precise materials, subtle depth of field, understated and sophisticated. Simple composition, only one object and its surface. No warrior, no dragon creature, no scene in the background, no gems, no coins, no candles, no smoke, no magic glow, no excessive ornamentation, no text, no UI, no logos, no watermark, no border. Entire frame is artwork."
+    }
+  ]
+}

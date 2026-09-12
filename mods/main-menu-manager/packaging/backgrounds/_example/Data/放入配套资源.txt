@@ -1,0 +1,4 @@
+在这里放 meshes、textures 以及可选的 Music 文件夹。
+必须包含 meshes/interface/logo/logo.nif 及模型引用的 DDS 纹理。
+保留原始相对路径。不要在 Data 里面再嵌套主题或另一个 Data。
+完成后把 _example 改成自己的主题名，并在 theme.json 中设置 enabled 为 true。

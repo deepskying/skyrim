@@ -1,0 +1,21 @@
+{
+  "generator": "built-in image_gen",
+  "purpose": "Sky Backgrounds main-menu background designs",
+  "assets": [
+    {
+      "file": "sky-backgrounds-frostbound-dragon.png",
+      "name": "冰霜龙魂",
+      "prompt": "Use case: stylized-concept. Create ONE finished premium game main-menu background for a Skyrim-inspired fantasy mod, titled conceptually Frostbound Dragon Soul (do not write the title). Landscape 16:9, preferably 3840x2160. An immense ancient frost dragon with an elegant, anatomically coherent head and vast ice-encrusted wings emerges from a blizzard above jagged Nordic mountain ruins, its silhouette commanding the upper middle distance; a very small lone armored warrior stands on a snowy ridge below for scale. Dramatic cinematic dark fantasy matte painting, believable weathered stone, intricate frozen scales, silver-blue rim light, luminous cyan dragon breath curling through mist, restrained turquoise aurora. Powerful, awe-inspiring, cold, polished AAA key art with atmospheric depth, not oversaturated. Keep edges and the lower-right third visually quiet and dark enough for separately overlaid white main-menu text; no baked-in UI. Crisp focal detail and softer distant mountains. Entire image is artwork, no borders or letterbox bars. No typography, no logos, no watermark."
+    },
+    {
+      "file": "sky-backgrounds-gate-of-embers.png",
+      "name": "赤焰湮灭之门",
+      "prompt": "Use case: stylized-concept. Create ONE finished premium game main-menu background for an Elder Scrolls-inspired fantasy mod, titled conceptually Gate of Embers (do not write the title). Landscape 16:9, preferably 3840x2160. A colossal ancient obsidian gateway shaped from jagged volcanic rock opens into a swirling inferno on a ruined Nordic mountain pass; the portal is a vertical wound of burning amber light, with a distant spired citadel barely visible through its depths. A tiny cloaked adventurer in rugged fantasy armor is seen from behind approaching along a fractured stone bridge, giving epic scale. Cinematic dark fantasy matte painting with extraordinary architecture and real material texture, black basalt, oxidized bronze, lava beneath the bridge, windblown ash and selective hot sparks. Strong graphic silhouette and dramatic charcoal versus amber-crimson palette, beautifully controlled highlights rather than uniformly bright fire. Keep outer edges and the lower-right third dark and restrained for separately overlaid white main-menu text. No graphic UI, no words, no logo, no watermark, no border or letterbox bars. Premium AAA key art."
+    },
+    {
+      "file": "sky-backgrounds-astral-dragonborn.png",
+      "name": "星界龙裔",
+      "prompt": "Use case: stylized-concept. Create ONE finished premium game main-menu background for a Skyrim-inspired fantasy mod, titled conceptually Dragonborn Beneath the Stars (do not write the title). Landscape 16:9, preferably 3840x2160. On the edge of an ancient Nordic stone sanctuary suspended above a vast sea of cloud, a lone armored Dragonborn-like warrior holds a sword pointed down and gazes into the night sky. Above the mountains, an enormous ethereal dragon made of violet nebula dust and fine silver stars curves naturally through the heavens, its head and wings recognizable yet still formed from cosmic light; a thin crescent moon and sweeping aurora create graceful cinematic flow. The warrior is small against majestic cosmic scale. Refined dark fantasy concept painting, grounded weathered carved stone and steel contrasted with luminous starlight, deep midnight blue, amethyst and restrained silver-white accents. Dreamlike, mysterious, grand, exceptionally polished environmental key art, fine detail concentrated in the main subject, soft atmospheric depth. Preserve dark quiet space at edges and lower-right third for a separate main-menu overlay. No text, no runic lettering, no logos, no UI, no watermark, no border or letterbox bars."
+    }
+  ]
+}

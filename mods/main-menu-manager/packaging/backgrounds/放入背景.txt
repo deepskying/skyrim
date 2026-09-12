@@ -1,0 +1,7 @@
+每个子文件夹是一套开屏效果，结构为：主题名/Data/meshes、textures、Music。
+每套至少包含 Data/meshes/interface/logo/logo.nif 及它引用的 DDS 纹理。
+一套效果中的配套资源应保持原有相对路径。Music 可选。
+下划线开头的文件夹以及含 disabled.txt 的主题不会参与随机。
+添加或移走主题后，下次启动游戏生效。不要在游戏运行时修改资源。
+_example 是禁用的结构示例，不包含可用背景。
+普通 PNG/JPG 需要先用 tools/New-ImageTheme.ps1 和一套可用模板打包；详见 README.md。

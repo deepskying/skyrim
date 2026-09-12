@@ -1,0 +1,24 @@
+{
+  "generator": "built-in image_gen",
+  "confirmedEarlier": [
+    "sky-backgrounds-frostbound-dragon.png",
+    "sky-backgrounds-golden-claw.png"
+  ],
+  "assets": [
+    {
+      "file": "sky-backgrounds-arctic-fox.png",
+      "name": "晨光雪狐",
+      "prompt": "Use case: stylized-concept. Create ONE refined, simple, exquisite animal artwork for a Nordic fantasy game main-menu background. Wide landscape 16:9. A single small arctic fox curled comfortably on a gently snow-dusted dark stone, its fluffy tail wrapped around its paws, ears upright, quietly looking toward the viewer. The fox is the sole focal subject, slightly left of center, not too small and not cropped. Beautiful natural anatomy and delicate individual winter fur, soft curious expression, no anthropomorphic features. Minimal surroundings: a little snow and muted distant pine woodland dissolved into smooth atmospheric blur. Restrained pearl white, cool slate grey, soft blue, a faint warm sunrise rim light. High-end naturalistic wildlife illustration with cinematic light and tactile fur, elegant and serene rather than epic, no cartoon exaggeration. Generous calm dark blue-grey negative space toward the right for separately overlaid menu text, natural coherent background rather than an artificial black rectangle. No other animals, no people, no fantasy props, no text, no logo, no UI, no watermark, no borders or letterboxing."
+    },
+    {
+      "file": "sky-backgrounds-red-squirrel.png",
+      "name": "林间松鼠",
+      "prompt": "Use case: stylized-concept. Create ONE refined, simple, exquisite animal artwork for a Nordic fantasy game main-menu background. Wide landscape 16:9. A single little Eurasian red squirrel with delicate tufted ears perches on a weathered moss-covered tree stump, holding one small pine cone between its front paws. Its beautiful sweeping fluffy tail is fully visible and naturally curved; anatomically believable paws and gentle alert eyes. Animal and stump slightly left of center, unobstructed, carefully composed with substantial quiet space to the right. Only a few subtle pine needles nearby; background is a softly blurred deep forest with smooth moss-green and warm brown tonal gradients, no busy branches. Exquisite fine fur and bark textures, one soft shaft of morning light touching the squirrel, restrained warm copper fur against subdued cool woodland. Premium naturalistic wildlife illustration, sophisticated, intimate, calm, simple and polished, no cartoon proportions. Maintain darker low-contrast right side for separately overlaid game menu text, no abrupt vignette or fake black panel. No extra animals, no people, no clothes, no magical effects, no text, no logo, no UI, no watermark, no border or letterboxing."
+    },
+    {
+      "file": "sky-backgrounds-snow-hare.png",
+      "name": "薄暮雪兔",
+      "prompt": "Use case: stylized-concept. Create ONE refined, simple, exquisite animal artwork for a Nordic fantasy game main-menu background. Wide landscape 16:9. One small mountain hare in its white winter coat sits quietly beside a low rounded stone at the edge of a snowy meadow. Long graceful ears with subtle dark tips, soft fluffy chest, neatly tucked paws, realistic natural anatomy and a gentle watchful expression. The hare is the single clear subject, slightly left of center, fully in frame; a few delicate dried grass stems emerge from the snow beside it. Minimal composition: smooth blue-grey snow and distant misty meadow fading to a soft indistinct backdrop. Fine luminous fur, delicate whiskers and snow crystal detail, muted ivory and dusty lavender-blue, subtle late-afternoon golden edge light. Premium naturalistic wildlife illustration with sophisticated cinematic softness, elegant and peaceful, not cute cartoon styling, not over-detailed background. Generous quiet slightly darker blue-grey space to the right for separately overlaid main-menu text. No other animals, no people, no props, no magic, no text, no logo, no UI, no watermark, no border or letterboxing."
+    }
+  ]
+}
