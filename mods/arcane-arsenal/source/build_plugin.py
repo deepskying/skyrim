@@ -138,8 +138,8 @@ extra=sub(b'COCT',U32(len(scorpio_inventory)))+b''.join(sub(b'CNTO',struct.pack(
 scorpio_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(scorpio_chest['data']))
 heteromorphic_chest=changed(by_name['treaschestsmallemptynorespawn'],0x0100090B,
                      {b'EDID':Z('AAHeteromorphicTestChest'),b'FULL':Z('异构·试武箱')},(b'MODT',b'COCT',b'CNTO'))
-heteromorphic_inventory=[(w['form'],1) for w,s in zip(weapons,catalog) if s.get('series')=='heteromorphic']+[(by_name['ironarrow']['form'],200)]
-assert len(heteromorphic_inventory)==5
+heteromorphic_inventory=[(w['form'],1) for w,s in zip(weapons,catalog) if s.get('series') in ('heteromorphic','heteromorphic2')]+[(by_name['ironarrow']['form'],200)]
+assert len(heteromorphic_inventory)==9
 extra=sub(b'COCT',U32(len(heteromorphic_inventory)))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in heteromorphic_inventory)
 heteromorphic_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(heteromorphic_chest['data']))
 # A hidden start-game quest with one forced player alias. No stages/objectives,
@@ -162,7 +162,7 @@ seq=ROOT/'data/seq/ArcaneArsenal.seq';seq.parent.mkdir(parents=True,exist_ok=Tru
 seq.write_bytes(U32(quest_id))
 # Crystal experiment IDs 0x90C..0x918 are retired, including chest 0x918. Never reuse.
 header={'sig':b'TES4','flags':0x200,'form':0,'version':44,'data':
-    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x919))+
+    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0x925))+
     sub(b'CNAM',Z('Arcane Armory'))+
     sub(b'SNAM',Z(f'{len(catalog)} original bows and fifteen test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
     sub(b'MAST',b'Skyrim.esm\0')+sub(b'DATA',b'\0'*8)}
@@ -187,6 +187,6 @@ result.update(capricorn_chest='0008D7',capricorn_chest_contents='4 Capricorn bow
 result.update(aquarius_chest='0008E4',aquarius_chest_contents='4 Aquarius bows, 200 iron arrows')
 result.update(pisces_chest='0008F1',pisces_chest_contents='4 Pisces bows, 200 iron arrows')
 result.update(scorpio_chest='0008FE',scorpio_chest_contents='4 Scorpio bows, 200 iron arrows')
-result.update(heteromorphic_chest='00090B',heteromorphic_chest_contents='4 Heteromorphic bows, 200 iron arrows')
+result.update(heteromorphic_chest='00090B',heteromorphic_chest_contents='8 Heteromorphic bows, 200 iron arrows')
 (ROOT/'build/plugin-report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

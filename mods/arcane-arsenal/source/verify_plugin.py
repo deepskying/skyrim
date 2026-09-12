@@ -14,11 +14,11 @@ expected.update({'AA'+s['key']:0x01000000|int(s['stat_form'],16)+1 for s in cata
 header=items[0];hp=dict(subrecords(header['data']))
 assert header['flags']==0x200
 assert abs(struct.unpack_from('<f',hp[b'HEDR'])[0]-1.7)<1e-6
-assert len(items)==245 and len(by_form)==245
-assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(244,0x919)
+assert len(items)==257 and len(by_form)==257
+assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(256,0x925)
 assert all(r['version']==44 for r in items)
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in items[1:])
-weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==76
+weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==80
 names=[]
 for r in weapons:
     assert r['form']==expected[edid(r)]
@@ -40,23 +40,23 @@ chest=next(r for r in items if edid(r)=='AAAllBowsTestChest')
 assert chest['form']==expected['AAAllBowsTestChest']
 parts=list(subrecords(chest['data']))
 inventory=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
-assert len(inventory)==77
-assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==77
+assert len(inventory)==81
+assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==81
 assert all((r['form'],1) in inventory for r in weapons)
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='幻律兵装·试武箱'
-# Retire four crystal weapon triplets and their chest; preserve all surviving records.
-baseline=list(records(ROOT/'build/before-0.23.1/data/ArcaneArsenal.esp'))
+# Add the second Heteromorphic set; preserve old weapons and all container identity fields.
+baseline=list(records(ROOT/'build/before-0.24.0/data/ArcaneArsenal.esp'))
 retired={0x01000000|(int(s['stat_form'],16)+j) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for j in range(3)}
 assert len(retired)==36 and retired.isdisjoint(by_form)
 old_forms={r['form'] for r in baseline}
-assert set(by_form) <= old_forms
-assert old_forms-set(by_form)=={0x01000000|i for i in range(0x90C,0x919)}
+assert old_forms <= set(by_form)
+assert set(by_form)-old_forms=={0x01000000|i for i in range(0x919,0x925)}
 assert 0x01000918 not in by_form
 strip=lambda r:[(k,v) for k,v in subrecords(r['data']) if k not in (b'COCT',b'CNTO')]
 for old in baseline:
     if old['form'] in retired or old['form']==0x01000918:continue
     current=by_form[old['form']]
-    if edid(old)=='AAAllBowsTestChest':assert strip(old)==strip(current)
+    if edid(old) in ('AAAllBowsTestChest','AAHeteromorphicTestChest'):assert strip(old)==strip(current)
     elif old['sig']!=b'TES4':assert current==old,edid(old)
 aries_chest=next(r for r in items if edid(r)=='AAAriesTestChest')
 assert aries_chest['form']==0x0100082F
@@ -155,13 +155,13 @@ heteromorphic=by_form[0x0100090B]
 assert edid(heteromorphic)=='AAHeteromorphicTestChest'
 parts=list(subrecords(heteromorphic['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='异构·试武箱'
-assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x900,0x903,0x906,0x909)}|{(0x1397D,200)}
+assert dict(parts)[b'COCT']==struct.pack('<I',9)
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x900,0x903,0x906,0x909,0x91A,0x91D,0x920,0x923)}|{(0x1397D,200)}
 assert [v for k,v in subrecords(header['data']) if k==b'MAST']==[b'Skyrim.esm\0']
 for spec in catalog:
     base=0x01000000|int(spec['stat_form'],16)
     recipe=by_form[base+2]
     assert recipe['sig']==b'COBJ' and dict(subrecords(recipe['data']))[b'CNAM']==struct.pack('<I',base+1)
-report={'version':'0.23.1','passed':True,'weapons':76,'test_chests':15,'existing_record_identities_preserved':True,'base_damage':90,'weapon_speed':1.5,'ESL':True,'new_records':0,'removed_records':13,'retired_records_absent':37,'gameplay_tested':False}
+report={'version':'0.24.0','passed':True,'weapons':80,'test_chests':15,'existing_record_identities_preserved':True,'base_damage':90,'weapon_speed':1.5,'ESL':True,'new_records':12,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
 (ROOT/'build/plugin-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report))

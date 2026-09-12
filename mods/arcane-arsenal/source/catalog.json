@@ -902,5 +902,53 @@
     "builder": "build_heteromorphic.py",
     "series": "heteromorphic",
     "weapon_speed": 1.5
+  },
+  {
+    "key": "heteromorphic2red",
+    "name": "余烬·错翼",
+    "chinese": "余烬·错翼",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_heteromorphic2.py",
+    "stat_form": "000919",
+    "series": "heteromorphic2"
+  },
+  {
+    "key": "heteromorphic2green",
+    "name": "流萤·折岚",
+    "chinese": "流萤·折岚",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_heteromorphic2.py",
+    "stat_form": "00091C",
+    "series": "heteromorphic2"
+  },
+  {
+    "key": "heteromorphic2blue",
+    "name": "寒汐·叠门",
+    "chinese": "寒汐·叠门",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_heteromorphic2.py",
+    "stat_form": "00091F",
+    "series": "heteromorphic2"
+  },
+  {
+    "key": "heteromorphic2purple",
+    "name": "梦隙·悬棱",
+    "chinese": "梦隙·悬棱",
+    "enchantment": null,
+    "damage": 90,
+    "weapon_speed": 1.5,
+    "weight": 6,
+    "builder": "build_heteromorphic2.py",
+    "stat_form": "000922",
+    "series": "heteromorphic2"
   }
 ]

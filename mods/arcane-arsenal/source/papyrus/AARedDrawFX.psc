@@ -1,5 +1,5 @@
 Scriptname AARedDrawFX extends ReferenceAlias
-; 48 zodiac, 24 geometric and 4 heteromorphic bows; preserve the existing alias identity.
+; 48 zodiac, 24 geometric and 8 heteromorphic bows; preserve the existing alias identity.
 ; Bow geometry and its seven animation bones are never modified by this script.
 Actor owner
 Weapon experimentBow
@@ -22,7 +22,7 @@ Function Initialize()
     UnregisterForUpdate()
     owner = Game.GetPlayer()
     experimentBow = Game.GetFormFromFile(0x811, "ArcaneArsenal.esp") as Weapon
-    ariesBows = new Weapon[76]
+    ariesBows = new Weapon[80]
     ariesBows[0] = Game.GetFormFromFile(0x811, "ArcaneArsenal.esp") as Weapon
     ariesBows[1] = Game.GetFormFromFile(0x814, "ArcaneArsenal.esp") as Weapon
     ariesBows[2] = Game.GetFormFromFile(0x817, "ArcaneArsenal.esp") as Weapon
@@ -107,6 +107,11 @@ Function Initialize()
     ariesBows[74] = Game.GetFormFromFile(0x906, "ArcaneArsenal.esp") as Weapon
     ariesBows[75] = Game.GetFormFromFile(0x909, "ArcaneArsenal.esp") as Weapon
 
+
+    ariesBows[76] = Game.GetFormFromFile(0x91A, "ArcaneArsenal.esp") as Weapon
+    ariesBows[77] = Game.GetFormFromFile(0x91D, "ArcaneArsenal.esp") as Weapon
+    ariesBows[78] = Game.GetFormFromFile(0x920, "ArcaneArsenal.esp") as Weapon
+    ariesBows[79] = Game.GetFormFromFile(0x923, "ArcaneArsenal.esp") as Weapon
 
     particleNodes = new String[6]
     particleNodes[0] = "AAAriesDust0"

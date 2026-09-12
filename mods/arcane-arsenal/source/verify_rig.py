@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 key = sys.argv[sys.argv.index('--') + 1]
 is_red=key in ('redplates','redtriangles','reddiamonds')
 is_geometric=key.startswith('geo') or is_red
-is_aries=key.startswith(('aries','taurus','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic')) or is_geometric
-series='crystal' if key.startswith('crystal') else 'heteromorphic' if key.startswith('heteromorphic') else 'scorpio' if key.startswith('scorpio') else 'pisces' if key.startswith('pisces') else 'aquarius' if key.startswith('aquarius') else 'capricorn' if key.startswith('capricorn') else 'sagittarius' if key.startswith('sagittarius') else 'libra' if key.startswith('libra') else 'virgo' if key.startswith('virgo') else 'leo' if key.startswith('leo') else 'cancer' if key.startswith('cancer') else 'gemini' if key.startswith('gemini') else 'geometric' if is_geometric else 'taurus' if key.startswith('taurus') else 'aries'
+is_aries=key.startswith(('aries','taurus','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic')) or is_geometric
+series='heteromorphic2' if key.startswith('heteromorphic2') else 'crystal' if key.startswith('crystal') else 'heteromorphic' if key.startswith('heteromorphic') else 'scorpio' if key.startswith('scorpio') else 'pisces' if key.startswith('pisces') else 'aquarius' if key.startswith('aquarius') else 'capricorn' if key.startswith('capricorn') else 'sagittarius' if key.startswith('sagittarius') else 'libra' if key.startswith('libra') else 'virgo' if key.startswith('virgo') else 'leo' if key.startswith('leo') else 'cancer' if key.startswith('cancer') else 'gemini' if key.startswith('gemini') else 'geometric' if is_geometric else 'taurus' if key.startswith('taurus') else 'aries'
 shape_prefix=series.title()
 aries=next((s for s in json.loads((ROOT/'source'/(series+'_catalog.json')).read_text(encoding='utf-8')) if s['key']==key),None)
 NIF = ROOT / 'data/meshes/weapons/arcanearsenal' / (key+'.nif')
@@ -101,8 +101,8 @@ for obj in bpy.data.objects:
             node=material.node_tree.nodes['SkyrimShader:Default']
             color=tuple(node.inputs['Emission Color'].default_value)
             strength=node.inputs['Emission Strength'].default_value
-            expected_strength=dict(zip(tuple('AA_'+shape_prefix+part for part in ('Body','Edge','String')),aries['power']))[obj.name] if is_aries else {'AA_redface':1.8,'AA_redline':3.6,'AA_redstring':2.4}[obj.name]
-            expected_color=(aries['color'] if obj.name=='AA_'+shape_prefix+'Body' else aries['edge']) if is_aries else (1,0,0)
+            expected_strength=dict(zip(tuple('AA_'+shape_prefix+part for part in (('Body','Edge','String','Fold') if key=='heteromorphic2green' else ('Body','Edge','String'))),aries['power']))[obj.name] if is_aries else {'AA_redface':1.8,'AA_redline':3.6,'AA_redstring':2.4}[obj.name]
+            expected_color=(aries['color'] if obj.name in ('AA_'+shape_prefix+'Body','AA_'+shape_prefix+'Fold') else aries['edge']) if is_aries else (1,0,0)
             assert abs(strength-expected_strength)<1e-5,(obj.name,strength)
             # Skyrim stores emissive RGB, not Blender's fourth color component.
             assert max(abs(a-b) for a,b in zip(color[:3],expected_color))<1e-5,color
@@ -134,7 +134,7 @@ for obj in bpy.data.objects:
 assert len(texture_paths)==(6 if series=='crystal' else 3 if is_red or is_aries else 9 if key=='frostwyrm' else 6), texture_paths
 if is_red or is_aries:
     assert len(alpha_materials)==0
-    assert len(red_shaders)==3
+    assert len(red_shaders)==(4 if key=='heteromorphic2green' else 3)
     expected_textures={aries['diffuse_name']+'.dds' if is_aries else 'aa_red_d.dds','aa_red_n.dds','aa_red_g.dds'}
     if series=='crystal':
         flat='aa_red_d' if key=='crystalred' else 'aa_aries'+key.replace('crystal','')+'_d'
