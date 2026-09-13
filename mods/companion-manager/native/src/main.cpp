@@ -205,7 +205,7 @@ void OnMessage(SKSE::MessagingInterface::Message *message)
         }
         if (const auto devices = RE::BSInputDeviceManager::GetSingleton())
             devices->AddEventSink(&input);
-        logger::info("Companion Manager 1.1.1 view ready; Shift+F.");
+        logger::info("Companion Manager {} view ready; Shift+F.", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."));
         break;
     }
     case SKSE::MessagingInterface::kPreLoadGame:
@@ -226,6 +226,11 @@ void OnMessage(SKSE::MessagingInterface::Message *message)
     }
 }
 } // namespace
+
+void companion::RefreshManagerView()
+{
+    RequestRefresh();
+}
 
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface *skse)
 {

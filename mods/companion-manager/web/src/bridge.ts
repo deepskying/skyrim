@@ -140,7 +140,7 @@ export function parseSnapshot(value: unknown): Snapshot | null {
     typeof value.location !== "string" ||
     typeof value.truncated !== "boolean" ||
     !Array.isArray(value.followers) ||
-    value.followers.length > 64
+    value.followers.length > 128
   )
     return null;
   const ids = new Set<string>();

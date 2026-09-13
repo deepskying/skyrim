@@ -4,7 +4,7 @@ import struct
 from plugin_records import records, subrecords, edid, sub, encode, group
 ROOT = Path(__file__).resolve().parents[1]
 MASTER = Path(r'C:/Users/linos/Desktop/games/+skyrim/SkyrimSE/Data/Skyrim.esm')
-SLOTS = 32
+SLOTS = 64
 QUEST, FACTION = 0x01000800, 0x01000801
 U32 = lambda n: struct.pack('<I', n)
 Z = lambda s: s.encode('utf8') + b'\0'
@@ -60,12 +60,13 @@ vmad=struct.pack('<HHH',5,2,1)+wstring('CMController')+b'\0'+struct.pack('<H',0)
 vmad+=struct.pack('<BH',2,0)+wstring('')+struct.pack('<H',0)
 q=sub(b'EDID',Z('CMControllerQuest'))+sub(b'VMAD',vmad)+sub(b'FULL',Z('Companion Manager'))
 q+=sub(b'DNAM',struct.pack('<HBBII',0x11,60,0,0,0))+sub(b'NEXT',b'')+sub(b'ANAM',U32(SLOTS*2))
-for slot in range(SLOTS*2):
-    q+=sub(b'ALST',U32(slot))+sub(b'ALID',Z(f'CM{"Actor" if slot<SLOTS else "Home"}{slot%SLOTS:02}'))
-    q+=sub(b'FNAM',U32(2|8|16 if slot<SLOTS else 2|8))
+for alias_id in range(SLOTS*2):
+    slot, is_actor = alias_id % SLOTS, alias_id < SLOTS
+    q+=sub(b'ALST',U32(alias_id))+sub(b'ALID',Z(f'CM{"Actor" if is_actor else "Home"}{slot:02}'))
+    q+=sub(b'FNAM',U32(2|8|16 if is_actor else 2|8))
     # An impossible fill condition prevents automatic recruitment or marker filling.
     q+=cond(72,0x14,0)+cond(72,0x14,1)
-    if slot<SLOTS:
+    if is_actor:
         for package in [homes[slot],*common]: q+=sub(b'ALPC',U32(package))
     q+=sub(b'VTCK',U32(0))+sub(b'ALED',b'')
 quest=dict(sig=b'QUST',form=QUEST,data=q)

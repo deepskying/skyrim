@@ -10,7 +10,7 @@ namespace companion
 {
 namespace
 {
-constexpr std::size_t slots = 32;
+constexpr std::size_t slots = rules::MemberCapacity;
 RE::TESQuest *quest = nullptr;
 RE::TESFaction *modeFaction = nullptr;
 std::recursive_mutex lock;
@@ -22,6 +22,10 @@ std::unordered_set<std::string> requests;
 std::uint64_t epoch = 1;
 std::string token = std::to_string(GetTickCount64()) + "-1";
 std::jthread worker;
+RE::FormID dialogueCandidate = 0;
+std::uint64_t dialogueSequence = 0;
+std::chrono::steady_clock::time_point dialogueRetry{};
+std::string dialogueNotice;
 
 std::string ID(RE::FormID id)
 {
@@ -40,10 +44,11 @@ RE::FormID ParseID(const json &request, const char *key)
 }
 RE::BGSRefAlias *Alias(int slot)
 {
-    if (!quest)
+    const int aliasID = rules::ActorAliasID(slot);
+    if (!quest || aliasID < 0)
         return nullptr;
     for (auto *alias : quest->aliases)
-        if (alias && alias->aliasID == static_cast<unsigned>(slot) && alias->GetVMTypeID() == RE::BGSRefAlias::VMTYPEID)
+        if (alias && alias->aliasID == static_cast<unsigned>(aliasID) && alias->GetVMTypeID() == RE::BGSRefAlias::VMTYPEID)
             return static_cast<RE::BGSRefAlias *>(alias);
     return nullptr;
 }
@@ -133,7 +138,9 @@ int FreeSlot()
         if (!used)
             return i;
     }
-    throw std::runtime_error("32 个名册槽位已满，请先从名册中释放一位同伴");
+    if (members.size() < slots)
+        throw std::runtime_error("名册槽位不可用，请确认完整更新 ESP 和脚本后重启游戏");
+    throw std::runtime_error("64 个名册槽位已满，请先从名册中释放一位同伴");
 }
 class Callback final : public RE::BSScript::IStackCallbackFunctor
 {
@@ -195,7 +202,7 @@ void Apply(RE::Actor *actor, json &r)
     if (base && base->HasPCLevelMult())
     {
         base->actorData.calcLevelMax = static_cast<std::uint16_t>(
-            r["raised"].get<bool>() ? (std::max)(r["originalMax"].get<int>(), 300) : r["originalMax"].get<int>());
+            rules::GrowthCap(r["originalMax"].get<int>(), r["raised"].get<bool>()));
         static_cast<void>(actor->GetCalcLevel(true));
     }
     for (const auto &value : r["learned"])
@@ -267,6 +274,106 @@ void Equip(RE::Actor *actor, RE::FormID id, bool equipped)
     if (worn != equipped)
         throw std::runtime_error("引擎未确认装备变化，请刷新后检查");
 }
+RE::BGSRefAlias *DialogueAlias()
+{
+    auto *dialogue = RE::TESDataHandler::GetSingleton()->LookupForm<RE::TESQuest>(0x750BA, "Skyrim.esm");
+    if (dialogue)
+        for (auto *alias : dialogue->aliases)
+            if (alias && alias->aliasID == 0 && alias->GetVMTypeID() == RE::BGSRefAlias::VMTYPEID)
+                return static_cast<RE::BGSRefAlias *>(alias);
+    return nullptr;
+}
+void DialogueNotice(RE::FormID id, const std::string &message)
+{
+    const auto key = ID(id) + message;
+    if (dialogueNotice == key)
+        return;
+    dialogueNotice = key;
+    logger::info("Dialogue recruitment actor={}: {}", ID(id), message);
+    if (settings["notifications"].get<bool>())
+        RE::DebugNotification(message.c_str());
+}
+void SyncDialogueRecruitment()
+{
+    auto *ui = RE::UI::GetSingleton();
+    auto *original = DialogueAlias();
+    auto *actor = original ? original->GetActorReference() : nullptr;
+    auto *count = RE::TESDataHandler::GetSingleton()->LookupForm<RE::TESGlobal>(0xBCC98, "Skyrim.esm");
+    if (!actor || !count || ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME))
+    {
+        dialogueCandidate = 0;
+        return;
+    }
+    const auto id = actor->GetFormID();
+    // Observe the same finished recruitment on consecutive ticks, outside dialogue.
+    if (dialogueCandidate != id)
+    {
+        dialogueCandidate = id;
+        dialogueRetry = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+        dialogueNotice.clear();
+        return;
+    }
+    if (std::chrono::steady_clock::now() < dialogueRetry)
+        return;
+    dialogueRetry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    const bool owned = members.contains(id);
+    if (!rules::DialogueRecruitmentReady(false, actor->IsPlayerTeammate(),
+                                         RecruitReason(actor).empty(), owned, members.size(), count->value))
+    {
+        if (!owned && members.size() >= slots)
+            DialogueNotice(id, "同行名册已满，当前同伴保留原版管理；请先释放名册位置");
+        return;
+    }
+    const auto thisEpoch = epoch;
+    if (!owned || !members[id]["active"].get<bool>())
+    {
+        const bool waiting = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kWaitingForPlayer) > 0;
+        const std::string requestID = "dialogue-" + std::to_string(++dialogueSequence);
+        ExecuteCommand({{"session", token}, {"requestId", requestID},
+                        {"command", owned ? "recruit" : "adopt"}, {"actorId", ID(id)}},
+                       [id, thisEpoch, waiting, requestID](bool ok, std::string message) {
+                           std::scoped_lock guard(lock);
+                           if (epoch != thisEpoch)
+                               return;
+                           requests.erase(requestID);
+                           if (ok && members.contains(id))
+                           {
+                               members[id]["waiting"] = waiting;
+                               Apply(Actor(id), members[id]);
+                               dialogueRetry = {};
+                           }
+                           else
+                               DialogueNotice(id, "自动纳入同行失败：" + message);
+                           RefreshManagerView();
+                       });
+        return;
+    }
+    const auto slot = members[id]["slot"].get<int>();
+    if (!Alias(slot) || Alias(slot)->GetActorReference() != actor)
+    {
+        DialogueNotice(id, "同行槽位未确认，保留原版招募名额；请检查完整安装与存档");
+        return;
+    }
+    commandPending = true;
+    Call("DetachDialogueFollower", [id, slot, thisEpoch](bool ok) {
+        std::scoped_lock guard(lock);
+        if (epoch != thisEpoch)
+            return;
+        commandPending = false;
+        auto *original = DialogueAlias();
+        ok = ok && members.contains(id) && Alias(slot) && Alias(slot)->GetActorReference() == Actor(id) &&
+             original && original->GetActorReference() != Actor(id);
+        if (ok)
+        {
+            Apply(Actor(id), members[id]);
+            DialogueNotice(id, "同伴已自动纳入同行，可继续通过对话招募");
+            dialogueCandidate = 0;
+        }
+        else
+            DialogueNotice(id, "同伴已登记，原版名额交接未完成，将稍后重试");
+        RefreshManagerView();
+    }, actor, slot);
+}
 void Tick()
 {
     std::scoped_lock guard(lock);
@@ -275,6 +382,9 @@ void Tick()
     auto *ui = RE::UI::GetSingleton();
     auto *player = RE::PlayerCharacter::GetSingleton();
     if (!ui || ui->GameIsPaused() || !player || !player->GetParentCell())
+        return;
+    SyncDialogueRecruitment();
+    if (commandPending)
         return;
     for (auto &[id, r] : members)
         if (auto *actor = Actor(id))
@@ -341,6 +451,7 @@ void InitializeManager()
         return;
     }
     quest->Start();
+    logger::info("Controller loaded: capacity={} questAliases={}", slots, quest->aliases.size());
     worker = std::jthread([](std::stop_token stop) {
         while (!stop.stop_requested())
         {
@@ -360,12 +471,19 @@ void SetGameReady(bool value)
     ready = value;
     commandPending = false;
     requests.clear();
+    dialogueCandidate = 0;
+    dialogueNotice.clear();
+    dialogueRetry = {};
     ++epoch;
     token = std::to_string(GetTickCount64()) + "-" + std::to_string(epoch);
     if (value)
         for (auto &[id, r] : members)
             if (auto *actor = Actor(id))
+            {
+                if (auto *base = actor->GetActorBase())
+                    rules::ApplyGrowthDefault(r, base->HasPCLevelMult());
                 Apply(actor, r);
+            }
 }
 
 void RegisterSerialization()
@@ -384,7 +502,7 @@ void RegisterSerialization()
             rows.push_back(row);
         }
         const auto bytes = json{{"members", rows}, {"settings", settings}}.dump();
-        if (bytes.size() > 4 * 1024 * 1024 || !s->OpenRecord(0x44415441, 1) ||
+        if (bytes.size() > 4 * 1024 * 1024 || !s->OpenRecord(0x44415441, rules::StateRecordVersion) ||
             !s->WriteRecordData(bytes.data(), static_cast<std::uint32_t>(bytes.size())))
             logger::error("Could not save Companion Manager state.");
     });
@@ -414,7 +532,7 @@ void RegisterSerialization()
         std::uint32_t type = 0, version = 0, length = 0;
         while (s->GetNextRecordInfo(type, version, length))
         {
-            if (type != 0x44415441 || version != 1 || length > 4 * 1024 * 1024)
+            if (type != 0x44415441 || version != rules::StateRecordVersion || length > 4 * 1024 * 1024)
                 continue;
             try
             {
@@ -675,6 +793,8 @@ void ExecuteCommand(const json &request, Completion complete)
                         auto &r = members[id];
                         r["active"] = true;
                         r["waiting"] = false;
+                        if (auto *actor = Actor(id); actor && actor->GetActorBase())
+                            rules::ApplyGrowthDefault(r, actor->GetActorBase()->HasPCLevelMult(), true);
                         Apply(Actor(id), r);
                     }
                     else if (newlyTracked)

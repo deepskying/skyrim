@@ -29,6 +29,9 @@
       state.followers[0].managed = false;
       state.followers[0].limited = true;
       state.followers[0].canRecruit = true;
+      state.followers[0].raised = false;
+      state.followers[0].levelCap = 50;
+      state.followers[0].canRaise = false;
       window.fixtureState = state;
       window.fixtureRequests = [];
       const snapshot = () => {

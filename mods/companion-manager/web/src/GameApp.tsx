@@ -5,6 +5,7 @@ import type { Section as DemoSection } from "./demo";
 import "./game.css";
 import { version } from "../package.json";
 import { plainDescription, teachingBlock } from "./magic";
+import { recruitmentCandidates, recruitmentBlock } from "./recruitment";
 
 type Section = Exclude<DemoSection, "nearby">;
 const sections: [Section, string, string][] = [
@@ -88,6 +89,9 @@ export function GameApp() {
     [school, setSchool] = useState("全部");
   const [confirm, setConfirm] = useState<Confirmation | null>(null),
     [quantity, setQuantity] = useState(1);
+  const [recruitOpen, setRecruitOpen] = useState(false),
+    [recruitQuery, setRecruitQuery] = useState("");
+  const candidates = recruitmentCandidates(s, recruitQuery);
   const modalRef = useRef<HTMLDivElement>(null);
   const rows =
     s?.followers.filter(
@@ -109,6 +113,7 @@ export function GameApp() {
   };
   useEffect(() => {
     setConfirm(null);
+    setRecruitOpen(false);
     setSelected("");
   }, [s?.session]);
   useEffect(() => {
@@ -127,9 +132,10 @@ export function GameApp() {
       ) {
         e.preventDefault();
         if (confirm) setConfirm(null);
+        else if (recruitOpen) setRecruitOpen(false);
         else request("close");
       }
-      if (e.key === "Tab" && confirm && modalRef.current) {
+      if (e.key === "Tab" && (confirm || recruitOpen) && modalRef.current) {
         const focus = Array.from(
           modalRef.current.querySelectorAll<HTMLElement>(
             "button:not(:disabled),input:not(:disabled)",
@@ -149,13 +155,13 @@ export function GameApp() {
     };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
-  }, [confirm]);
+  }, [confirm, recruitOpen]);
   useEffect(() => {
-    if (confirm) {
+    if (confirm || recruitOpen) {
       setQuantity(1);
-      modalRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+      modalRef.current?.querySelector<HTMLElement>(recruitOpen ? "input" : "button")?.focus();
     }
-  }, [confirm]);
+  }, [confirm, recruitOpen]);
   const act = (command: string, data: Record<string, unknown> = {}) => {
     if (f) game.command(command, { ...data, actorId: f.id });
   };
@@ -245,6 +251,14 @@ export function GameApp() {
             <div className="group-actions">
               {section === "party" && (
                 <>
+                  <button className="primary" disabled={!enabled}
+                    onClick={() => {
+                      setRecruitQuery("");
+                      setRecruitOpen(true);
+                      game.refresh();
+                    }}>
+                    招募同伴
+                  </button>
                   <button
                     disabled={!enabled}
                     onClick={() => game.command("group", { action: "follow" })}
@@ -349,7 +363,7 @@ export function GameApp() {
                   />
                   <div className="info-box">
                     快捷键：Shift + F<br />
-                    名册容量：32 位（包含离队同伴）
+                    名册容量：64 位（包含离队同伴）
                     <br />
                     离队后可保留居所、法术与个人设置。
                   </div>
@@ -369,7 +383,7 @@ export function GameApp() {
                       </h2>
                       <p>
                         {section === "party"
-                          ? "选择一位同伴，查看属性、安排行动或传授魔法。"
+                          ? "通过对话招募后自动加入队伍；选择同伴即可安排行动或传授魔法。"
                           : "这里保留已离队同伴的记录，可以重新招募。"}
                       </p>
                     </div>
@@ -615,7 +629,7 @@ export function GameApp() {
                               "levelCap",
                               "提高成长上限",
                               f.canRaise
-                                ? `提高至至少 300；关闭恢复 ${f.originalMax}。`
+                                ? `入队自动开启，上限至少 300；关闭恢复 ${f.originalMax}。`
                                 : "固定等级或原本无上限，无需覆盖。",
                               f.raised,
                               !editable || !f.canRaise,
@@ -936,7 +950,7 @@ export function GameApp() {
           )}
           {s?.truncated && (
             <div className="cm-notice">
-              人物较多，当前最多显示 64 位；已登记同伴优先。
+              人物较多，当前最多显示 128 位；已登记同伴优先。
             </div>
           )}
             <div className="cm-status-row">
@@ -950,6 +964,48 @@ export function GameApp() {
             </div>
           </footer>
         </section>
+        {recruitOpen && (
+          <div className="modal-scrim">
+            <div className="modal cm-recruit-dialog" ref={modalRef} role="dialog"
+              aria-modal="true" aria-labelledby="cm-recruit-title">
+              <div className="cm-recruit-heading">
+                <h2 id="cm-recruit-title">招募同伴</h2>
+                <button aria-label="关闭招募窗口" onClick={() => setRecruitOpen(false)}>×</button>
+              </div>
+              <p>对话招募的同伴会自动登记。这里也可直接招募附近人物，或手动纳入其他队友。名册已用 {s?.followers.filter(a => a.managed).length ?? 0} / 64 位。</p>
+              <div className="cm-recruit-tools">
+                <input aria-label="搜索招募人物" placeholder="搜索姓名、种族…"
+                  value={recruitQuery} onChange={e => setRecruitQuery(e.target.value)} />
+                <button disabled={game.busy} onClick={game.refresh}>刷新列表</button>
+              </div>
+              <div className="cm-recruit-list">
+                {candidates.map(actor => {
+                  const block = recruitmentBlock(s, actor, game.busy);
+                  return <div className="cm-recruit-row" key={actor.id}>
+                    <div>
+                      <strong>{actor.name}</strong>
+                      <span>{actor.race} · Lv. {actor.level} · {actor.distance === null ? "异地" : `${actor.distance} m`}</span>
+                      {block && <small>{block}</small>}
+                    </div>
+                    <button disabled={!!block} aria-label={`${actor.group === "party" ? "纳入" : "招募"}${actor.name}`}
+                      onClick={() => {
+                        setRecruitOpen(false);
+                        setConfirm({
+                          title: actor.group === "party" ? "纳入同行管理" : "招募同伴",
+                          description: `让${actor.name}加入同行的队伍，管理其行动、居所与法术。`,
+                          command: actor.group === "party" ? "adopt" : "recruit",
+                          data: { actorId: actor.id },
+                        });
+                      }}>
+                      {actor.group === "party" ? "纳入管理" : "招募入队"}
+                    </button>
+                  </div>;
+                })}
+                {!candidates.length && <p className="cm-empty">{recruitQuery ? "没有匹配的人物。" : "附近没有可显示的人物，请靠近目标后刷新列表。"}</p>}
+              </div>
+            </div>
+          </div>
+        )}
         {confirm && (
           <div className="modal-scrim">
             <div

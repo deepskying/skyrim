@@ -87,3 +87,14 @@ test("allows managed registry, disabled spells, and negative resistance", () => 
   s.followers[1].spells[0].enabled = false;
   assert.ok(parseSnapshot(s));
 });
+
+test("accepts 64 managed companions plus external candidates, capped at 128 rows", () => {
+  const s = snapshot(), base = s.followers[0];
+  s.followers = Array.from({ length: 128 }, (_, i) => ({
+    ...structuredClone(base), id: (0x10000 + i).toString(16).padStart(8, "0").toUpperCase(),
+    managed: i < 64, limited: i >= 64, canRecruit: i >= 64,
+  }));
+  assert.equal(parseSnapshot(s)?.followers.filter(f => f.managed).length, 64);
+  s.followers.push({ ...structuredClone(base), id: "00020000" });
+  assert.equal(parseSnapshot(s), null);
+});

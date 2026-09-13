@@ -1,4 +1,5 @@
 #include "snapshot.h"
+#include "capacity.h"
 #include "manager.h"
 #include "spell_details.h"
 #include <cmath>
@@ -259,9 +260,9 @@ json CollectSnapshot()
         const auto db = Distance(b, player).value_or((std::numeric_limits<int>::max)());
         return da == db ? a->GetFormID() < b->GetFormID() : da < db;
     });
-    if (candidates.size() > 64)
+    if (candidates.size() > rules::SnapshotCapacity)
     {
-        candidates.resize(64);
+        candidates.resize(rules::SnapshotCapacity);
         result["truncated"] = true;
     }
     for (auto *actor : candidates)

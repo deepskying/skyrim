@@ -23,7 +23,7 @@ export function fixture() {
     sandbox: true,
     leash: true,
     essential: true,
-    raised: false,
+    raised: managed && group === "party",
     inCombat: false,
     detailsTruncated: false,
     distance: group === "registry" ? null : 12,
@@ -32,7 +32,7 @@ export function fixture() {
     health: [240, 300],
     magicka: [0, 0],
     stamina: [180, 200],
-    levelCap: 50,
+    levelCap: managed && group === "party" ? 300 : 50,
     attributes: [
       { name: "护甲值", value: 215 },
       { name: "负重上限", value: 300 },
@@ -97,6 +97,7 @@ export function fixture() {
       actor("000A2C94", "莱迪亚", "party", true),
       actor("00013485", "离队同伴", "registry", true),
       actor("00013486", "附近旅人", "nearby", false),
+      actor("00013487", "附近同伴", "nearby", false),
     ],
     inventory: [
       {
@@ -150,13 +151,23 @@ export function simulate(s, r) {
   switch (r.command) {
     case "adopt":
     case "recruit":
+      if (f.dead || f.unavailable || (!f.managed && !f.canRecruit) ||
+          (f.managed && f.group === "party"))
+        return { ok: false, message: "此人物暂时不能招募" };
+      if (!f.managed && s.followers.filter((x) => x.managed).length >= 64)
+        return { ok: false, message: "64 位名册已满" };
       if (r.command === "adopt" && (f.managed || f.group !== "party" || !f.canRecruit))
         return { ok: false, message: "无法纳入管理" };
+      if (r.command === "recruit" && !f.managed && f.group === "party")
+        return { ok: false, message: "请使用纳入管理" };
       f.managed = true;
       f.limited = false;
       f.canRecruit = false;
       f.canRaise = true;
       f.group = "party";
+      f.raised = f.levelCap !== null && f.originalMax > 0;
+      f.canRaise = f.raised;
+      if (f.raised) f.levelCap = Math.max(300, f.originalMax);
       break;
     case "dismiss":
       f.group = "registry";
@@ -180,7 +191,7 @@ export function simulate(s, r) {
       break;
     case "levelCap":
       f.raised = r.value;
-      f.levelCap = r.value ? 300 : 50;
+      f.levelCap = r.value ? Math.max(300, f.originalMax) : f.originalMax;
       break;
     case "home":
       f.home = r.clear ? "未设置" : s.location;

@@ -30,7 +30,8 @@ class PluginTests(unittest.TestCase):
                 if k==b'FNAM':active['flags']=struct.unpack('<I',v)[0]
                 if k==b'CTDA':active['conditions'].append(v)
                 if k==b'ALPC':active['packages'].append(struct.unpack('<I',v)[0])
-        self.assertEqual([a['id'] for a in aliases],list(range(64)))
+        self.assertEqual([a['id'] for a in aliases],list(range(128)))
+        self.assertEqual(next(struct.unpack('<I',v)[0] for k,v in self.parts if k==b'ANAM'),128)
         for a in aliases:
             self.assertTrue(a['flags']&2);self.assertFalse(a['flags']&4)
             self.assertEqual(len(a['conditions']),2)
@@ -39,12 +40,13 @@ class PluginTests(unittest.TestCase):
                 self.assertEqual(struct.unpack_from('<H',c,8)[0],72)
                 self.assertEqual(struct.unpack_from('<I',c,12)[0],0x14)
                 self.assertEqual(c[0],0) # Equal, AND; impossible conjunction
-            if a['id']<32:
+            if a['id']<64:
                 self.assertEqual(len(a['packages']),12)
                 self.assertTrue(all(p in self.packages for p in a['packages']))
                 home=self.packages[a['packages'][0]]
                 locations=[struct.unpack('<III',v) for k,v in subrecords(home['data']) if k==b'PLDT']
-                self.assertEqual(locations,[(8,32+a['id'],512)])
+                self.assertEqual(locations,[(8,64+a['id'],512)])
+                self.assertEqual(home['form'],0x01000900+a['id'])
             else:self.assertEqual(a['packages'],[])
 
     def test_packages_have_scoped_owner_and_mode(self):

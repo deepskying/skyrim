@@ -488,7 +488,7 @@
 }
 .cm-follower-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 .cm-follower-card {
@@ -517,7 +517,8 @@
   border: 1px solid #adc5cf28;
   border-radius: 6px;
   color: #c4e3df;
-  font-size: 0.85em;
+  font-size: 1.2em;
+  font-weight: 600;
 }
 .cm-follower-card h3 {
   font-size: 22px;
@@ -785,6 +786,40 @@
 .cm-tome summary {
   cursor: pointer;
 }
+.cm-runtime .group-actions { flex-wrap: wrap; }
+.cm-runtime .cm-recruit-dialog {
+  width: min(760px, 90vw);
+  max-width: 100%;
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+}
+.cm-recruit-heading, .cm-recruit-tools, .cm-recruit-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+}
+.cm-runtime .cm-recruit-heading h2, .cm-runtime .cm-recruit-dialog > p { margin: 0; }
+.cm-recruit-tools input {
+  min-width: 0;
+  flex: 1;
+  padding: 12px 14px;
+  border: 1px solid #a5c5ca40;
+  border-radius: 8px;
+  background: #050d1280;
+  color: #e2eeee;
+  font: inherit;
+}
+.cm-recruit-list { min-height: 0; overflow: auto; }
+.cm-recruit-row { padding: 18px 0; border-bottom: 1px solid #a5c5ca25; }
+.cm-recruit-row > div { display: grid; gap: 7px; min-width: 0; }
+.cm-recruit-row strong { font-size: 1.15em; overflow-wrap: anywhere; }
+.cm-recruit-row span { color: #b1c5cd; font-size: .9em; }
+.cm-recruit-row small { color: #e6c493; line-height: 1.6; }
+.cm-recruit-dialog button { flex-shrink: 0; }
 .cm-preview-banner {
   position: fixed;
   right: 3vw;

@@ -49,6 +49,8 @@ test("an existing teammate can enroll before teaching, with one book consumed an
   f.managed = false;
   f.limited = true;
   f.canRecruit = true;
+  f.raised = false;
+  f.levelCap = 50;
   const request = (command, data = {}) => simulate(s, {
     session: s.session, actorId: f.id, command, ...data,
   });
@@ -56,6 +58,8 @@ test("an existing teammate can enroll before teaching, with one book consumed an
   assert.equal(request("teach", { entityId: b.id }).ok, false);
   assert.equal(b.count, 2);
   assert.equal(request("adopt").ok, true);
+  assert.equal(f.raised, true);
+  assert.equal(f.levelCap, 300);
   assert.equal(f.group, "party");
   assert.equal(request("adopt").ok, false);
   assert.equal(teachingBlock(s, f, b, false), "");

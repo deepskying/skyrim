@@ -17,4 +17,5 @@ json PlayerInventory();
 json ManagerSettings();
 std::string SessionToken();
 RE::TESQuest *Controller();
+void RefreshManagerView();
 } // namespace companion
