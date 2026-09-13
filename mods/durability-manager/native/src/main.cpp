@@ -35,6 +35,8 @@ namespace
         float weaponDisplaySeconds = 3.0F;
         bool enableLowDurabilityWarning = true;
         bool enableWorkshopSounds = true;
+        int uiFontScale = 100;
+        int uiTransparency = 16;
         bool allowEnchantedItemsToBreak = true;
         float daggerHitWear = 0.35F;
         float swordHitWear = 0.50F;
@@ -180,7 +182,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.2.0";
+    constexpr std::string_view kPluginVersion = "1.2.1";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif
@@ -308,6 +310,8 @@ namespace
                    << "\nAlt=" << (g_settings.dismantleHotkey.requireAlt ? "true" : "false")
                    << "\nEnabled=" << (g_settings.enableDismantleHotkey ? "true" : "false");
         configFile << "\n\n[Display]\nLowDurabilityThreshold=" << g_settings.lowDurabilityThreshold
+                   << "\nUIFontScale=" << g_settings.uiFontScale
+                   << "\nUITransparency=" << g_settings.uiTransparency
                    << "\nWeaponDisplaySeconds=" << g_settings.weaponDisplaySeconds
                    << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false")
                    << "\nEnableWorkshopSounds=" << (g_settings.enableWorkshopSounds ? "true" : "false");
@@ -371,6 +375,8 @@ namespace
             } else if (section == "[DISPLAY]") {
                 try {
                     if (key == "LOWDURABILITYTHRESHOLD") g_settings.lowDurabilityThreshold = std::clamp<std::uint32_t>(std::stoul(value), 1, 99);
+                    else if (key == "UIFONTSCALE") g_settings.uiFontScale = std::clamp(std::stoi(value), 80, 130);
+                    else if (key == "UITRANSPARENCY") g_settings.uiTransparency = std::clamp(std::stoi(value), 0, 60);
                     else if (key == "WEAPONDISPLAYSECONDS") g_settings.weaponDisplaySeconds = std::clamp(std::stof(value), 0.5F, 10.0F);
                     else if (key == "ENABLELOWDURABILITYWARNING") g_settings.enableLowDurabilityWarning = ParseBool(value, g_settings.enableLowDurabilityWarning);
                     else if (key == "ENABLEWORKSHOPSOUNDS") g_settings.enableWorkshopSounds = ParseBool(value, g_settings.enableWorkshopSounds);
@@ -3424,6 +3430,8 @@ namespace
                 { "dismantleHotkey", {{"key", KeyName(g_settings.dismantleHotkey.keyCode)}, {"keyCode", g_settings.dismantleHotkey.keyCode}, {"shift", g_settings.dismantleHotkey.requireShift}, {"ctrl", g_settings.dismantleHotkey.requireCtrl}, {"alt", g_settings.dismantleHotkey.requireAlt}, {"enabled", g_settings.enableDismantleHotkey}} },
                 { "hotkey", { { "key", KeyName(g_settings.hotkey.keyCode) }, { "keyCode", g_settings.hotkey.keyCode }, { "shift", g_settings.hotkey.requireShift }, { "ctrl", g_settings.hotkey.requireCtrl }, { "alt", g_settings.hotkey.requireAlt } } },
                 { "lowDurabilityThreshold", g_settings.lowDurabilityThreshold },
+                { "uiFontScale", g_settings.uiFontScale },
+                { "uiTransparency", g_settings.uiTransparency },
                 { "weaponDisplaySeconds", g_settings.weaponDisplaySeconds },
                 { "enableLowDurabilityWarning", g_settings.enableLowDurabilityWarning },
                 { "enableWorkshopSounds", g_settings.enableWorkshopSounds },
@@ -3588,6 +3596,12 @@ namespace
             } else if (type == "cancelHotkeyCapture") {
                 g_capturingHotkey = g_capturingDismantleHotkey = false;
                 SendState("已取消快捷键修改。");
+            } else if (type == "saveGeneralSettings") {
+                g_settings.uiFontScale = std::clamp(request.value("uiFontScale", g_settings.uiFontScale), 80, 130);
+                g_settings.uiTransparency = std::clamp(request.value("uiTransparency", g_settings.uiTransparency), 0, 60);
+                g_settings.enableWorkshopSounds = request.value("enableWorkshopSounds", g_settings.enableWorkshopSounds);
+                WriteConfig();
+                SendState("通用设置已保存。");
             } else if (type == "saveSettings") {
                 g_settings.lowDurabilityThreshold = std::clamp(request.value("lowDurabilityThreshold", g_settings.lowDurabilityThreshold), 1U, 99U);
                 g_settings.weaponDisplaySeconds = std::clamp(request.value("weaponDisplaySeconds", g_settings.weaponDisplaySeconds), 0.5F, 10.0F);

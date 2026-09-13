@@ -5,7 +5,7 @@ import type { WorkshopAction } from './bridge';
 export function EquipmentSettings({ state, draft, setDraft, send }: { state: PanelState; draft: Settings; setDraft: Dispatch<SetStateAction<Settings>>; send: WorkshopAction }) {
   const dismantleHotkey = state.settings.dismantleHotkey ?? defaultDismantleHotkey;
   return <>
-      <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>界面与耐久提示</h2></div><span className="settings-status"><i />保存后立即生效</span></div>
+      <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>装备养护设置</h2></div><span className="settings-status"><i />保存后立即生效</span></div>
       <div className="settings-layout">
         <section className="settings-card">
           <header className="settings-group-title"><span>ᛏ</span><div><p>HUD FEEDBACK</p><h3>战斗提示</h3></div></header>
@@ -24,12 +24,7 @@ export function EquipmentSettings({ state, draft, setDraft, send }: { state: Pan
             <span className="setting-copy"><small>LOW DURABILITY ALERT</small><h3>启用低耐久 HUD 预警</h3><p>关闭后仍会记录耐久，但不会弹出低耐久提示。</p></span>
             <span className="toggle-control"><input checked={draft.enableLowDurabilityWarning} onChange={(event) => setDraft({ ...draft, enableLowDurabilityWarning: event.target.checked })} type="checkbox" /><span className="toggle-track"><i /></span><b>{draft.enableLowDurabilityWarning ? '已启用' : '已关闭'}</b></span>
           </label>
-          <label className="setting toggle-setting">
-            <span className="setting-icon">♪</span>
-            <span className="setting-copy"><small>WORKSHOP AUDIO</small><h3>工坊操作音效</h3><p>播放按钮点击、修复完成、强化成功或失败及卡片刷新音效。</p></span>
-            <span className="toggle-control"><input aria-label="工坊操作音效" checked={draft.enableWorkshopSounds} onChange={(event) => setDraft({ ...draft, enableWorkshopSounds: event.target.checked })} type="checkbox" /><span className="toggle-track"><i /></span><b>{draft.enableWorkshopSounds ? '已启用' : '已关闭'}</b></span>
-          </label>
-          <footer className="setting-actions"><span>配置将写入 <code>DurabilityManager.ini</code></span><button className="save" onClick={() => send('saveSettings', draft)} type="button">保存配置</button></footer>
+          <footer className="setting-actions"><span>配置将写入 <code>DurabilityManager.ini</code></span><button className="save" onClick={() => send('saveSettings', { lowDurabilityThreshold: draft.lowDurabilityThreshold, weaponDisplaySeconds: draft.weaponDisplaySeconds, enableLowDurabilityWarning: draft.enableLowDurabilityWarning, allowEnchantedItemsToBreak: draft.allowEnchantedItemsToBreak })} type="button">保存配置</button></footer>
         </section>
         <aside className="settings-aside">
           <section className={`hotkey-card ${state.capturingDismantleHotkey ? 'capturing' : ''}`}>

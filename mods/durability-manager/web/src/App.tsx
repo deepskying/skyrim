@@ -1,4 +1,5 @@
 import { send } from './bridge';
+import { GeneralSettings } from './GeneralSettings';
 import { EquipmentSettings } from './EquipmentSettings';
 import { WorkshopNavigation, type Tab } from './WorkshopNavigation';
 import { useArrowBridge } from './arrows/useArrowBridge';
@@ -7,7 +8,7 @@ import { ArrowSettings } from './arrows/ArrowSettings';
 import { afterDismantle, adjacentEquipment } from './equipment-selection';
 import { DismantlePanel } from './DismantlePanel';
 import { defaultDismantleHotkey, matchesShortcut, shortcutAllowed } from './dismantle-shortcut';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { demoState } from './demo';
 import type { EquipmentItem, MaterialRequirement, PanelState, Settings } from './types';
 import { EnhancementPage, MaterialList } from './EnhancementPage';
@@ -159,6 +160,8 @@ function normalizeState(value: unknown): PanelState {
         ctrl: flag(rawHotkey.ctrl),
         alt: flag(rawHotkey.alt),
       },
+      uiFontScale: Math.max(80, Math.min(130, finiteNumber(rawSettings.uiFontScale, 100))),
+      uiTransparency: Math.max(0, Math.min(60, finiteNumber(rawSettings.uiTransparency, 16))),
       lowDurabilityThreshold: finiteNumber(rawSettings.lowDurabilityThreshold, emptyState.settings.lowDurabilityThreshold),
       weaponDisplaySeconds: finiteNumber(rawSettings.weaponDisplaySeconds, emptyState.settings.weaponDisplaySeconds),
       enableLowDurabilityWarning: flag(rawSettings.enableLowDurabilityWarning, emptyState.settings.enableLowDurabilityWarning),
@@ -177,10 +180,6 @@ function hotkeyLabel(settings: Settings) {
   return [binding.ctrl && 'Ctrl', binding.shift && 'Shift', binding.alt && 'Alt', binding.key].filter(Boolean).join(' + ');
 }
 
-function hotkeyParts(settings: Settings) {
-  const binding = settings.hotkey;
-  return [binding.ctrl && 'Ctrl', binding.shift && 'Shift', binding.alt && 'Alt', binding.key].filter((part): part is string => Boolean(part));
-}
 
 function itemIcon(item: EquipmentItem) {
   if (item.category === 'weapon') return '⚔';
@@ -190,7 +189,7 @@ function itemIcon(item: EquipmentItem) {
 
 export function App() {
   const arrows = useArrowBridge();
-  const [settingsTab, setSettingsTab] = useState('equipment');
+  const [settingsTab, setSettingsTab] = useState('general');
   const [state, setState] = useState<PanelState>(import.meta.env.DEV ? demoState : emptyState);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
@@ -251,6 +250,7 @@ export function App() {
 
       directPending.current = false;
       setState((prev) => {
+        if (q.type === 'saveGeneralSettings') return { ...prev, settings: { ...prev.settings, uiFontScale: q.uiFontScale, uiTransparency: q.uiTransparency, enableWorkshopSounds: q.enableWorkshopSounds }, message: '通用设置已保存。' };
         if (q.type === 'beginDismantleHotkeyCapture' || q.type === 'beginHotkeyCapture') return { ...prev, capturingHotkey: q.type === 'beginHotkeyCapture', capturingDismantleHotkey: q.type === 'beginDismantleHotkeyCapture' };
         if (q.type === 'cancelHotkeyCapture') return { ...prev, capturingHotkey: false, capturingDismantleHotkey: false };
         if (q.type === 'setDismantleHotkeyEnabled') return { ...prev, settings: { ...prev.settings, dismantleHotkey: { ...(prev.settings.dismantleHotkey ?? defaultDismantleHotkey), enabled: q.enabled } } };
@@ -367,7 +367,7 @@ export function App() {
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
-  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{formatDurability(hud.current)} / {formatDurability(hud.maximum)}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell">
+  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{formatDurability(hud.current)} / {formatDurability(hud.maximum)}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell" style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelDismantle'); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
     <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'dismantle' ? 'SALVAGE WORKSHOP' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'arrows' ? '魔法箭工坊' : tab === 'dismantle' ? '分解与回收' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : tab === 'dismantle' ? '让闲置的装备，继续为下一次冒险效力。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${state.forge.active ? 'active' : ''}`}>{state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 
@@ -390,8 +390,8 @@ export function App() {
     </section>}
     </div>
     <section className="settings-page" hidden={tab !== 'settings'}>
-      <div className="settings-common"><div><h3>工坊快捷键</h3><p>{state.capturingHotkey ? '按下新的组合键，Esc 取消。' : '所有工坊栏目共用，修改后自动保存。'}</p></div><div className="hotkey-combo">{hotkeyParts(state.settings).map((part, i) => <span key={part}>{i > 0 && <i>+</i>}<kbd>{part}</kbd></span>)}</div><button className="capture-button" onClick={() => send(state.capturingHotkey ? 'cancelHotkeyCapture' : 'beginHotkeyCapture')}>{state.capturingHotkey ? '取消等待' : '修改工坊快捷键'}</button></div>
-      <div className="workshop-tabs settings-tabs" role="tablist" aria-label="设置分类"><button role="tab" aria-selected={settingsTab === 'equipment'} className={settingsTab === 'equipment' ? 'active' : ''} onClick={() => { setSettingsTab('equipment'); send('cancelHotkeyCapture'); }}>装备养护</button>{(state.unified || import.meta.env.DEV) && <button role="tab" aria-selected={settingsTab === 'arrows'} className={settingsTab === 'arrows' ? 'active' : ''} onClick={() => { setSettingsTab('arrows'); send('cancelHotkeyCapture'); }}>魔法箭</button>}</div>
+      <div className="workshop-tabs settings-tabs" role="tablist" aria-label="设置分类"><button role="tab" aria-selected={settingsTab === 'general'} className={settingsTab === 'general' ? 'active' : ''} onClick={() => { setSettingsTab('general'); send('cancelHotkeyCapture'); }}>通用设置</button><button role="tab" aria-selected={settingsTab === 'equipment'} className={settingsTab === 'equipment' ? 'active' : ''} onClick={() => { setSettingsTab('equipment'); send('cancelHotkeyCapture'); }}>装备养护</button>{(state.unified || import.meta.env.DEV) && <button role="tab" aria-selected={settingsTab === 'arrows'} className={settingsTab === 'arrows' ? 'active' : ''} onClick={() => { setSettingsTab('arrows'); send('cancelHotkeyCapture'); }}>魔法箭</button>}</div>
+      <div hidden={settingsTab !== 'general'}><GeneralSettings state={state} draft={draft} setDraft={setDraft} send={send} /></div>
       <div hidden={settingsTab !== 'equipment'}><EquipmentSettings state={state} draft={draft} setDraft={setDraft} send={send} /></div>
       <ArrowSettings state={arrows.state} action={arrows.action} active={panelVisible && tab === 'settings' && settingsTab === 'arrows'} />
     </section>

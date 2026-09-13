@@ -66,6 +66,8 @@ export type ForgeState = {
 };
 
 export type Settings = {
+  uiFontScale?: number;
+  uiTransparency?: number;
   dismantleHotkey?: import('./dismantle-shortcut').DismantleHotkey;
   hotkey: { key: string; keyCode: number; shift: boolean; ctrl: boolean; alt: boolean };
   lowDurabilityThreshold: number;
