@@ -8,6 +8,14 @@ void SetArrowsVisible(bool visible);
 void ArrowAction(const char* json);
 void OpenArrowSection();
 void CloseEquipment();
+// Lives around the native transaction so rejected crafting never sounds successful.
+struct ArrowCraftFeedback {
+    bool success = false;
+    ArrowCraftFeedback();
+    ~ArrowCraftFeedback();
+    ArrowCraftFeedback(const ArrowCraftFeedback&) = delete;
+    ArrowCraftFeedback& operator=(const ArrowCraftFeedback&) = delete;
+};
 void SaveArrows(SKSE::SerializationInterface*);
 void BeginLoadArrows(SKSE::SerializationInterface*);
 bool LoadArrowRecord(SKSE::SerializationInterface*, std::uint32_t, std::uint32_t, std::uint32_t);

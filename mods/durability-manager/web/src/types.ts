@@ -78,6 +78,7 @@ export type Settings = {
 };
 
 export type PanelState = {
+  pageKeyboard?: boolean;
   unified?: boolean;
   dismantleQuote?: DismantleQuote;
   refreshResult?: RefreshResult;

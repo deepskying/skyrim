@@ -5,7 +5,7 @@ import ts from 'typescript';
 function compiled(name) { return ts.transpileModule(readFileSync(new URL(`../src/arrows/${name}.ts`, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText; }
 const data = js => `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 const rules = data(compiled('rules'));
-const { clampQuantity, replaceStack, allocateBases, reconcileSelection, resourceSegments } = await import(data(compiled('quantity').replace("'./rules'", JSON.stringify(rules))));
+const { clampQuantity, replaceStack, allocateBases, reconcileSelection, resourceSegments, fillCharge } = await import(data(compiled('quantity').replace("'./rules'", JSON.stringify(rules))));
 const { arrowDemo: state } = await import(data(compiled('demo')));
 test('quantity accepts zero and clamps to whole units and available stock', () => {
   assert.equal(clampQuantity(0, 20), 0); assert.equal(clampQuantity(-1, 20), 0);
@@ -40,4 +40,23 @@ test('resource meter splits remaining and spending without overflowing or dividi
   assert.equal(resourceSegments(0, 25).spendingPercent, 0);
   assert.equal(resourceSegments(undefined, 25).known, false);
   assert.equal(resourceSegments(NaN, 25).known, false);
+});
+
+test('fill charge prefers potions, adds only the shortage, and is idempotent', () => {
+  const selection = { spell: 101, bases: [{ id: 10, count: 12 }], materials: [{ id: 203, count: 1 }] };
+  const before = structuredClone(selection);
+  const result = fillCharge(state, selection);
+  assert.deepEqual(result.materials, [{ id: 203, count: 1 }, { id: 201, count: 3 }]);
+  assert.deepEqual(fillCharge(state, result), result);
+  assert.deepEqual(selection, before);
+});
+test('fill charge uses compatible stock only and cannot exceed native stack limits', () => {
+  const inventory = structuredClone(state);
+  inventory.materials = [{ id: 201, name: 'Small potion', kind: 'potion', count: 1, charges: { fire: 10 } },
+    { id: 202, name: 'Ice potion', kind: 'potion', count: 100, charges: { ice: 100 } },
+    { id: 203, name: 'Ingredient', kind: 'ingredient', count: 2, charges: { fire: 5 } }];
+  const result = fillCharge(inventory, { spell: 101, bases: [{ id: 10, count: 10 }], materials: [] });
+  assert.deepEqual(result.materials, [{ id: 201, count: 1 }, { id: 203, count: 2 }]);
+  assert.deepEqual(fillCharge(inventory, { spell: 101, bases: [], materials: [] }).materials, []);
+  assert.deepEqual(fillCharge(inventory, { spell: 104, bases: [{ id: 10, count: 5 }], materials: [] }).materials, []);
 });

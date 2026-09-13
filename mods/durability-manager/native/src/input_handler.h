@@ -31,6 +31,8 @@ public:
     void SetCaptureCallback(std::function<bool(std::uint32_t, bool, bool, bool)> a_callback) { captureCallback_ = std::move(a_callback); }
     void SetActionCallback(std::function<bool(std::uint32_t, bool, bool, bool)> callback) { actionCallback_ = std::move(callback); }
 
+    void SetPageInputCallback(std::function<bool()> callback) { pageInput_ = std::move(callback); }
+
     void RegisterSink()
     {
         if (registered_) return;
@@ -42,6 +44,7 @@ public:
 
     RE::BSEventNotifyControl ProcessEvent(RE::InputEvent* const* a_events, RE::BSTEventSource<RE::InputEvent*>*) override
     {
+        if (pageInput_ && pageInput_()) return RE::BSEventNotifyControl::kContinue;
         if (!a_events) return RE::BSEventNotifyControl::kContinue;
         for (auto* event = *a_events; event; event = event->next) {
             if (event->GetEventType() != RE::INPUT_EVENT_TYPE::kButton) continue;
@@ -70,5 +73,6 @@ private:
     std::function<bool()> escapeCallback_;
     std::function<bool(std::uint32_t, bool, bool, bool)> captureCallback_;
     std::function<bool(std::uint32_t, bool, bool, bool)> actionCallback_;
+    std::function<bool()> pageInput_;
     bool registered_ = false;
 };

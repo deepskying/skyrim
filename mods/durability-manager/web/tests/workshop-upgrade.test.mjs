@@ -63,3 +63,21 @@ test('all seven card types have distinct fills and tiers have increasing depth',
   assert.match(css, /--card-depth: \.14/);
   assert.match(css, /--card-depth: \.44/);
 });
+
+
+test('magic arrow audio surrounds only committed crafting, after both native output routes', () => {
+  const arrows = readFileSync(new URL('../../../magic-arrows/native/src/main.cpp', import.meta.url), 'utf8');
+  const bridge = readFileSync(new URL('../../../workshop/native/src/workshop_bridge.h', import.meta.url), 'utf8');
+  const start = arrows.indexOf('}else if(type=="craft"){');
+  const craft = arrows.slice(start, arrows.indexOf('}else if(type=="equip")', start));
+  assert.equal((arrows.match(/ArrowCraftFeedback feedback/g) ?? []).length, 1);
+  assert.match(bridge, /bool success = false/);
+  const guard = craft.indexOf('ArrowCraftFeedback feedback');
+  const success = craft.indexOf('feedback.success = true');
+  for (const route of ['runtime_binding::Commit(', 'crafting::Commit(']) {
+    assert.ok(craft.indexOf(route) > guard);
+    assert.ok(craft.indexOf(route) < success);
+  }
+  assert.match(native, /ArrowCraftFeedback::ArrowCraftFeedback\(\) \{ PlayWorkshopClick\(\); \}/);
+  assert.match(native, /PlayWorkshopSound\(success \? "UIEnchantingItemCreate" : "UIMenuCancel"\)/);
+});

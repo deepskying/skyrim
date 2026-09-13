@@ -10,6 +10,7 @@
 #include "wear_rules.h"
 #ifdef UNIFIED_WORKSHOP
 #include "workshop_bridge.h"
+#include "workshop_ui.h"
 #endif
 
 #include <nlohmann/json.hpp>
@@ -23,7 +24,11 @@ namespace
 {
     using json = nlohmann::json;
 
+#ifdef UNIFIED_WORKSHOP
+    unified_workshop::WorkshopUI* g_prisma = nullptr;
+#else
     PRISMA_UI_API::IVPrismaUI1* g_prisma = nullptr;
+#endif
     PrismaView g_view = 0;
 
     struct Settings
@@ -182,7 +187,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.2.2";
+    constexpr std::string_view kPluginVersion = "1.4.2";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif
@@ -3437,6 +3442,9 @@ namespace
                 { "enableWorkshopSounds", g_settings.enableWorkshopSounds },
                 { "allowEnchantedItemsToBreak", g_settings.allowEnchantedItemsToBreak }
             } },
+#ifdef UNIFIED_WORKSHOP
+            { "pageKeyboard", g_prisma && g_prisma->views != nullptr },
+#endif
             { "capturingHotkey", g_capturingHotkey },
             { "capturingDismantleHotkey", g_capturingDismantleHotkey },
             { "message", a_message }
@@ -3474,6 +3482,13 @@ namespace
     // notification can leave Prisma's render and focus states out of sync.
     void ResetViewForLoad()
     {
+#ifdef UNIFIED_WORKSHOP
+        if (g_prisma && g_prisma->views && g_view) {
+            g_prisma->Invoke(g_view, "window.DurabilityManager?.setPanelVisible(false);");
+            g_prisma->Unfocus(g_view);
+            g_prisma->Hide(g_view);
+        }
+#endif
         g_pendingDismantleShortcut.clear();
         g_capturingHotkey = g_capturingDismantleHotkey = false;
         g_dismantleQuote = nullptr;
@@ -3557,6 +3572,17 @@ namespace
                 logger::info("Durability Manager web bridge {} is ready.", request.value("version", "<unknown>"));
                 return;
             }
+#ifdef UNIFIED_WORKSHOP
+            if (type == "pageShortcut" || type == "captureHotkeyFromPage") {
+                if (!g_prisma || !g_prisma->views || !g_panelVisible || !g_prisma->HasFocus(g_view)) return;
+                const auto key = ParseKeyCode(request.value("key", ""));
+                if (!key) return;
+                const bool shift = request.value("shift", false), ctrl = request.value("ctrl", false), alt = request.value("alt", false);
+                if (type == "captureHotkeyFromPage") (void)CaptureHotkey(*key, shift, ctrl, alt);
+                else if (!g_capturingHotkey && !g_capturingDismantleHotkey) DismantleShortcut(*key, shift, ctrl, alt);
+                return;
+            }
+#endif
             if (type == "close") ClosePanel();
             else if (type == "directDismantle") {
                 const auto sequence = std::exchange(g_pendingDismantleShortcut, "");
@@ -3893,7 +3919,11 @@ namespace
             return;
         }
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
+#ifdef UNIFIED_WORKSHOP
+        g_prisma = unified_workshop::GetWorkshopUI();
+#else
         g_prisma = PRISMA_UI_API::RequestPluginAPI();
+#endif
         if (!g_prisma) {
             logger::critical("Prisma UI v1 is unavailable; Durability Manager will remain disabled.");
             return;
@@ -3913,6 +3943,9 @@ namespace
         BuildEnchantmentPool();
         const auto input = InputHandler::GetSingleton();
         input->SetHotkey(g_settings.hotkey);
+#ifdef UNIFIED_WORKSHOP
+        input->SetPageInputCallback([] { return g_prisma && g_prisma->views && g_prisma->HasFocus(g_view); });
+#endif
         input->SetToggleCallback(TogglePanel);
         input->SetEscapeCallback(CloseFocusedPanel);
         input->SetCaptureCallback(CaptureHotkey);
@@ -3930,6 +3963,10 @@ void unified_workshop::OpenArrowSection() {
     if (g_panelVisible && g_prisma->HasFocus(g_view)) g_prisma->Invoke(g_view, "window.DurabilityManager?.openArrows();");
 }
 void unified_workshop::CloseEquipment() { ClosePanel(); }
+unified_workshop::ArrowCraftFeedback::ArrowCraftFeedback() { PlayWorkshopClick(); }
+unified_workshop::ArrowCraftFeedback::~ArrowCraftFeedback() {
+    PlayWorkshopSound(success ? "UIEnchantingItemCreate" : "UIMenuCancel");
+}
 #endif
 
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)

@@ -16,13 +16,18 @@
 #include <ranges>
 #ifdef UNIFIED_WORKSHOP
 #include "workshop_bridge.h"
+#include "workshop_ui.h"
 #include "legacy_queue.h"
 namespace { std::string legacySaveName; }
 #endif
 
 namespace {
 using json=nlohmann::json;
+#ifdef UNIFIED_WORKSHOP
+unified_workshop::WorkshopUI* api=nullptr;
+#else
 PRISMA_UI_API::IVPrismaUI1* api=nullptr;
+#endif
 PrismaView view=0;
 bool loaded=false,ready=false,panelVisible=false;
 ULONGLONG openedAt=0;
@@ -237,7 +242,15 @@ void Action(const char* raw){
             }else if(type=="normalCraft"){normal_crafting::Commit(player,q.at("token").get<std::uint64_t>());workshopReply["ok"]=true;Send("普通箭制作完成，成品已加入背包");
             }else if(type=="quote"){normal_crafting::Reset();runtime_binding::Reset();crafting::Reset();
                 if(q.value("runtime",false))runtime_binding::Quote(player,q);else crafting::Quote(player,q);workshopReply["ok"]=true;Send("费用已计算，请核对后确认制作");
-            }else if(type=="craft"){if(q.value("runtime",false))runtime_binding::Commit(player,q.at("token").get<std::uint64_t>());else crafting::Commit(player,q.at("token").get<std::uint64_t>());workshopReply["ok"]=true;Send("制作完成，魔法箭已加入背包");
+            }else if(type=="craft"){
+#ifdef UNIFIED_WORKSHOP
+                unified_workshop::ArrowCraftFeedback feedback;
+#endif
+                if(q.value("runtime",false))runtime_binding::Commit(player,q.at("token").get<std::uint64_t>());else crafting::Commit(player,q.at("token").get<std::uint64_t>());
+#ifdef UNIFIED_WORKSHOP
+                feedback.success = true;
+#endif
+                workshopReply["ok"]=true;Send("制作完成，魔法箭已加入背包");
             }else if(type=="equip"){
                 auto id=q.value("id",RE::FormID{});auto* ammo=RE::TESForm::LookupByID<RE::TESAmmo>(id);
                 if(!ammo||!ammo->GetPlayable()){Send("无法装备该箭矢");return;}
@@ -300,7 +313,12 @@ void Message(SKSE::MessagingInterface::Message* m){
     power.OnMessage(m);
     if(m->type!=SKSE::MessagingInterface::kDataLoaded)return;
     runtime_sustained::afterUpdate=EquipFrame;crafting::Sync();runtime_binding::Init();runtime_impact::Install();runtime_sustained::Install();follower_ammo::Install();normal_crafting::Init();
-    LoadConfig();api=PRISMA_UI_API::RequestPluginAPI();
+    LoadConfig();
+#ifdef UNIFIED_WORKSHOP
+    api=unified_workshop::GetWorkshopUI();
+#else
+    api=PRISMA_UI_API::RequestPluginAPI();
+#endif
     if(!api){logger::error("PrismaUI v1 unavailable; MagicArrows panel disabled");return;}
 #ifndef UNIFIED_WORKSHOP
     view=api->CreateView("MagicArrows/index.html",[](PrismaView v){

@@ -129,6 +129,7 @@ function normalizeState(value: unknown): PanelState {
   return {
     version: text(value.version, emptyState.version),
     unified: flag(value.unified),
+    pageKeyboard: flag(value.pageKeyboard),
     dismantleQuote: isRecord(value.dismantleQuote) && typeof value.dismantleQuote.token === 'string' && typeof value.dismantleQuote.id === 'string' ? {
       token: value.dismantleQuote.token, id: value.dismantleQuote.id, name: text(value.dismantleQuote.name),
       equipped: flag(value.dismantleQuote.equipped), materials: normalizeMaterials(value.dismantleQuote.materials),
@@ -329,26 +330,31 @@ export function App() {
     return true;
   };
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
+    if (!import.meta.env.DEV && !state.pageKeyboard) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (state.capturingHotkey || state.capturingDismantleHotkey) {
         event.preventDefault();
         if (event.key === 'Escape') send('cancelHotkeyCapture');
         else if (!event.repeat && !event.isComposing && /^(Key[A-Z]|F([1-9]|1[0-2])|Delete)$/.test(event.code)) {
           const key = event.code.startsWith('Key') ? event.code.slice(3) : event.code;
-          send(state.capturingDismantleHotkey ? 'saveDismantleHotkey' : 'previewCapturePanel', { key, shift: event.shiftKey, ctrl: event.ctrlKey, alt: event.altKey, enabled: dismantleHotkey.enabled });
+          send(state.pageKeyboard ? 'captureHotkeyFromPage' : state.capturingDismantleHotkey ? 'saveDismantleHotkey' : 'previewCapturePanel', { key, shift: event.shiftKey, ctrl: event.ctrlKey, alt: event.altKey, enabled: dismantleHotkey.enabled });
         }
         return;
       }
+      if (state.pageKeyboard && !event.repeat && (event.key === 'Escape' || matchesShortcut(event, { ...state.settings.hotkey, enabled: true }))) { event.preventDefault(); escapeAction.current(); return; }
       if (!event.shiftKey && !event.ctrlKey && !event.altKey && !event.isComposing && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
         if (navigateAction.current(event.key === 'ArrowUp' ? -1 : 1)) event.preventDefault();
+        return;
+      }
+      if (state.pageKeyboard && matchesShortcut(event, dismantleHotkey)) {
+        if (!isEditing() && tab === 'dismantle' && !directPending.current) { event.preventDefault(); send('pageShortcut', { key: dismantleHotkey.key, shift: event.shiftKey, ctrl: event.ctrlKey, alt: event.altKey }); }
         return;
       }
       if (matchesShortcut(event, dismantleHotkey) && directAction.current({ id: selected?.id ?? '', sequence: String(event.timeStamp) })) event.preventDefault();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dismantleHotkey, selected?.id, state.capturingHotkey, state.capturingDismantleHotkey]);
+  }, [dismantleHotkey, selected?.id, state.capturingHotkey, state.capturingDismantleHotkey, state.pageKeyboard, state.settings.hotkey, tab]);
 
   useEffect(() => {
     if (!state.forge.active || !enhancing) setEnhancingId(undefined);
@@ -366,7 +372,7 @@ export function App() {
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
-  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{formatDurability(hud.current)} / {formatDurability(hud.maximum)}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className="forge-shell" style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
+  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{formatDurability(hud.current)} / {formatDurability(hud.maximum)}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelDismantle'); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
     <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'dismantle' ? 'SALVAGE WORKSHOP' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'arrows' ? '魔法箭工坊' : tab === 'dismantle' ? '分解与回收' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : tab === 'dismantle' ? '让闲置的装备，继续为下一次冒险效力。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${state.forge.active ? 'active' : ''}`}>{state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 

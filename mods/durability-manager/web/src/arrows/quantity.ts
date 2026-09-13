@@ -44,3 +44,22 @@ export function resourceSegments(current: number | undefined, cost: number) {
     remainingPercent: held > 0 ? remaining / held * 100 : 0,
     spendingPercent: held > 0 ? Math.min(held, spending) / held * 100 : 0 };
 }
+
+/** Adds just enough compatible charge, preserving the user's selected materials. */
+export function fillCharge(state: ArrowState, selection: Selection): Selection {
+  const next = reconcileSelection(state, selection);
+  const spell = state.spells.find(s => s.id === next.spell);
+  if (!spell?.craftable) return next;
+  const available = matchingMaterials(state.materials, spell);
+  const charge = Math.max(1, spell.adapter?.charge ?? 10);
+  const target = next.bases.reduce((n, b) => n + b.count, 0) * charge;
+  let missing = target - next.materials.reduce((n, m) => n + m.count * (available.find(a => a.id === m.id)?.units ?? 0), 0);
+  for (const material of available) {
+    if (missing <= 0) break;
+    const count = next.materials.find(m => m.id === material.id)?.count ?? 0;
+    if (!count && next.materials.length >= 128) continue;
+    const add = clampQuantity(Math.ceil(missing / material.units), Math.min(10000, material.count) - count);
+    if (add > 0) { next.materials = replaceStack(next.materials, material.id, count + add); missing -= add * material.units; }
+  }
+  return next;
+}
