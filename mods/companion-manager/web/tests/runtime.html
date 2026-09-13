@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>同行 · 完整功能桥接测试</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1000;
+        background: #694b14;
+        color: white;
+        padding: 4px;
+        font: 12px sans-serif;
+      "
+    >
+      桥接测试 · 模拟快照 · 非游戏
+      <button onclick="window.fixtureFailNext=true">下次模拟失败</button>
+      <button onclick="window.fixtureReset()">模拟切换存档</button>
+    </div>
+    <script type="module">
+      import { fixture, simulate } from "./fixture.mjs";
+      const state = fixture();
+      // Reproduce an existing game teammate who has no Companion Manager record yet.
+      state.followers[0].managed = false;
+      state.followers[0].limited = true;
+      state.followers[0].canRecruit = true;
+      window.fixtureState = state;
+      window.fixtureRequests = [];
+      const snapshot = () => {
+        window.__companionSnapshot = structuredClone(state);
+        window.dispatchEvent(new Event("companion:snapshot"));
+      };
+      window.companionRequest = (payload) => {
+        const r = JSON.parse(payload);
+        window.fixtureRequests.push(r);
+        if (r.type === "refresh") snapshot();
+        if (r.type === "command")
+          setTimeout(() => {
+            const detail = window.fixtureFailNext
+              ? { ok: false, message: "引擎拒绝操作（模拟）" }
+              : simulate(state, r);
+            window.fixtureFailNext = false;
+            window.dispatchEvent(
+              new CustomEvent("companion:result", {
+                detail: { ...detail, requestId: r.requestId },
+              }),
+            );
+            snapshot();
+          }, 200);
+        if (r.type === "preview")
+          window.dispatchEvent(
+            new CustomEvent("companion:preview", {
+              detail: {
+                actorId: r.actorId,
+                session: r.session,
+                status: "unsupported",
+              },
+            }),
+          );
+        if (r.type === "close")
+          document.getElementById("root").innerHTML =
+            "<p>关闭请求已收到（模拟）</p>";
+      };
+      window.fixtureReset = () => {
+        state.session += "-next";
+        state.followers = [];
+        window.__companionSnapshot = undefined;
+        window.dispatchEvent(new Event("companion:reset"));
+      };
+      snapshot();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

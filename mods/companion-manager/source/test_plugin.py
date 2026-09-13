@@ -1,0 +1,71 @@
+"""Structural checks against the emitted ESP, independent of the builder's globals."""
+import struct
+import unittest
+from pathlib import Path
+from plugin_records import records, subrecords, edid
+
+ROOT=Path(__file__).resolve().parents[1]
+class PluginTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.rows=list(records(ROOT/'data/CompanionManager.esp'))
+        cls.packages={r['form']:r for r in cls.rows if r['sig']==b'PACK'}
+        cls.quest=next(r for r in cls.rows if r['sig']==b'QUST')
+        cls.parts=list(subrecords(cls.quest['data']))
+
+    def test_esl_has_no_overrides_or_third_party_dependencies(self):
+        header=self.rows[0]
+        self.assertEqual(header['sig'],b'TES4');self.assertEqual(header['flags']&0x200,0x200)
+        self.assertEqual([v for k,v in subrecords(header['data']) if k==b'MAST'],[b'Skyrim.esm\0'])
+        ids=[r['form'] for r in self.rows[1:]]
+        self.assertEqual(len(ids),len(set(ids)))
+        self.assertTrue(all(0x01000800<=n<0x01001000 for n in ids))
+        self.assertEqual(set(r['sig'] for r in self.rows[1:]),{b'FACT',b'PACK',b'QUST'})
+
+    def test_optional_aliases_cannot_autofill_and_all_packages_resolve(self):
+        aliases=[];active=None
+        for k,v in self.parts:
+            if k==b'ALST':active={'id':struct.unpack('<I',v)[0],'conditions':[],'packages':[]};aliases.append(active)
+            elif active is not None:
+                if k==b'FNAM':active['flags']=struct.unpack('<I',v)[0]
+                if k==b'CTDA':active['conditions'].append(v)
+                if k==b'ALPC':active['packages'].append(struct.unpack('<I',v)[0])
+        self.assertEqual([a['id'] for a in aliases],list(range(64)))
+        for a in aliases:
+            self.assertTrue(a['flags']&2);self.assertFalse(a['flags']&4)
+            self.assertEqual(len(a['conditions']),2)
+            self.assertEqual([struct.unpack_from('<f',c,4)[0] for c in a['conditions']],[0,1])
+            for c in a['conditions']:
+                self.assertEqual(struct.unpack_from('<H',c,8)[0],72)
+                self.assertEqual(struct.unpack_from('<I',c,12)[0],0x14)
+                self.assertEqual(c[0],0) # Equal, AND; impossible conjunction
+            if a['id']<32:
+                self.assertEqual(len(a['packages']),12)
+                self.assertTrue(all(p in self.packages for p in a['packages']))
+                home=self.packages[a['packages'][0]]
+                locations=[struct.unpack('<III',v) for k,v in subrecords(home['data']) if k==b'PLDT']
+                self.assertEqual(locations,[(8,32+a['id'],512)])
+            else:self.assertEqual(a['packages'],[])
+
+    def test_packages_have_scoped_owner_and_mode(self):
+        modes=set()
+        for r in self.packages.values():
+            parts=list(subrecords(r['data']))
+            self.assertEqual([struct.unpack('<I',v)[0] for k,v in parts if k==b'QNAM'],[self.quest['form']])
+            condition=next(v for k,v in parts if k==b'CTDA')
+            self.assertEqual(struct.unpack_from('<H',condition,8)[0],73)
+            self.assertEqual(struct.unpack_from('<I',condition,12)[0],0x01000801)
+            modes.add(int(struct.unpack_from('<f',condition,4)[0]))
+            if edid(r).startswith('CMFollow'):
+                self.assertEqual([struct.unpack('<III',v) for k,v in parts if k==b'PTDA'],[(0,0x14,0)])
+        self.assertEqual(modes,{1,2,3,4,5,11,12,21,22})
+
+    def test_script_binding_and_bytecode(self):
+        vmad=next(v for k,v in self.parts if k==b'VMAD')
+        self.assertEqual(struct.unpack_from('<HHH',vmad),(5,2,1))
+        length=struct.unpack_from('<H',vmad,6)[0]
+        self.assertEqual(vmad[8:8+length],b'CMController')
+        self.assertEqual(vmad[8+length:],b'\0\0\0\2\0\0\0\0\0\0')
+        self.assertEqual((ROOT/'data/Scripts/CMController.pex').read_bytes()[:4],bytes.fromhex('fa57c0de'))
+
+if __name__=='__main__':unittest.main()

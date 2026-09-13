@@ -1,0 +1,35 @@
+set_xmakever("2.8.2")
+includes("../../../reference/example-skse-plugin/lib/commonlibsse-ng")
+set_project("CompanionManager")
+set_version("1.1.2")
+set_languages("c++23")
+set_warnings("allextra")
+set_policy("package.requires_lock", true)
+add_requires("nlohmann_json")
+add_rules("mode.release", "mode.debug")
+target("CompanionManager")
+    add_deps("commonlibsse-ng")
+    add_packages("nlohmann_json")
+    add_rules("commonlibsse-ng.plugin", {
+        name = "CompanionManager",
+        author = "linos",
+        description = "Independent follower dashboard using Meridian UI"
+    })
+    add_files("src/**.cpp")
+    add_headerfiles("src/**.h", "vendor/MeridianUIAPI/**.h")
+    add_includedirs("src", "vendor")
+    add_cxxflags("/utf-8")
+    set_pcxxheader(path.join(os.scriptdir(), "src", "pch.h"))
+
+target("input-rules-test")
+    set_kind("binary")
+    set_default(false)
+    add_files("tests/input_rules.cpp")
+    add_undefines("NDEBUG")
+
+target("state-rules-test")
+    set_kind("binary")
+    set_default(false)
+    add_packages("nlohmann_json")
+    add_files("tests/state_rules.cpp")
+    add_undefines("NDEBUG")
