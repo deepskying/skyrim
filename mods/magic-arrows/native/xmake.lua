@@ -17,6 +17,13 @@ target("MagicArrows")
     set_pcxxheader("src/pch.h")
     add_cxxflags("/utf-8")
 
+target("material-charge-test")
+    set_kind("binary")
+    set_default(false)
+    add_files("tests/material_charge_test.cpp")
+    add_includedirs("src")
+    add_cxxflags("/utf-8")
+
 target("crafting-plan-test")
     set_kind("binary")
     set_default(false)

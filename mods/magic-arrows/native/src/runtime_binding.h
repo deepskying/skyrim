@@ -155,8 +155,8 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& q){
     auto inv=p->GetInventory();std::vector<Stack> stock,ingredients;
     for(auto& [obj,v]:inv)if(obj&&v.second&&!v.second->IsQuestObject()&&!v.second->IsEnchanted())if(auto* a=obj->As<RE::TESAmmo>();Base(a))stock.push_back({a->GetFormID(),v.first,0});
     int f=Classify(s);std::unordered_set<RE::FormID> seen;
-    for(auto selected:q.materials){auto id=selected.id;if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");auto* i=RE::TESForm::LookupByID<RE::IngredientItem>(id);auto it=inv.find(i);
-        int units=crafting::Units(i,MaterialAV(f));if(units<=0||it==inv.end()||!it->second.second||it->second.second->IsQuestObject()||selected.count<1||it->second.first<selected.count)throw std::runtime_error("材料无适用的已发现功效或库存不足");ingredients.push_back({id,selected.count,units});}
+    for(auto selected:q.materials){auto id=selected.id;if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");auto* i=RE::TESForm::LookupByID<RE::TESBoundObject>(id);auto it=inv.find(i);
+        int units=crafting::Units(i,MaterialAV(f));if(units<=0||it==inv.end()||!it->second.second||it->second.second->IsQuestObject()||selected.count<1||it->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");ingredients.push_back({id,selected.count,units});}
     auto costs=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p));auto result=crafting::MakeChargedPlan(q.bases,stock,ingredients,crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),costs);
     auto* existing=Existing(s);int needed=existing?0:1;
     if(existing&&!arrow_identity::Fits(crafting::Count(p,existing->ammo),result.total))throw std::runtime_error("成品库存数量超限");

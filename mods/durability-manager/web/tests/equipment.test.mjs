@@ -31,5 +31,5 @@ test('panel sorts the merged list and continues to select by instance ID', () =>
   // Source-level guard for integration with inventory/repair deduplication.
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(app, /return equippedFirst\(\[\.\.\.state.equipped, \.\.\.state.repairQueue.filter/);
-  assert.match(app, /visibleEquipment.find\(\(item\) => item.id === selectedId\)/);
+  assert.match(app, /filteredEquipment.find\(\(item\) => item.id === selectedId\)/);
 });

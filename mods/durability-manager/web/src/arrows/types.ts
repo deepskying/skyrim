@@ -1,0 +1,18 @@
+export type Stack = { id: number; count: number };
+export type Adapter = { runtime?: boolean; family?: string; charge?: number; mana?: number; gold?: number; releaseMode?: string; castRoute?: string };
+export type Arrow = { id: number; name: string; count: number; damage: number; family: string; equipped?: boolean; usable?: boolean; bolt?: boolean; runtimeBase?: boolean; fireballBase?: boolean; spellBound?: boolean; adapter?: Adapter };
+export type Spell = { id: number; name: string; source: string; craftable: boolean; adapter?: Adapter; eligibility?: { status: string; reasons: string[] } };
+export type Material = { id: number; name: string; kind: string; count: number; units?: number; charges?: Record<string, number> };
+export type Recipe = { id: number; name: string; source: string; yield: number; craftable: boolean; reason?: string; maxBatches: number; ingredients: { name: string; need: number; have: number }[]; conditions?: { name: string; met: boolean; orNext?: boolean }[] };
+export type Selection = { spell: number; bases: Stack[]; materials: Stack[] };
+export type Quote = { token: number; runtime?: boolean; selection: Selection; total: number; gold: number; magicka: number; suppliedCharge: number; ingredients: { name: string; count: number }[]; outputs: { name: string; count: number }[]; bases: Stack[] };
+export type NormalQuote = { token: number; recipe: number; batches: number; total: number; name: string; ingredients: { name: string; count: number }[] };
+export type ArrowState = {
+  loaded: boolean; page?: string; mode?: string; message?: string;
+  arrows: Arrow[]; spells: Spell[]; materials: Material[]; recipes: Recipe[];
+  resources?: { gold: number; magicka: number }; alchemy?: number;
+  ammoQueue?: { available: boolean; enabled: boolean; ids: number[]; items?: Arrow[]; limit: number; finished?: boolean };
+  followers?: { available: boolean; consumeMagicArrows: boolean };
+  quote?: Quote | null; normalQuote?: NormalQuote | null;
+  workshopReply?: { type: string; requestID: number; ok: boolean; error?: string } | null;
+};

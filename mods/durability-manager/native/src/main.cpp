@@ -6,6 +6,11 @@
 #include "enchantment_ranking.h"
 #include "enchantment_cache.h"
 #include "forge_access.h"
+#include "dismantle_rules.h"
+#include "wear_rules.h"
+#ifdef UNIFIED_WORKSHOP
+#include "workshop_bridge.h"
+#endif
 
 #include <nlohmann/json.hpp>
 
@@ -24,6 +29,8 @@ namespace
     struct Settings
     {
         HotkeyConfig hotkey{};
+        HotkeyConfig dismantleHotkey{ 0x20, true, false, false }; // Shift+D
+        bool enableDismantleHotkey = true;
         std::uint32_t lowDurabilityThreshold = 30;
         float weaponDisplaySeconds = 3.0F;
         bool enableLowDurabilityWarning = true;
@@ -44,6 +51,11 @@ namespace
         float clothingHitWear = 1.25F;
         float shieldBlockWear = 1.0F;
         float incomingPowerAttackWearMultiplier = 1.5F;
+        float magicHitWearMultiplier = 1.0F;
+        float trapHitWearMultiplier = 1.0F;
+        float continuousHitIntervalSeconds = 1.0F;
+        float movementBootWearPer1000Units = 0.02F;
+        float movementBodyWearPer1000Units = 0.005F;
         float maxWearReduction = 0.70F;
     };
 
@@ -65,6 +77,7 @@ namespace
         g_enchantmentCache.Clear();
     }
     bool g_capturingHotkey = false;
+    bool g_capturingDismantleHotkey = false;
     bool g_panelVisible = false;
     bool g_hudVisible = false;
     std::uint32_t g_hudSequence = 0;
@@ -166,7 +179,11 @@ namespace
     constexpr std::uint32_t kDurabilityRecordVersion = 3;
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
-    constexpr std::string_view kPluginVersion = "0.1.42";
+#ifdef UNIFIED_WORKSHOP
+    constexpr std::string_view kPluginVersion = "1.2.0";
+#else
+    constexpr std::string_view kPluginVersion = "0.1.43";
+#endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)
     {
@@ -199,6 +216,7 @@ namespace
         if (key == "TAB") return 0x0F;
         if (key == "ENTER") return 0x1C;
         if (key == "SPACE") return 0x39;
+        if (key == "DELETE") return 0xD3;
         if (key.size() == 2 && key[0] == 'F' && key[1] >= '1' && key[1] <= '9') return 0x3A + (key[1] - '0');
         if (key == "F10") return 0x44;
         if (key == "F11") return 0x57;
@@ -222,8 +240,16 @@ namespace
         if (a_key == 0x0F) return "Tab";
         if (a_key == 0x1C) return "Enter";
         if (a_key == 0x39) return "Space";
+        if (a_key == 0xD3) return "Delete";
         return "Scan " + std::to_string(a_key);
     }
+
+    bool DismantleKeyAllowed(std::uint32_t key) {
+        const auto name = KeyName(key);
+        return (name.size() == 1 && name[0] >= 'A' && name[0] <= 'Z') || name == "Delete" ||
+            (key >= 0x3B && key <= 0x44) || key == 0x57 || key == 0x58;
+    }
+
 
     [[nodiscard]] std::filesystem::path ConfigPath()
     {
@@ -276,6 +302,11 @@ namespace
         configFile << "; Skyrim Durability Manager configuration. Changes made in the panel apply immediately.\n\n";
         configFile << "[Hotkey]\nKey=" << KeyName(g_settings.hotkey.keyCode) << "\nShift=" << (g_settings.hotkey.requireShift ? "true" : "false")
                    << "\nCtrl=" << (g_settings.hotkey.requireCtrl ? "true" : "false") << "\nAlt=" << (g_settings.hotkey.requireAlt ? "true" : "false");
+        configFile << "\n\n[DismantleHotkey]\nKey=" << KeyName(g_settings.dismantleHotkey.keyCode)
+                   << "\nShift=" << (g_settings.dismantleHotkey.requireShift ? "true" : "false")
+                   << "\nCtrl=" << (g_settings.dismantleHotkey.requireCtrl ? "true" : "false")
+                   << "\nAlt=" << (g_settings.dismantleHotkey.requireAlt ? "true" : "false")
+                   << "\nEnabled=" << (g_settings.enableDismantleHotkey ? "true" : "false");
         configFile << "\n\n[Display]\nLowDurabilityThreshold=" << g_settings.lowDurabilityThreshold
                    << "\nWeaponDisplaySeconds=" << g_settings.weaponDisplaySeconds
                    << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false")
@@ -296,6 +327,11 @@ namespace
                    << "\nClothingHitWear=" << g_settings.clothingHitWear
                    << "\nShieldBlockWear=" << g_settings.shieldBlockWear
                    << "\nIncomingPowerAttackWearMultiplier=" << g_settings.incomingPowerAttackWearMultiplier
+                   << "\nMagicHitWearMultiplier=" << g_settings.magicHitWearMultiplier
+                   << "\nTrapHitWearMultiplier=" << g_settings.trapHitWearMultiplier
+                   << "\nContinuousHitIntervalSeconds=" << g_settings.continuousHitIntervalSeconds
+                   << "\nMovementBootWearPer1000Units=" << g_settings.movementBootWearPer1000Units
+                   << "\nMovementBodyWearPer1000Units=" << g_settings.movementBodyWearPer1000Units
                    << "\nMaxWearReduction=" << g_settings.maxWearReduction << '\n';
     }
 
@@ -303,7 +339,7 @@ namespace
     {
         std::ifstream configFile(ConfigPath());
         if (!configFile) {
-            logger::warn("DurabilityManager.ini was not found; using Shift+F and a 30% warning threshold.");
+            logger::warn("DurabilityManager.ini was not found; using Shift+{} and a 30% warning threshold.", KeyName(g_settings.hotkey.keyCode));
             return;
         }
         std::string section;
@@ -320,7 +356,13 @@ namespace
             if (separator == std::string::npos) continue;
             const auto key = Normalize(line.substr(0, separator));
             const auto value = line.substr(separator + 1);
-            if (section == "[HOTKEY]") {
+            if (section == "[DISMANTLEHOTKEY]") {
+                if (key == "KEY") { if (const auto parsed = ParseKeyCode(value); parsed && DismantleKeyAllowed(*parsed)) g_settings.dismantleHotkey.keyCode = *parsed; }
+                else if (key == "SHIFT") g_settings.dismantleHotkey.requireShift = ParseBool(value, true);
+                else if (key == "CTRL") g_settings.dismantleHotkey.requireCtrl = ParseBool(value, false);
+                else if (key == "ALT") g_settings.dismantleHotkey.requireAlt = ParseBool(value, false);
+                else if (key == "ENABLED") g_settings.enableDismantleHotkey = ParseBool(value, true);
+            } else if (section == "[HOTKEY]") {
                 if (key == "KEY") {
                     if (const auto parsed = ParseKeyCode(value)) g_settings.hotkey.keyCode = *parsed;
                 } else if (key == "SHIFT") g_settings.hotkey.requireShift = ParseBool(value, g_settings.hotkey.requireShift);
@@ -355,6 +397,11 @@ namespace
                     else if (key == "SHIELDBLOCKWEAR") g_settings.shieldBlockWear = std::clamp(std::stof(value), 0.1F, 100.0F);
                     else if (key == "INCOMINGPOWERATTACKWEARMULTIPLIER") g_settings.incomingPowerAttackWearMultiplier = std::clamp(std::stof(value), 1.0F, 10.0F);
                     else if (key == "MAXWEARREDUCTION") g_settings.maxWearReduction = std::clamp(std::stof(value), 0.0F, 0.95F);
+                    else if (key == "MAGICHITWEARMULTIPLIER") g_settings.magicHitWearMultiplier = std::clamp(std::stof(value), 0.0F, 10.0F);
+                    else if (key == "TRAPHITWEARMULTIPLIER") g_settings.trapHitWearMultiplier = std::clamp(std::stof(value), 0.0F, 10.0F);
+                    else if (key == "CONTINUOUSHITINTERVALSECONDS") g_settings.continuousHitIntervalSeconds = std::clamp(std::stof(value), 0.1F, 10.0F);
+                    else if (key == "MOVEMENTBOOTWEARPER1000UNITS") g_settings.movementBootWearPer1000Units = std::clamp(std::stof(value), 0.0F, 10.0F);
+                    else if (key == "MOVEMENTBODYWEARPER1000UNITS") g_settings.movementBodyWearPer1000Units = std::clamp(std::stof(value), 0.0F, 10.0F);
                 } catch (const std::exception&) {
                     logger::warn("Ignoring invalid DurabilityManager.ini value for {}.", key);
                 }
@@ -568,7 +615,7 @@ namespace
         return name && name[0] ? name : DisplayName(a_item);
     }
 
-    void SendState(std::string_view a_message = {}, const json& a_refreshResult = nullptr);
+    void SendState(std::string_view a_message = {}, const json& a_refreshResult = nullptr, const json& a_dismantleResult = nullptr);
 
     struct ForgeContext
     {
@@ -2134,7 +2181,7 @@ namespace
 
     [[nodiscard]] std::string SalvageDescription(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
     {
-        std::string description = "已损毁并分解：";
+        std::string description = "已回收：";
         bool first = true;
         for (const auto& [material, count] : a_materials) {
             if (!first) description += "，";
@@ -2557,6 +2604,7 @@ namespace
             return;
         }
 
+        const auto brokenItemName = InstanceDisplayName(item, extraList);
         const auto questItem = extraList->HasQuestObjectAlias();
         const auto uniqueItem = IsProtectedUniqueItem(item);
         const auto preserveEnchanted = IsInstanceEnchanted(item, extraList) && !g_settings.allowEnchantedItemsToBreak;
@@ -2585,7 +2633,13 @@ namespace
                     g_lowDurabilityWarnings.erase(a_key);
                 }
                 ClearEnhancementDraft(a_key);
-                ShowHUD("warning", DisplayName(item), SalvageDescription(materials), g_settings.weaponDisplaySeconds);
+                const auto salvageMessage = SalvageDescription(materials);
+                const auto brokenMessage = "「" + brokenItemName + "」耐久耗尽，已损坏并分解。";
+                ShowHUD("warning", brokenMessage, salvageMessage, (std::max)(5.0F, g_settings.weaponDisplaySeconds));
+                if (item->As<RE::TESObjectWEAP>()) {
+                    const auto notification = brokenMessage + salvageMessage;
+                    RE::DebugNotification(notification.c_str());
+                }
                 logger::info("Destroyed and salvaged item {:08X}:{:04X} into {} material types.", a_key.baseFormID, a_key.uniqueID, materials.size());
             }
         }
@@ -2674,9 +2728,10 @@ namespace
         const ItemKey& a_key,
         const float a_baseWear,
         const float a_actionMultiplier,
-        const std::string_view a_action)
+        const std::string_view a_action,
+        const float a_minimumWear = 0.1F)
     {
-        if (!a_item || a_baseWear <= 0.0F) return;
+        if (!a_item || !std::isfinite(a_baseWear) || !std::isfinite(a_actionMultiplier) || a_baseWear <= 0.0F || a_actionMultiplier <= 0.0F) return;
         DurabilitySnapshot durability;
         float appliedWear = 0.0F;
         {
@@ -2686,7 +2741,7 @@ namespace
             stored.current = std::clamp(stored.current, 0.0F, stored.maximum);
             if (stored.current <= 0.0F) return;
             const auto reduction = std::clamp(stored.wearReduction, 0.0F, g_settings.maxWearReduction);
-            appliedWear = (std::max)(0.1F, a_baseWear * a_actionMultiplier * (1.0F - reduction));
+            appliedWear = wear_rules::Amount(a_baseWear,a_actionMultiplier,reduction,a_minimumWear);
             stored.current = (std::max)(0.0F, stored.current - appliedWear);
             durability = stored;
         }
@@ -2761,19 +2816,75 @@ namespace
         return result;
     }
 
+    wear_rules::Travel g_movementTravel;
+    wear_rules::ImpactThrottle g_impactThrottle;
+    bool g_environmentWearReady = false;
+
+    double WearClockSeconds() {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
+
+    void ResetEnvironmentWear() {
+        g_movementTravel.Reset();
+        g_impactThrottle.Reset();
+    }
+
+    void ApplyMovementWear() {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* cell = player ? player->GetParentCell() : nullptr;
+        auto* ui = RE::UI::GetSingleton();
+        const bool walking = g_environmentWearReady && player && cell && !player->IsDead() && ui && !ui->GameIsPaused() &&
+            !player->IsOnMount() && !player->AsActorState()->IsSwimming() && !player->IsInMidair() && !player->AsActorState()->IsFlying() && !player->AsActorState()->IsSitting();
+        if (!walking) { g_movementTravel.Reset(); return; }
+        const auto position = player->GetPosition();
+        const auto units = g_movementTravel.Sample({position.x,position.y,position.z},cell->GetFormID(),WearClockSeconds(),true);
+        if (units <= 0) return;
+        using Slot = RE::BIPED_MODEL::BipedObjectSlot;
+        for (const auto& worn : CollectWornArmorInstances()) {
+            if (!worn.armor || worn.armor->IsShield()) continue;
+            const auto slots = std::to_underlying(worn.armor->GetSlotMask());
+            const bool boots = (slots & (std::to_underlying(Slot::kFeet)|std::to_underlying(Slot::kCalves))) != 0;
+            const bool body = (slots & std::to_underlying(Slot::kBody)) != 0;
+            if (boots || body) ApplyEquipmentWear(worn.armor,worn.key,
+                boots ? g_settings.movementBootWearPer1000Units : g_settings.movementBodyWearPer1000Units,
+                units,"Movement distance",0.0F);
+        }
+    }
+
     void ApplyIncomingArmorWear(const RE::TESHitEvent& a_event)
     {
         auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!player || a_event.target.get() != player || a_event.cause.get() == player) return;
+        if (!g_environmentWearReady || !player || player->IsDead() || a_event.target.get() != player || a_event.cause.get() == player) return;
 
         const auto* source = a_event.source != 0 ? RE::TESForm::LookupByID(a_event.source) : nullptr;
         const auto* sourceWeapon = source ? source->As<RE::TESObjectWEAP>() : nullptr;
-        if (a_event.source != 0 && (!sourceWeapon || sourceWeapon->IsStaff())) return;
+        const RE::MagicItem* magic = nullptr;
+        if (source) {
+            if (auto* spell = source->As<RE::SpellItem>()) magic = spell;
+            else if (auto* scroll = source->As<RE::ScrollItem>()) magic = scroll;
+            else if (auto* enchantment = source->As<RE::EnchantmentItem>()) magic = enchantment;
+            else if (sourceWeapon && sourceWeapon->IsStaff()) magic = sourceWeapon->formEnchanting;
+        }
+        const bool harmful = magic && (magic->IsHostile() || std::any_of(magic->effects.begin(),magic->effects.end(),[](const auto* effect){
+            return effect && effect->baseEffect && effect->baseEffect->IsDetrimental();
+        }));
+        const auto* cause = a_event.cause.get();
+        const bool trap = (!cause && a_event.source==0) || (cause && !cause->As<RE::Actor>()) || (source &&
+            (source->GetFormType()==RE::FormType::Explosion || source->GetFormType()==RE::FormType::Hazard || source->GetFormType()==RE::FormType::Projectile || source->GetFormType()==RE::FormType::Activator));
+        const auto impact = wear_rules::Classify(false,magic!=nullptr,harmful,sourceWeapon && !sourceWeapon->IsStaff(),trap,a_event.source==0);
+        if (impact == wear_rules::Impact::ignore) return;
+        const auto environmentalMultiplier = impact==wear_rules::Impact::magic ? g_settings.magicHitWearMultiplier :
+            impact==wear_rules::Impact::trap ? g_settings.trapHitWearMultiplier : 1.0F;
+        if (environmentalMultiplier<=0) return;
+        if (impact!=wear_rules::Impact::physical) {
+            const auto key = (static_cast<std::uint64_t>(cause ? cause->GetFormID() : 0)<<32U)|a_event.source;
+            if (!g_impactThrottle.Accept(key,WearClockSeconds(),g_settings.continuousHitIntervalSeconds)) return;
+        }
 
         auto wornArmor = CollectWornArmorInstances();
         if (wornArmor.empty()) return;
         WornArmorInstance* selected = nullptr;
-        const auto blocked = a_event.flags.any(RE::TESHitEvent::Flag::kHitBlocked);
+        const auto blocked = !magic && a_event.flags.any(RE::TESHitEvent::Flag::kHitBlocked);
         if (blocked) {
             const auto shield = std::find_if(wornArmor.begin(), wornArmor.end(), [](const auto& a_candidate) {
                 return a_candidate.armor && a_candidate.armor->IsShield();
@@ -2800,11 +2911,12 @@ namespace
             selected->armor,
             selected->key,
             BaseArmorWear(selected->armor),
-            multiplier,
+            multiplier * environmentalMultiplier,
+            impact==wear_rules::Impact::magic ? "Incoming magic hit" : impact==wear_rules::Impact::trap ? "Incoming trap hit" :
             blocked ? "Blocked physical hit" : "Incoming physical hit");
     }
 
-    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>, public RE::BSTEventSink<SKSE::ActionEvent>
+    class EquipmentEventSink final : public RE::BSTEventSink<RE::TESEquipEvent>, public RE::BSTEventSink<RE::BSAnimationGraphEvent>, public RE::BSTEventSink<RE::TESHitEvent>, public RE::BSTEventSink<RE::TESPlayerBowShotEvent>, public RE::BSTEventSink<RE::TESContainerChangedEvent>, public RE::BSTEventSink<SKSE::ActionEvent>, public RE::BSTEventSink<RE::BGSFootstepEvent>
     {
     public:
         static EquipmentEventSink* GetSingleton()
@@ -2821,6 +2933,7 @@ namespace
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESPlayerBowShotEvent>(this);
             if (auto* source = RE::ScriptEventSourceHolder::GetSingleton()) source->AddEventSink<RE::TESContainerChangedEvent>(this);
             if (auto* source = SKSE::GetActionEventSource()) source->AddEventSink(this);
+            if (auto* source = RE::BGSFootstepManager::GetSingleton()) source->AddEventSink(this);
             if (const auto* player = RE::PlayerCharacter::GetSingleton()) player->AddAnimationGraphEventSink(this);
             registered_ = true;
         }
@@ -2829,6 +2942,7 @@ namespace
         {
             auto* player = RE::PlayerCharacter::GetSingleton();
             if (!a_event || !player || a_event->actor.get() != player) return RE::BSEventNotifyControl::kContinue;
+            if (RE::TESForm::LookupByID<RE::TESObjectARMO>(a_event->baseObject)) g_movementTravel.Reset();
             QueuePlayerRuntimeEffectsSync();
             if (!a_event->equipped) return RE::BSEventNotifyControl::kContinue;
             const auto* weapon = RE::TESForm::LookupByID<RE::TESObjectWEAP>(a_event->baseObject);
@@ -2944,6 +3058,18 @@ namespace
             return RE::BSEventNotifyControl::kContinue;
         }
 
+        RE::BSEventNotifyControl ProcessEvent(const RE::BGSFootstepEvent* event, RE::BSTEventSource<RE::BGSFootstepEvent>*) override {
+            auto* player = RE::PlayerCharacter::GetSingleton();
+            if (!event || !player || event->actor.get().get()!=player) return RE::BSEventNotifyControl::kContinue;
+            std::uint64_t epoch;
+            { std::scoped_lock lock(g_durabilityLock); epoch=g_stateEpoch; }
+            if (auto* tasks=SKSE::GetTaskInterface()) tasks->AddTask([epoch]{
+                { std::scoped_lock lock(g_durabilityLock); if (epoch!=g_stateEpoch) return; }
+                ApplyMovementWear();
+            });
+            return RE::BSEventNotifyControl::kContinue;
+        }
+
     private:
         bool registered_ = false;
     };
@@ -3020,6 +3146,142 @@ namespace
         return rows;
     }
 
+    json g_dismantleQuote = nullptr;
+    std::uint64_t g_dismantleSequence = 0;
+    std::uint64_t g_shortcutSequence = 0;
+    std::string g_pendingDismantleShortcut;
+    std::string g_pendingDismantleItem;
+
+    bool SameHotkey(const HotkeyConfig& a, const HotkeyConfig& b) {
+        return a.keyCode == b.keyCode && a.requireShift == b.requireShift && a.requireCtrl == b.requireCtrl && a.requireAlt == b.requireAlt;
+    }
+
+    bool DismantleShortcut(std::uint32_t key, bool shift, bool ctrl, bool alt) {
+        if (g_panelVisible && g_prisma && g_view && g_prisma->HasFocus(g_view) && !shift && !ctrl && !alt && (key == 0xC8 || key == 0xD0)) {
+            g_prisma->Invoke(g_view, key == 0xC8 ? "window.DurabilityManager?.navigateEquipment(-1);" : "window.DurabilityManager?.navigateEquipment(1);");
+            return true;
+        }
+        if (!g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view) || !g_settings.enableDismantleHotkey ||
+            !SameHotkey({key, shift, ctrl, alt}, g_settings.dismantleHotkey) || SameHotkey(g_settings.hotkey, g_settings.dismantleHotkey)) return false;
+        std::optional<ItemKey> selected;
+        { std::scoped_lock lock(g_forgeLock); selected = g_forgeSelectedItem; }
+        if (!selected) return true;
+        g_pendingDismantleShortcut = std::to_string(++g_shortcutSequence);
+        g_pendingDismantleItem = std::to_string(selected->baseFormID) + ":" + std::to_string(selected->uniqueID);
+        // The focused view decides whether its recycling page is active and no
+        // text/control editor has focus. Only native IsDown events reach here.
+        const auto script = "window.DurabilityManager?.directDismantle(" + json{{"sequence", g_pendingDismantleShortcut}, {"id", g_pendingDismantleItem}}.dump() + ");";
+        g_prisma->Invoke(g_view, script.c_str());
+        return true;
+    }
+
+    [[nodiscard]] std::map<RE::TESBoundObject*, std::int32_t> DismantleMaterials(RE::TESBoundObject* item)
+    {
+        std::map<RE::TESBoundObject*, std::int32_t> materials;
+        const RE::BGSConstructibleObject* recipe = nullptr;
+        if (auto* data = RE::TESDataHandler::GetSingleton()) for (const auto* candidate : data->GetFormArray<RE::BGSConstructibleObject>()) {
+            if (!candidate || candidate->IsDeleted() || candidate->createdItem != item || IsTemperingBench(candidate->benchKeyword) || !candidate->data.numConstructed) continue;
+            if (!recipe || candidate->requiredItems.numContainerObjects > recipe->requiredItems.numContainerObjects) recipe = candidate;
+        }
+        if (recipe) recipe->requiredItems.ForEachContainerObject([&](RE::ContainerObject& ingredient) {
+            const auto amount = dismantle_rules::MaterialYield(ingredient.count, recipe->data.numConstructed);
+            if (ingredient.obj && amount > 0) {
+                const auto total = static_cast<std::int64_t>(materials[ingredient.obj]) + amount;
+                materials[ingredient.obj] = static_cast<std::int32_t>((std::min)(total, static_cast<std::int64_t>(INT32_MAX)));
+            }
+            return RE::BSContainer::ForEachResult::kContinue;
+        });
+        // Recycling yields materials, not equipment, currency or the item itself.
+        std::erase_if(materials, [item](const auto& row) {
+            return row.first == item || row.first->GetFormID() == 0xFU ||
+                row.first->As<RE::TESObjectWEAP>() || row.first->As<RE::TESObjectARMO>();
+        });
+        if (materials.empty() && !recipe) {
+            const auto* armor = item ? item->As<RE::TESObjectARMO>() : nullptr;
+            if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(armor && armor->IsClothing() ? "LeatherStrips" : "IngotIron")) materials[material] = 1;
+        }
+        return materials;
+    }
+
+    [[nodiscard]] std::string DismantleBlocked(const ItemKey& key)
+    {
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* item = RE::TESForm::LookupByID<RE::TESBoundObject>(key.baseFormID);
+        if (!player || !item || (!item->As<RE::TESObjectWEAP>() && !item->As<RE::TESObjectARMO>())) return "装备已不在背包中";
+        if (const auto* weapon = item->As<RE::TESObjectWEAP>(); weapon && weapon->IsBound()) return "召唤武器不可分解";
+        const auto inventory = player->GetInventory();
+        const auto found = inventory.find(item);
+        if (found == inventory.end() || found->second.first <= 0 || !found->second.second) return "装备已不在背包中";
+        const auto* entry = found->second.second.get();
+        if (entry->IsQuestObject() || IsProtectedUniqueItem(item)) return "任务或唯一装备不可分解";
+        if (key.uniqueID == 0) {
+            if (entry->extraLists) for (auto* extra : *entry->extraLists) if (extra) return "同名装备包含独立实例，请先装备再卸下要分解的那一件";
+        } else {
+            auto* extra = FindExtraListByKey(entry, key);
+            if (!extra) return "装备实例已变化，请重新选择";
+            if (extra->HasQuestObjectAlias()) return "任务装备不可分解";
+            if (extra->GetCount() != 1) return "请先拆分这组装备再分解";
+        }
+        return {};
+    }
+
+    void QuoteDismantle(std::string_view id, bool publish = true)
+    {
+        g_dismantleQuote = nullptr;
+        const auto key = ParseItemKey(id);
+        if (!GetForgeContext().active || !key) { SendState("请靠近锻造设施后选择装备。"); return; }
+        const auto reason = DismantleBlocked(*key);
+        if (!reason.empty()) { SendState(reason); return; }
+        const auto instance = ResolveEquipmentInstance(*key);
+        if (!instance) { SendState("装备实例已变化，请重新选择。"); return; }
+        const auto materials = DismantleMaterials(instance->item);
+        if (materials.empty()) { SendState("没有可回收的材料。"); return; }
+        g_dismantleQuote = {{"token", std::to_string(++g_dismantleSequence)}, {"id", id},
+            {"name", InstanceDisplayName(instance->item, instance->extraList)},
+            {"equipped", instance->extraList && instance->extraList->GetWorn()},
+            {"materials", RepairMaterialsJson(materials)}};
+        if (publish) SendState();
+    }
+
+    void CommitDismantle(const std::string& token)
+    {
+        if (!g_panelVisible || g_dismantleQuote.is_null() || token != g_dismantleQuote.value("token", "")) return;
+        const auto quote = std::exchange(g_dismantleQuote, nullptr); // one-use even if rejected
+        const auto key = ParseItemKey(quote.value("id", ""));
+        if (!GetForgeContext().active || !key) { SendState("分解取消：已离开锻造设施。"); return; }
+        const auto reason = DismantleBlocked(*key);
+        if (!reason.empty()) { SendState(reason); return; }
+        auto instance = ResolveEquipmentInstance(*key);
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!instance || !player) { SendState("装备实例已变化，请重新选择。"); return; }
+        const auto materials = DismantleMaterials(instance->item);
+        if (quote["materials"] != RepairMaterialsJson(materials) ||
+            quote["equipped"] != bool(instance->extraList && instance->extraList->GetWorn())) {
+            SendState("装备或回收清单已变化，请重新预览。"); return;
+        }
+        WorkshopEquipmentRestore equipment(*key);
+        if (key->uniqueID != 0 && !equipment.Prepare()) { SendState("无法安全卸下这件装备，未执行分解。"); return; }
+        instance = ResolveEquipmentInstance(*key);
+        if (!instance || !GetForgeContext().active || !DismantleBlocked(*key).empty()) { SendState("装备状态已变化，未执行分解。"); return; }
+        const auto countBefore = player->GetItemCount(instance->item);
+        player->RemoveItem(instance->item, 1, RE::ITEM_REMOVE_REASON::kRemove, instance->extraList, nullptr);
+        if (player->GetItemCount(instance->item) != countBefore - 1 ||
+            (key->uniqueID != 0 && IsUniqueIDInPlayerInventory(key->baseFormID, key->uniqueID))) {
+            SendState("装备移除未能确认，没有发放回收材料。"); return;
+        }
+        equipment.LeaveUnequipped();
+        for (const auto& [material, count] : materials) player->AddObjectToContainer(material, nullptr, count, nullptr);
+        {
+            std::scoped_lock lock(g_durabilityLock);
+            g_durability.erase(*key); g_lowDurabilityWarnings.erase(*key);
+            g_pendingBreaks.erase(*key); g_weaponNotificationTimes.erase(*key);
+        }
+        ClearEnhancementDraft(*key);
+        QueuePlayerRuntimeEffectsSync();
+        PlayWorkshopSound("UIEnchantingItemCreate");
+        SendState("已分解 1 件「" + quote.value("name", "装备") + "」。" + SalvageDescription(materials), nullptr, {{"token", token}, {"id", quote.value("id", "")}});
+    }
+
     [[nodiscard]] json BuildEquipmentItem(
         RE::TESBoundObject* a_item,
         RE::ExtraDataList* a_extraList,
@@ -3061,7 +3323,7 @@ namespace
             { "armor", armor ? static_cast<std::int64_t>(const_cast<RE::TESObjectARMO*>(armor)->GetArmorRating()) + a_durability.performanceBonus : 0 },
             { "weight", (std::max)(0.1F, EquipmentWeight(a_item) - a_durability.weightReduction) },
             { "attackSpeed", weapon ? (std::min)(weapon->GetSpeed() * 2.0F, weapon->GetSpeed() * (1.0F + a_durability.attackSpeedBonus)) : 0.0F },
-            { "wearRateLabel", isStaff ? "每次法杖释放" : isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : armor && armor->IsShield() ? "每次盾牌格挡" : armor ? "每次被物理命中并抽中部位" : "尚未启用" },
+            { "wearRateLabel", isStaff ? "每次法杖释放" : isRangedWeapon ? "每次成功射击" : isMeleeWeapon ? "每次普通命中" : armor && armor->IsShield() ? "每次盾牌格挡" : armor ? "每次基础受击并抽中部位" : "尚未启用" },
             { "wearReduction", effectiveWearReduction },
             { "enchantment", enchantment },
             { "enchanted", IsInstanceEnchanted(a_item, a_extraList) },
@@ -3070,10 +3332,20 @@ namespace
             { "unique", uniqueItem },
             { "broken", broken },
             { "repairable", repairable },
+            { "dismantleBlocked", questItem || uniqueItem ? "任务或唯一装备不可分解" :
+                a_extraList && a_extraList->GetCount() != 1 ? "请先拆分这组装备再分解" :
+                weapon && weapon->IsBound() ? "召唤武器不可分解" : "" },
             { "repairMaterials", RepairMaterialsJson(repairMaterials) }
         };
         if (isStaff || isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
         else if (armor) equipmentItem["wearRate"] = effectiveArmorWear;
+        if (armor && !armor->IsShield()) {
+            using Slot=RE::BIPED_MODEL::BipedObjectSlot;
+            const auto slots=std::to_underlying(armor->GetSlotMask());
+            const bool boots=(slots&(std::to_underlying(Slot::kFeet)|std::to_underlying(Slot::kCalves)))!=0;
+            const bool body=(slots&std::to_underlying(Slot::kBody))!=0;
+            if (boots||body) equipmentItem["movementWearRate"]=(boots?g_settings.movementBootWearPer1000Units:g_settings.movementBodyWearPer1000Units)*(1.0F-effectiveWearReduction);
+        }
         if (chargeCapacity) {
             const auto* extraCharge = a_extraList ? a_extraList->GetByType<RE::ExtraCharge>() : nullptr;
             const auto currentCharge = extraCharge && std::isfinite(extraCharge->charge) ?
@@ -3134,6 +3406,10 @@ namespace
         auto* player = RE::PlayerCharacter::GetSingleton();
         return {
             { "version", kPluginVersion },
+            { "dismantleQuote", g_dismantleQuote },
+#ifdef UNIFIED_WORKSHOP
+            { "unified", true },
+#endif
             { "equipped", CollectInventoryEquipment() },
             { "repairQueue", CollectRepairQueue() },
             { "forge", {
@@ -3145,6 +3421,7 @@ namespace
                 { "cards", forge.active ? EnhancementCardsJson() : json::array() }
             } },
             { "settings", {
+                { "dismantleHotkey", {{"key", KeyName(g_settings.dismantleHotkey.keyCode)}, {"keyCode", g_settings.dismantleHotkey.keyCode}, {"shift", g_settings.dismantleHotkey.requireShift}, {"ctrl", g_settings.dismantleHotkey.requireCtrl}, {"alt", g_settings.dismantleHotkey.requireAlt}, {"enabled", g_settings.enableDismantleHotkey}} },
                 { "hotkey", { { "key", KeyName(g_settings.hotkey.keyCode) }, { "keyCode", g_settings.hotkey.keyCode }, { "shift", g_settings.hotkey.requireShift }, { "ctrl", g_settings.hotkey.requireCtrl }, { "alt", g_settings.hotkey.requireAlt } } },
                 { "lowDurabilityThreshold", g_settings.lowDurabilityThreshold },
                 { "weaponDisplaySeconds", g_settings.weaponDisplaySeconds },
@@ -3153,15 +3430,17 @@ namespace
                 { "allowEnchantedItemsToBreak", g_settings.allowEnchantedItemsToBreak }
             } },
             { "capturingHotkey", g_capturingHotkey },
+            { "capturingDismantleHotkey", g_capturingDismantleHotkey },
             { "message", a_message }
         };
     }
 
-    void SendState(std::string_view a_message, const json& a_refreshResult)
+    void SendState(std::string_view a_message, const json& a_refreshResult, const json& a_dismantleResult)
     {
         if (!g_prisma || !g_view) return;
         auto state = CollectState(a_message);
         if (!a_refreshResult.is_null()) state["refreshResult"] = a_refreshResult;
+        if (!a_dismantleResult.is_null()) state["dismantleResult"] = a_dismantleResult;
         const auto script = "window.DurabilityManager && window.DurabilityManager.receiveState(" + state.dump() + ");";
         g_prisma->Invoke(g_view, script.c_str());
     }
@@ -3169,7 +3448,13 @@ namespace
     void ClosePanel()
     {
         if (!g_prisma || !g_view) return;
+        g_pendingDismantleShortcut.clear();
+        g_capturingHotkey = g_capturingDismantleHotkey = false;
+        g_dismantleQuote = nullptr;
         g_panelVisible = false;
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::SetArrowsVisible(false);
+#endif
         g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(false);");
         g_prisma->Unfocus(g_view);
         UpdateViewVisibility();
@@ -3181,6 +3466,9 @@ namespace
     // notification can leave Prisma's render and focus states out of sync.
     void ResetViewForLoad()
     {
+        g_pendingDismantleShortcut.clear();
+        g_capturingHotkey = g_capturingDismantleHotkey = false;
+        g_dismantleQuote = nullptr;
         ClearEnchantmentCache("load/new-game transition");
         g_panelVisible = false;
         g_hudVisible = false;
@@ -3198,7 +3486,7 @@ namespace
     [[nodiscard]] bool CloseFocusedPanel()
     {
         if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
-        ClosePanel();
+        g_prisma->Invoke(g_view, "window.DurabilityManager?.escape();");
         return true;
     }
 
@@ -3210,34 +3498,49 @@ namespace
             return;
         }
         // A death reload can leave Prisma's focus flag alive after our local
+        if (g_prisma->HasAnyActiveFocus() && !g_prisma->HasFocus(g_view)) return;
         // panel state was reset. Normalize it here, safely outside load events.
         if (g_prisma->HasFocus(g_view)) g_prisma->Unfocus(g_view);
         g_panelVisible = true;
         g_prisma->Show(g_view);
         g_prisma->Invoke(g_view, "window.DurabilityManager && window.DurabilityManager.setPanelVisible(true);");
-        g_prisma->Focus(g_view, true);
+        if (!g_prisma->Focus(g_view, true)) {
+            g_panelVisible = false;
+            g_prisma->Invoke(g_view, "window.DurabilityManager?.setPanelVisible(false);");
+            UpdateViewVisibility();
+            logger::warn("Equipment workshop focus request rejected.");
+            return;
+        }
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::SetArrowsVisible(true);
+#endif
         SendState();
         logger::info("Durability Manager panel opened through the restored direct Prisma lifecycle.");
     }
 
     [[nodiscard]] bool CaptureHotkey(const std::uint32_t a_key, const bool a_shift, const bool a_ctrl, const bool a_alt)
     {
-        if (!g_capturingHotkey || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
-        const auto keyName = KeyName(a_key);
-        if (keyName.starts_with("Scan ") || a_key == 0x01) {
-            g_capturingHotkey = false;
-            SendState("请选择字母、F 键、Tab、Enter 或 Space。\n");
-            return true;
+        if ((!g_capturingHotkey && !g_capturingDismantleHotkey) || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
+        if (a_key == 0x01) {
+            g_capturingHotkey = g_capturingDismantleHotkey = false;
+            SendState("已取消快捷键修改。"); return true;
         }
-        g_settings.hotkey = { a_key, a_shift, a_ctrl, a_alt };
-        InputHandler::GetSingleton()->SetHotkey(g_settings.hotkey);
-        WriteConfig();
-        g_capturingHotkey = false;
-        SendState("快捷键已更新并保存。");
-        return true;
+        const auto name = KeyName(a_key);
+        if (name.starts_with("Scan ") || (g_capturingDismantleHotkey && !DismantleKeyAllowed(a_key))) {
+            SendState("请选择字母、F1–F12 或 Delete，可搭配 Shift / Ctrl / Alt。"); return true;
+        }
+        const HotkeyConfig binding{a_key, a_shift, a_ctrl, a_alt};
+        if (SameHotkey(binding, g_capturingDismantleHotkey ? g_settings.hotkey : g_settings.dismantleHotkey)) {
+            SendState("面板和分解不能使用同一组合键，请重新按键。"); return true;
+        }
+        if (g_capturingDismantleHotkey) g_settings.dismantleHotkey = binding;
+        else { g_settings.hotkey = binding; InputHandler::GetSingleton()->SetHotkey(binding); }
+        g_pendingDismantleShortcut.clear();
+        g_capturingHotkey = g_capturingDismantleHotkey = false;
+        WriteConfig(); SendState("快捷键已更新并保存。"); return true;
     }
 
-    void HandleUIAction(const char* a_data)
+    void HandleUIActionOnGameThread(const char* a_data)
     {
         try {
             const auto request = json::parse(a_data ? a_data : "{}");
@@ -3247,11 +3550,43 @@ namespace
                 return;
             }
             if (type == "close") ClosePanel();
-            else if (type == "beginHotkeyCapture") {
-                g_capturingHotkey = true;
+            else if (type == "directDismantle") {
+                const auto sequence = std::exchange(g_pendingDismantleShortcut, "");
+                if (!g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view) || !g_settings.enableDismantleHotkey || sequence.empty() ||
+                    request.value("sequence", "") != sequence || request.value("id", "") != g_pendingDismantleItem) { SendState("快捷分解已失效，请重新选择装备后按键。"); return; }
+                QuoteDismantle(g_pendingDismantleItem, false);
+                if (!g_dismantleQuote.is_null()) CommitDismantle(g_dismantleQuote.value("token", ""));
+            }
+            else if (type == "saveDismantleHotkey" && g_panelVisible) {
+                const auto name = Normalize(request.value("key", "D"));
+                const auto key = ParseKeyCode(name);
+                if (!key || !DismantleKeyAllowed(*key)) { SendState("请选择字母或 Delete。"); return; }
+                const HotkeyConfig binding{*key, request.value("shift", false), request.value("ctrl", false), request.value("alt", false)};
+                if (request.value("enabled", true) && SameHotkey(binding, g_settings.hotkey)) { SendState("不能与打开工坊的快捷键相同。"); return; }
+                g_settings.dismantleHotkey = binding;
+                g_settings.enableDismantleHotkey = request.value("enabled", true);
+                g_pendingDismantleShortcut.clear(); WriteConfig(); SendState("直接分解快捷键已保存。");
+            }
+            else if (type == "setDismantleHotkeyEnabled" && g_panelVisible) {
+                if (request.value("enabled", true) && SameHotkey(g_settings.dismantleHotkey, g_settings.hotkey)) { SendState("请先在设置中更换分解快捷键，当前与面板快捷键冲突。"); return; }
+                g_settings.enableDismantleHotkey = request.value("enabled", true);
+                g_pendingDismantleShortcut.clear(); WriteConfig(); SendState("快捷分解开关已保存。");
+            }
+            else if (type == "quoteDismantle" && g_panelVisible) QuoteDismantle(request.value("id", ""));
+            else if (type == "dismantle") CommitDismantle(request.value("token", ""));
+            else if (type == "cancelDismantle") { g_dismantleQuote = nullptr; SendState(); }
+#ifdef UNIFIED_WORKSHOP
+            else if (type == "arrows" && g_panelVisible && request.contains("action") && request["action"].is_object()) {
+                const auto action = request["action"].dump();
+                unified_workshop::ArrowAction(action.c_str());
+            }
+#endif
+            else if ((type == "beginHotkeyCapture" || type == "beginDismantleHotkeyCapture") && g_panelVisible) {
+                g_capturingHotkey = type == "beginHotkeyCapture";
+                g_capturingDismantleHotkey = type == "beginDismantleHotkeyCapture";
                 SendState("请按下新的快捷键组合。");
             } else if (type == "cancelHotkeyCapture") {
-                g_capturingHotkey = false;
+                g_capturingHotkey = g_capturingDismantleHotkey = false;
                 SendState("已取消快捷键修改。");
             } else if (type == "saveSettings") {
                 g_settings.lowDurabilityThreshold = std::clamp(request.value("lowDurabilityThreshold", g_settings.lowDurabilityThreshold), 1U, 99U);
@@ -3288,6 +3623,18 @@ namespace
         }
     }
 
+    void HandleUIAction(const char* data)
+    {
+        const std::string copy = data ? data : "{}";
+        if (copy.size() > 65536) return;
+        std::uint64_t epoch;
+        { std::scoped_lock lock(g_durabilityLock); epoch = g_stateEpoch; }
+        if (auto* tasks = SKSE::GetTaskInterface()) tasks->AddTask([copy, epoch] {
+            { std::scoped_lock lock(g_durabilityLock); if (epoch != g_stateEpoch) return; }
+            HandleUIActionOnGameThread(copy.c_str());
+        });
+    }
+
     [[nodiscard]] bool WritePersistedString(
         SKSE::SerializationInterface* a_serialization,
         const std::string& a_value)
@@ -3315,6 +3662,9 @@ namespace
     void SaveState(SKSE::SerializationInterface* a_serialization)
     {
         if (!a_serialization) return;
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::SaveArrows(a_serialization);
+#endif
         std::vector<std::pair<ItemKey, DurabilitySnapshot>> saved;
         {
             std::scoped_lock lock(g_durabilityLock);
@@ -3358,11 +3708,17 @@ namespace
     void LoadState(SKSE::SerializationInterface* a_serialization)
     {
         if (!a_serialization) return;
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::BeginLoadArrows(a_serialization);
+#endif
         std::unordered_map<ItemKey, DurabilitySnapshot, ItemKeyHash> restored;
         std::uint32_t type = 0;
         std::uint32_t version = 0;
         std::uint32_t length = 0;
         while (a_serialization->GetNextRecordInfo(type, version, length)) {
+#ifdef UNIFIED_WORKSHOP
+            if (unified_workshop::LoadArrowRecord(a_serialization, type, version, length)) continue;
+#endif
             if (type != kDurabilityRecordType ||
                 (version != 1 && version != 2 && version != kDurabilityRecordVersion)) {
                 std::vector<std::byte> ignored(length);
@@ -3464,6 +3820,9 @@ namespace
 
     void RevertState(SKSE::SerializationInterface*)
     {
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::RevertArrows(nullptr);
+#endif
         ClearEnchantmentCache("serialization revert");
         {
             std::scoped_lock lock(g_forgeLock);
@@ -3488,14 +3847,21 @@ namespace
 
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::ArrowMessage(a_message);
+#endif
         g_panelPower.OnMessage(a_message);
         if (a_message->type == SKSE::MessagingInterface::kPreLoadGame) {
+            g_environmentWearReady = false;
+            ResetEnvironmentWear();
             ResetViewForLoad();
             PreparePlayerRuntimeEffectsForStateChange();
             logger::info("Durability Manager reset local panel state before loading a save.");
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kPostLoadGame) {
+            ResetEnvironmentWear();
+            g_environmentWearReady = a_message->data != nullptr;
             ResetViewForLoad();
             SyncAllRuntimeEffects();
             QueuePlayerRuntimeEffectsSync();
@@ -3504,6 +3870,8 @@ namespace
             return;
         }
         if (a_message->type == SKSE::MessagingInterface::kNewGame) {
+            ResetEnvironmentWear();
+            g_environmentWearReady = true;
             ResetViewForLoad();
             PreparePlayerRuntimeEffectsForStateChange();
             QueuePlayerRuntimeEffectsSync();
@@ -3522,6 +3890,9 @@ namespace
             return;
         }
         g_prisma->RegisterJSListener(g_view, "durabilityManagerAction", HandleUIAction);
+#ifdef UNIFIED_WORKSHOP
+        unified_workshop::AttachArrows(g_view);
+#endif
         g_prisma->Hide(g_view);
         LoadConfig();
         LoadEnhancementRules();
@@ -3531,11 +3902,21 @@ namespace
         input->SetToggleCallback(TogglePanel);
         input->SetEscapeCallback(CloseFocusedPanel);
         input->SetCaptureCallback(CaptureHotkey);
+        input->SetActionCallback(DismantleShortcut);
         input->RegisterSink();
         EquipmentEventSink::GetSingleton()->Register();
         logger::info("Durability Manager loaded with the restored direct Prisma lifecycle.");
     }
 }
+
+#ifdef UNIFIED_WORKSHOP
+void unified_workshop::OpenArrowSection() {
+    if (!g_prisma || !g_view) return;
+    if (!g_panelVisible) TogglePanel();
+    if (g_panelVisible && g_prisma->HasFocus(g_view)) g_prisma->Invoke(g_view, "window.DurabilityManager?.openArrows();");
+}
+void unified_workshop::CloseEquipment() { ClosePanel(); }
+#endif
 
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
@@ -3543,6 +3924,13 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
     const auto messaging = reinterpret_cast<SKSE::MessagingInterface*>(a_skse->QueryInterface(SKSE::LoadInterface::kMessaging));
     if (!messaging) return false;
     SKSE::Init(a_skse);
+#ifdef UNIFIED_WORKSHOP
+    const auto pluginDirectory = std::filesystem::path(REL::Module::get().filePath().data()).parent_path() / "Data/SKSE/Plugins";
+    if (std::filesystem::exists(pluginDirectory / "DurabilityManager.dll") || std::filesystem::exists(pluginDirectory / "MagicArrows.dll")) {
+        logger::critical("EquipmentWorkshop cannot load alongside the standalone DurabilityManager/MagicArrows DLLs. Disable the old MO2 mods.");
+        return false;
+    }
+#endif
     if (const auto serialization = SKSE::GetSerializationInterface()) {
         serialization->SetUniqueID(kSerializationID);
         serialization->SetSaveCallback(SaveState);
@@ -3550,5 +3938,9 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
         serialization->SetRevertCallback(RevertState);
     }
     messaging->RegisterListener("SKSE", OnSKSEMessage);
+#ifdef UNIFIED_WORKSHOP
+    return unified_workshop::InstallArrows();
+#else
     return true;
+#endif
 }

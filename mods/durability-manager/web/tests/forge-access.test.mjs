@@ -9,7 +9,7 @@ test('nearby access has no activation event or expiring unlock dependency', () =
   assert.doesNotMatch(native, /TESActivateEvent|ActivateForgeContext|g_forgeActivatedAt|kForgeContextLifetime/);
   assert.match(native, /ForEachReferenceInRange\(player, workshop::kRadius/);
   assert.match(native, /station->IsDeleted\(\).*station->IsDisabled\(\).*station->Is3DLoaded\(\)/);
-  assert.match(app, /附近无可用锻造设施/);
+  assert.match(app, /附近无锻造设施/);
   assert.match(app, /无需先操作设施/);
   assert.doesNotMatch(app, /两分钟/);
 });

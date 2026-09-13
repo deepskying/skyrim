@@ -2,6 +2,7 @@ export type EnhancementTier = '微弱' | '标准' | '强效' | '极强';
 export type CardType = 'performance' | 'weight' | 'speed' | 'durability' | 'wear' | 'charge' | 'enchantment';
 
 export type MaterialRequirement = { name: string; required: number; owned: number; isGold?: boolean };
+export type DismantleQuote = { token: string; id: string; name: string; equipped: boolean; materials: MaterialRequirement[] };
 
 export type RefreshResult = { requestId: string; equipmentId: string; success: boolean; goldSpent: number; message: string };
 
@@ -28,6 +29,7 @@ export type EquipmentItem = {
   wearRate?: number | null;
   wearRateLabel?: string;
   wearReduction?: number;
+  movementWearRate?: number;
   enchantment?: string;
   enchanted: boolean;
   enchantmentReplaceable: boolean;
@@ -36,6 +38,7 @@ export type EquipmentItem = {
   broken: boolean;
   repairable: boolean;
   repairMaterials: MaterialRequirement[];
+  dismantleBlocked?: string;
 };
 
 export type EnhancementCard = {
@@ -63,6 +66,7 @@ export type ForgeState = {
 };
 
 export type Settings = {
+  dismantleHotkey?: import('./dismantle-shortcut').DismantleHotkey;
   hotkey: { key: string; keyCode: number; shift: boolean; ctrl: boolean; alt: boolean };
   lowDurabilityThreshold: number;
   weaponDisplaySeconds: number;
@@ -72,6 +76,8 @@ export type Settings = {
 };
 
 export type PanelState = {
+  unified?: boolean;
+  dismantleQuote?: DismantleQuote;
   refreshResult?: RefreshResult;
   version: string;
   equipped: EquipmentItem[];
@@ -79,5 +85,7 @@ export type PanelState = {
   forge: ForgeState;
   settings: Settings;
   capturingHotkey: boolean;
+  capturingDismantleHotkey?: boolean;
+  dismantleResult?: { token: string; id: string };
   message?: string;
 };

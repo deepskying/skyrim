@@ -1,5 +1,6 @@
 #pragma once
 #include "crafting_plan.h"
+#include "material_charge.h"
 #include "spell_adapters.h"
 #include "arrow_identity.h"
 #include <unordered_map>
@@ -18,15 +19,28 @@ inline float Alchemy(RE::PlayerCharacter* p){return p?p->AsActorValueOwner()->Ge
 inline Costs RecipeCosts(const Adapter& a,RE::PlayerCharacter* p){return WithAlchemy({a.gold,a.mana,a.charge},Alchemy(p));}
 inline json Info(const Adapter& a,RE::PlayerCharacter* p=nullptr){auto costs=RecipeCosts(a,p);return {{"family",a.family},{"material",a.material},{"damage",a.damage},{"radius",a.radius},{"gold",a.gold},{"mana",a.mana},{"charge",costs.charge},{"baseCharge",a.charge}};}
 inline std::string Name(RE::TESForm* f){return f&&f->GetName()?f->GetName():"未命名";}
-inline int Units(RE::IngredientItem* ingredient,RE::ActorValue resist=RE::ActorValue::kResistFire){
-    if(!ingredient)return 0;int units=0;
-    for(std::uint32_t i=0;i<ingredient->effects.size()&&i<4;++i){
-        auto* e=ingredient->effects[i];if(!(ingredient->gamedata.knownEffectFlags&(1u<<i))||!e||!e->baseEffect)continue;
+inline MaterialKind Kind(RE::TESBoundObject* item){
+    if(!item)return MaterialKind::unsupported;
+    if(item->As<RE::IngredientItem>())return MaterialKind::ingredient;
+    if(auto* potion=item->As<RE::AlchemyItem>())return potion->IsFood()?MaterialKind::food:potion->IsPoison()?MaterialKind::poison:MaterialKind::potion;
+    return MaterialKind::unsupported;
+}
+inline const char* KindName(RE::TESBoundObject* item){
+    switch(Kind(item)){case MaterialKind::ingredient:return "ingredient";case MaterialKind::potion:return "potion";case MaterialKind::poison:return "poison";default:return "unsupported";}
+}
+inline int Units(RE::TESBoundObject* item,RE::ActorValue resist=RE::ActorValue::kResistFire){
+    const auto kind=Kind(item);
+    if(kind!=MaterialKind::ingredient&&kind!=MaterialKind::potion&&kind!=MaterialKind::poison)return 0;
+    auto* ingredient=item->As<RE::IngredientItem>();
+    auto* magic=ingredient?static_cast<RE::MagicItem*>(ingredient):static_cast<RE::MagicItem*>(item->As<RE::AlchemyItem>());
+    std::vector<ChargeEffect> effects;
+    for(std::uint32_t i=0;i<magic->effects.size()&&(!ingredient||i<4);++i){
+        auto* e=magic->effects[i];if(!e||!e->baseEffect)continue;
         auto* effect=e->baseEffect;auto a=effect->GetArchetype();
-        if(effect->data.primaryAV!=resist||(a!=RE::EffectArchetype::kValueModifier&&a!=RE::EffectArchetype::kPeakValueModifier))continue;
-        units=std::max(units,EffectCharge(e->effectItem.magnitude,e->effectItem.duration));
+        const bool matching=effect->data.primaryAV==resist&&(a==RE::EffectArchetype::kValueModifier||a==RE::EffectArchetype::kPeakValueModifier);
+        effects.push_back({!ingredient||bool(ingredient->gamedata.knownEffectFlags&(1u<<i)),matching,e->effectItem.magnitude,e->effectItem.duration});
     }
-    return units;
+    return MaterialUnits(kind,effects);
 }
 inline int Count(RE::PlayerCharacter* p,RE::TESBoundObject* item){auto inv=p->GetInventory();auto it=inv.find(item);return it==inv.end()?0:std::max(0,it->second.first);}
 inline void Sync(){
@@ -49,12 +63,13 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& request){
     if(!p||!a||!p->HasSpell(Spell(*a)))throw std::runtime_error("需要先掌握已适配的法术");
     std::vector<Stack> stock,ingredients;
     for(int i=0;i<8;++i){auto* b=RE::TESForm::LookupByID<RE::TESAmmo>(baseIDs[i]);if(b&&Output(i,*a))stock.push_back({b->GetFormID(),Count(p,b),0});}
+    auto inventory=p->GetInventory();
     std::unordered_set<RE::FormID> seen;
     for(auto selected:request.materials){auto id=selected.id;
         if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");
-        auto* ingredient=RE::TESForm::LookupByID<RE::IngredientItem>(id);int units=Units(ingredient,a->resist);
-        int count=ingredient?Count(p,ingredient):0;
-        if(units<=0||selected.count<1||count<selected.count)throw std::runtime_error("材料已耗尽或没有已发现的适用功效");
+        auto* ingredient=RE::TESForm::LookupByID<RE::TESBoundObject>(id);int units=Units(ingredient,a->resist);
+        auto found=inventory.find(ingredient);
+        if(units<=0||selected.count<1||found==inventory.end()||!found->second.second||found->second.second->IsQuestObject()||found->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");
         ingredients.push_back({id,selected.count,units});
     }
     auto plan=MakeChargedPlan(request.bases,stock,ingredients,Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xf)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),RecipeCosts(*a,p));

@@ -47,7 +47,8 @@ test('workshop audio defaults to failure and plays success only at native outcom
   assert.match(native, /"UISmithingImproveWeapon" : "UISmithingImproveArmor"/);
   assert.match(native, /key == "ENABLEWORKSHOPSOUNDS"/);
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(app, /aria-label="工坊操作音效"/);
+  const settings = readFileSync(new URL('../src/EquipmentSettings.tsx', import.meta.url), 'utf8');
+  assert.match(settings, /aria-label="工坊操作音效"/);
   assert.match(app, /enableWorkshopSounds: flag\(rawSettings.enableWorkshopSounds, true\)/);
 });
 

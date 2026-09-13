@@ -4,6 +4,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- The 0.1.43 source adds the translucent workshop layout, inventory filters and reviewed manual recycling near a forge. It also builds as a module of [Equipment Workshop 1.0.0](../workshop/README.md), which combines this mod and Magic Arrows in one DLL and imports the old arrow queue without modifying old saves. Use that unified package for the combined experience; do not load it alongside the two standalone DLLs. Game acceptance remains pending.
+
 - Version 0.1.42 adds staff wear on the player's SKSE spell-release action. `[Wear] StaffCastWear=1.0` sets the base cost (0.1–100); restart the game after editing the INI. The firing hand selects the exact worn instance, including two identical staves. Charging alone, other actors, empty-charge instances, ordinary spells and hit/damage ticks do not trigger this rule. Concentration uses release actions, with no ongoing per-second cost. Existing wear reduction, warnings, breakage and co-save persistence apply. Equipment details show the effective cost per staff release. Recipe-less staves can be repaired with 1–4 iron ingots according to missing durability. In-game verification is still required; see the staff checklist in `docs/architecture.md`.
 
 - Version 0.1.41 removes the enhancement review's acknowledgement checkbox. The detail page still shows costs, success chance and failure consequences; an affordable valid offer can be confirmed directly with `尝试强化`. Cancellation, stale-offer checks, duplicate-submit protection and native payment validation are unchanged.
@@ -100,3 +102,7 @@ xmake build -y DurabilityRulesTests
 如只使用快捷键，将 `SKSE/Plugins/DurabilityManager.ini` 的 `[PanelPower] Enabled=0`，下次读档会移除该能力；改回 `1` 后读档可恢复。更新安装时请同时更新 DLL 和 ESP，并在 MO2 右侧插件列表启用 ESP。
 
 能力只提供面板入口，强化操作仍受现有工作台条件限制。
+
+## 统一工坊 1.0.5 环境磨损
+
+新增有害魔法和游戏命中事件报告的陷阱磨损，同源连续命中每秒限一次；脚步距离累计结算鞋靴 0.02、身体装备 0.005 / 1,000 游戏单位，支持耐磨减免。新参数在 [Wear]，详见 ../workshop/README.md 的覆盖范围与限制。

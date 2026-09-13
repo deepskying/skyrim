@@ -6,7 +6,11 @@
 
 struct HotkeyConfig
 {
+#ifdef UNIFIED_WORKSHOP
+    std::uint32_t keyCode = 0x1E; // A
+#else
     std::uint32_t keyCode = 0x21; // F
+#endif
     bool requireShift = true;
     bool requireCtrl = false;
     bool requireAlt = false;
@@ -25,6 +29,7 @@ public:
     void SetToggleCallback(std::function<void()> a_callback) { toggleCallback_ = std::move(a_callback); }
     void SetEscapeCallback(std::function<bool()> a_callback) { escapeCallback_ = std::move(a_callback); }
     void SetCaptureCallback(std::function<bool(std::uint32_t, bool, bool, bool)> a_callback) { captureCallback_ = std::move(a_callback); }
+    void SetActionCallback(std::function<bool(std::uint32_t, bool, bool, bool)> callback) { actionCallback_ = std::move(callback); }
 
     void RegisterSink()
     {
@@ -42,8 +47,10 @@ public:
             if (event->GetEventType() != RE::INPUT_EVENT_TYPE::kButton) continue;
             const auto* button = event->AsButtonEvent();
             if (!button || !button->IsDown()) continue;
+            if (button->GetDevice() != RE::INPUT_DEVICE::kKeyboard) continue;
             const auto key = button->GetIDCode();
             if (captureCallback_ && !IsModifierKey(key) && captureCallback_(key, Down(VK_SHIFT), Down(VK_CONTROL), Down(VK_MENU))) continue;
+            if (actionCallback_ && actionCallback_(key, Down(VK_SHIFT), Down(VK_CONTROL), Down(VK_MENU))) continue;
             if (key == 0x01 && escapeCallback_ && escapeCallback_()) continue;
             if (key == hotkey_.keyCode && MatchesModifiers(hotkey_) && toggleCallback_) toggleCallback_();
         }
@@ -62,5 +69,6 @@ private:
     std::function<void()> toggleCallback_;
     std::function<bool()> escapeCallback_;
     std::function<bool(std::uint32_t, bool, bool, bool)> captureCallback_;
+    std::function<bool(std::uint32_t, bool, bool, bool)> actionCallback_;
     bool registered_ = false;
 };

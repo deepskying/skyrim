@@ -1,11 +1,12 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.42',
+  version: '1.2.0',
+  unified: true,
   capturingHotkey: false,
   message: '已检测到附近的锻造熔炉，可直接选择装备进行修复或强化。',
   settings: {
-    hotkey: { key: 'F', keyCode: 0x21, shift: true, ctrl: false, alt: false },
+    hotkey: { key: 'A', keyCode: 0x1E, shift: true, ctrl: false, alt: false },
     lowDurabilityThreshold: 30,
     weaponDisplaySeconds: 3,
     enableLowDurabilityWarning: true,

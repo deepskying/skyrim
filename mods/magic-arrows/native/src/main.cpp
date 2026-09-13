@@ -1,5 +1,10 @@
+#ifdef UNIFIED_WORKSHOP
+#include "../../../durability-manager/native/src/PrismaUI_API.h"
+#include "../../../../shared/panel-power/panel_power.h"
+#else
 #include "PrismaUI_API.h"
 #include "panel_power.h"
+#endif
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include "crafting.h"
@@ -8,6 +13,12 @@
 #include "runtime_impact.h"
 #include "follower_ammo.h"
 #include "ammo_queue.h"
+#include <ranges>
+#ifdef UNIFIED_WORKSHOP
+#include "workshop_bridge.h"
+#include "legacy_queue.h"
+namespace { std::string legacySaveName; }
+#endif
 
 namespace {
 using json=nlohmann::json;
@@ -72,7 +83,7 @@ json SpellEligibility(RE::SpellItem* s,bool craftable,bool dynamic,const std::st
     std::string why=reason.empty()?(runtime_binding::ready?"法术费用无效，无法计算材料":"运行时封存组件未就绪，请重新读档"):reason;
     return {{"status",excluded?"excluded":"review"},{"releaseMode",sustained?"sustained":"instant"},{"reasons",json::array({why})}};
 }
-json MaterialCharges(RE::IngredientItem* item){json result=json::object();for(int f=0;f<12;++f)result[runtime_rules::families[f]]=crafting::Units(item,runtime_binding::MaterialAV(f));return result;}
+json MaterialCharges(RE::TESBoundObject* item){json result=json::object();for(int f=0;f<12;++f)result[runtime_rules::families[f]]=crafting::Units(item,runtime_binding::MaterialAV(f));return result;}
 json State(std::string message={}) {
     auto* p=RE::PlayerCharacter::GetSingleton();
     json arrows=json::array(),spells=json::array(),materials=json::array(),recipes=json::array();
@@ -83,7 +94,11 @@ json State(std::string message={}) {
             if(auto* a=item->As<RE::TESAmmo>();a&&(a->GetPlayable()||(runtime_binding::Index(a)>=0&&runtime_binding::slots[runtime_binding::Index(a)].occupied))){
                 auto* bound=runtime_binding::Bound(a);
                 arrows.push_back({{"id",a->GetFormID()},{"name",Name(a)},{"count",count},{"damage",a->GetRuntimeData().data.damage},{"family",Family(a)},{"spellBound",crafting::IsOutput(a)||runtime_binding::Index(a)>=0},{"usable",a->GetPlayable()},{"runtimeBase",runtime_binding::Base(a)},{"adapter",bound?json{{"runtime",true},{"family",runtime_rules::families[bound->family]},{"castRoute",runtime_binding::RouteName(bound->spell)},{"releaseMode",runtime_binding::Sustained(bound->spell)?"sustained":"instant"},{"seconds",runtime_binding::Sustained(bound->spell)?sustained_rules::seconds:0.f}}:crafting::ForAmmo(a)?crafting::Info(*crafting::ForAmmo(a)):json(nullptr)},{"equipped",entry->IsWorn()},{"bolt",a->IsBolt()},{"fireballBase",crafting::Index(a->GetFormID())>=0}});
-            }else if(activePage=="craft"&&activeCraftMode=="magic"&&item->As<RE::IngredientItem>())materials.push_back({{"id",item->GetFormID()},{"name",Name(item)},{"count",count},{"charges",MaterialCharges(item->As<RE::IngredientItem>())}});
+            }else if(activePage=="craft"&&activeCraftMode=="magic"&&!entry->IsQuestObject()){
+                const auto kind=crafting::Kind(item);
+                if(kind==crafting::MaterialKind::ingredient||kind==crafting::MaterialKind::potion||kind==crafting::MaterialKind::poison)
+                    materials.push_back({{"id",item->GetFormID()},{"name",Name(item)},{"count",count},{"kind",crafting::KindName(item)},{"charges",MaterialCharges(item)}});
+            }
         }
         if(activePage=="craft"){
         if(activeCraftMode=="magic"){
@@ -109,7 +124,7 @@ json State(std::string message={}) {
     } // spell and recipe data are only requested by the crafting page
     auto sort=[](json& xs){std::sort(xs.begin(),xs.end(),[](const json& a,const json& b){return a["name"].get<std::string>()<b["name"].get<std::string>();});};
     sort(arrows);sort(spells);sort(materials);sort(recipes);
-    return {{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","0.9.9"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
+    return {{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","0.9.9"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
         {"hotkey",{{"key",binding.key},{"shift",binding.shift},{"ctrl",binding.ctrl},{"alt",binding.alt}}},
         {"loaded",loaded},{"powerAvailable",RE::TESDataHandler::GetSingleton()&&RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(0x840,"MagicArrows.esp")!=nullptr}};
 }
@@ -121,9 +136,13 @@ void Send(std::string message={}) {
     logger::info("State sent page={} bytes={} elapsed={}ms",activePage,script.size(),GetTickCount64()-started);
 }
 void Close(){
+#ifdef UNIFIED_WORKSHOP
+    unified_workshop::CloseEquipment();
+#else
     panelVisible=false;crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();
     if(api&&view){api->Invoke(view,"window.MagicArrows?.closeDialog();");api->Unfocus(view);api->Hide(view);}
     logger::info("Panel closed; focus released");
+#endif
 }
 // Only the SKSE task mutates pending state; the frame hook merely schedules it.
 struct PendingEquip { RE::FormID id;std::uint64_t epoch;ULONGLONG started;unsigned frames=0;bool submitted=false;bool automatic=false;std::uint64_t queueRevision=0; };
@@ -179,6 +198,9 @@ void EquipFrame(){
 }
 bool CanOpen(){auto* p=RE::PlayerCharacter::GetSingleton();auto* ui=RE::UI::GetSingleton();return loaded&&p&&!p->IsDead()&&ui&&!ui->GameIsPaused()&&!ui->IsMenuOpen("Main Menu")&&!ui->IsMenuOpen("Loading Menu")&&!ui->IsMenuOpen("Console");}
 void Open(){
+#ifdef UNIFIED_WORKSHOP
+    unified_workshop::OpenArrowSection();
+#else
     if(!api||!view||!CanOpen()||api->HasAnyActiveFocus())return;
     if(!ready){RE::DebugNotification("魔法箭工坊正在载入，请稍后重试");return;}
     try{runtime_binding::MergeInventory(RE::PlayerCharacter::GetSingleton());}
@@ -187,13 +209,14 @@ void Open(){
     api->Show(view);
     if(!api->Focus(view,true)){api->Hide(view);logger::warn("Panel focus request rejected");return;}
     auditedSpells.clear();normal_crafting::audit.clear();panelVisible=true;openedAt=GetTickCount64();logger::info("Panel opened");Send();
+#endif
 }
 void Action(const char* raw){
     std::string copy=raw?raw:"{}";if(copy.size()>8192)return;
     if(auto* tasks=SKSE::GetTaskInterface())tasks->AddTask([copy=std::move(copy)]{
         try{
             workshopReply=nullptr;auto q=json::parse(copy);auto type=q.value("type",std::string{});
-            if(type=="quote"||type=="craft")workshopReply={{"type",type},{"requestID",q.value("requestID",std::uint64_t{})},{"ok",false}};
+            if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft")workshopReply={{"type",type},{"requestID",q.value("requestID",std::uint64_t{})},{"ok",false}};
             if(type=="ready"){ready=true;if(api&&view&&api->HasFocus(view))Send();return;}
             if(type=="close"){if(q.value("reason",std::string{})!="hotkey"||GetTickCount64()-openedAt>250)Close();return;}
             if(!loaded||!api||!view||!api->HasFocus(view))return;
@@ -207,10 +230,11 @@ void Action(const char* raw){
                 if(!next){Send("队列中没有可用库存");return;}
                 ammo_queue::enabled=true;ammo_queue::Suspend();Close();RequestEquip(next);return;
             }
+            if(type=="cancelCraft"){crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();Send();return;}
             if(type=="workshopMode"){auto mode=q.value("mode",std::string{});if(mode=="magic"||mode=="normal"){activeCraftMode=mode;crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();}Send();return;}
             if(type=="page"){auto page=q.value("page",std::string{});if(page=="equipment"||page=="craft"||page=="settings")activePage=page;Send();return;}
-            if(type=="normalQuote"){runtime_binding::Reset();crafting::Reset();normal_crafting::Quote(player,q);Send("普通箭费用已计算，请核对后确认");
-            }else if(type=="normalCraft"){normal_crafting::Commit(player,q.at("token").get<std::uint64_t>());Send("普通箭制作完成，成品已加入背包");
+            if(type=="normalQuote"){runtime_binding::Reset();crafting::Reset();normal_crafting::Quote(player,q);workshopReply["ok"]=true;Send("普通箭费用已计算，请核对后确认");
+            }else if(type=="normalCraft"){normal_crafting::Commit(player,q.at("token").get<std::uint64_t>());workshopReply["ok"]=true;Send("普通箭制作完成，成品已加入背包");
             }else if(type=="quote"){normal_crafting::Reset();runtime_binding::Reset();crafting::Reset();
                 if(q.value("runtime",false))runtime_binding::Quote(player,q);else crafting::Quote(player,q);workshopReply["ok"]=true;Send("费用已计算，请核对后确认制作");
             }else if(type=="craft"){if(q.value("runtime",false))runtime_binding::Commit(player,q.at("token").get<std::uint64_t>());else crafting::Commit(player,q.at("token").get<std::uint64_t>());workshopReply["ok"]=true;Send("制作完成，魔法箭已加入背包");
@@ -233,13 +257,6 @@ void Action(const char* raw){
                 b.shift=q.at("shift").get<bool>();b.ctrl=q.at("ctrl").get<bool>();b.alt=q.at("alt").get<bool>();
                 if(!code||(!b.shift&&!b.ctrl&&!b.alt&&b.key.size()==1)){Send("字母快捷键至少需要一个修饰键；也可以单独使用 F1–F12");return;}
                 b.code=*code;if(!SaveConfig(b)){Send("配置文件保存失败，快捷键未更改");return;}binding=b;Send("快捷键已保存，立即生效");
-            }else if(type=="supply"){
-                auto* data=RE::TESDataHandler::GetSingleton();if(!data)return;
-                std::array<RE::TESAmmo*,12> ammo{};
-                for(std::size_t i=0;i<ammo.size();++i){ammo[i]=data->LookupForm<RE::TESAmmo>(prototypes::entries[i].id,"MagicArrows.esp");if(!ammo[i]){Send("找不到试作箭，请启用 MagicArrows.esp");return;}}
-                auto inv=player->GetInventory();
-                for(auto* a:ammo){auto it=inv.find(a);int have=it==inv.end()?0:it->second.first;if(have<100)player->AddObjectToContainer(a,nullptr,100-have,nullptr);}
-                Send("十二种外观试作箭已补足至各 100 支");
             }else if(type=="refresh")Send();
         }catch(const std::exception& e){logger::warn("Panel request rejected: {}",e.what());if(!workshopReply.is_null())workshopReply["error"]=e.what();Send(e.what());}
     });
@@ -269,13 +286,23 @@ class Input final:public RE::BSTEventSink<RE::InputEvent*>{
 }input;
 panel_power::Power power("MagicArrows.esp",Open);
 void Message(SKSE::MessagingInterface::Message* m){
-    if(m->type==SKSE::MessagingInterface::kPreLoadGame){loaded=false;++generation;CancelEquip();ammo_queue::Suspend();Close();runtime_sustained::Clear("preload");runtime_binding::Suspend();}
+#ifdef UNIFIED_WORKSHOP
+    if(m->type==SKSE::MessagingInterface::kPreLoadGame)legacySaveName=m->data?static_cast<const char*>(m->data):"";
+#endif
+    if(m->type==SKSE::MessagingInterface::kPreLoadGame){loaded=false;++generation;CancelEquip();ammo_queue::Suspend();
+#ifdef UNIFIED_WORKSHOP
+        panelVisible=false;crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();
+#else
+        Close();
+#endif
+        runtime_sustained::Clear("preload");runtime_binding::Suspend();}
     if(m->type==SKSE::MessagingInterface::kNewGame||m->type==SKSE::MessagingInterface::kPostLoadGame){loaded=m->type==SKSE::MessagingInterface::kNewGame||m->data!=nullptr;++generation;CancelEquip();runtime_binding::Reset();crafting::Reset();normal_crafting::Reset();ammo_queue::Suspend();if(m->type==SKSE::MessagingInterface::kNewGame)ammo_queue::Revert(nullptr);if(loaded){runtime_sustained::AfterLoad();runtime_binding::Restore();ammo_queue::Normalize();}}
     power.OnMessage(m);
     if(m->type!=SKSE::MessagingInterface::kDataLoaded)return;
     runtime_sustained::afterUpdate=EquipFrame;crafting::Sync();runtime_binding::Init();runtime_impact::Install();runtime_sustained::Install();follower_ammo::Install();normal_crafting::Init();
     LoadConfig();api=PRISMA_UI_API::RequestPluginAPI();
     if(!api){logger::error("PrismaUI v1 unavailable; MagicArrows panel disabled");return;}
+#ifndef UNIFIED_WORKSHOP
     view=api->CreateView("MagicArrows/index.html",[](PrismaView v){
         logger::info("MagicArrows view ready: {}",v);
         if(auto* tasks=SKSE::GetTaskInterface())tasks->AddTask([]{ready=true;});
@@ -283,9 +310,54 @@ void Message(SKSE::MessagingInterface::Message* m){
     if(!view){logger::error("Failed to create MagicArrows view");return;}
     api->RegisterJSListener(view,"magicArrowsAction",Action);api->Hide(view);
     if(auto* device=RE::BSInputDeviceManager::GetSingleton())device->AddEventSink(&input);
+#endif
     logger::info("MagicArrows 0.9.9 loaded; ability local ID 840; key {}",binding.key);
 }
 }
+#ifdef UNIFIED_WORKSHOP
+void unified_workshop::AttachArrows(std::uint64_t sharedView){view=sharedView;ready=true;}
+void unified_workshop::SetArrowsVisible(bool visible){
+    panelVisible=visible;
+    if(visible&&loaded){openedAt=GetTickCount64();try{runtime_binding::MergeInventory(RE::PlayerCharacter::GetSingleton());}catch(const std::exception& e){logger::warn("Arrow merge: {}",e.what());}ammo_queue::Normalize();Send();}
+    else{crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();}
+}
+void unified_workshop::ArrowAction(const char* json){Action(json);}
+void unified_workshop::SaveArrows(SKSE::SerializationInterface* serial){ammo_queue::Save(serial);}
+void unified_workshop::RevertArrows(SKSE::SerializationInterface* serial){ammo_queue::Revert(serial);}
+namespace {
+void RestoreQueueWords(SKSE::SerializationInterface* serial,const std::vector<std::uint32_t>& words){
+    if(!ammo_queue_rules::ValidRecord(words))return;
+    std::vector<RE::FormID> restored;
+    for(std::size_t i=2;i<words.size();++i){RE::FormID id=0;if(serial->ResolveFormID(words[i],id)&&id&&!ammo_queue_rules::Contains(restored,id))restored.push_back(id);}
+    ammo_queue::order=std::move(restored);ammo_queue::enabled=words[0]!=0;
+}
+}
+void unified_workshop::BeginLoadArrows(SKSE::SerializationInterface* serial){
+    ammo_queue::Revert(serial);
+    // Import the legacy UID without changing the old co-save. The next save writes
+    // both modules under the retained durability UID. A current queue record wins.
+    if(legacySaveName.empty())return;
+    try{
+        const auto logs=SKSE::log::log_directory();if(!logs)return;
+        std::filesystem::path relative="Saves";
+        if(auto* ini=RE::INISettingCollection::GetSingleton())if(auto* setting=ini->GetSetting("sLocalSavePath:General"))if(const auto* value=setting->GetString();value&&*value)relative=value;
+        auto name=std::filesystem::path(legacySaveName).filename();name.replace_extension(".skse");
+        const auto path=logs->parent_path()/relative/name;
+        std::ifstream saveStream(path,std::ios::binary);
+        if(const auto words=workshop_migration::ReadLegacyQueue(saveStream)){RestoreQueueWords(serial,*words);logger::info("Imported legacy arrow queue from {}",path.string());}
+    }catch(const std::exception& e){logger::warn("Legacy arrow queue import failed: {}",e.what());}
+}
+bool unified_workshop::LoadArrowRecord(SKSE::SerializationInterface* serial,std::uint32_t type,std::uint32_t version,std::uint32_t length){
+    if(type!=ammo_queue::record)return false;
+    if(version==1&&length>=8&&length<=264&&length%4==0){std::vector<std::uint32_t> words(length/4);if(serial->ReadRecordData(words.data(),length)==length)RestoreQueueWords(serial,words);}
+    return true;
+}
+bool unified_workshop::InstallArrows(){
+    ammo_queue::available=SKSE::GetSerializationInterface()!=nullptr;
+    return ammo_queue::available;
+}
+void unified_workshop::ArrowMessage(SKSE::MessagingInterface::Message* message){Message(message);}
+#else
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* skse){
     REL::Module::reset();SKSE::Init(skse);
     if(auto dir=SKSE::log::log_directory()){
@@ -294,3 +366,4 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* sks
     }
     ammo_queue::Install();auto* messaging=SKSE::GetMessagingInterface();return messaging&&messaging->RegisterListener("SKSE",Message);
 }
+#endif
