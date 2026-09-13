@@ -210,7 +210,6 @@ export function App() {
   const rows = useRef(new Map<string, HTMLButtonElement>());
   escapeAction.current = () => {
     if (state.capturingHotkey || state.capturingDismantleHotkey) send('cancelHotkeyCapture');
-    else if (state.dismantleQuote) send('cancelDismantle');
     else if (enhancingId) setEnhancingId(undefined);
     else send('close');
   };

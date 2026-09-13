@@ -182,7 +182,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.2.1";
+    constexpr std::string_view kPluginVersion = "1.2.2";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif

@@ -1,4 +1,4 @@
-# 装备工坊 · Equipment Workshop 1.2.1
+# 装备工坊 · Equipment Workshop 1.2.2
 
 装备耐久、修理、强化、分解与魔法箭合并为一个 MO2 模组、一个 SKSE DLL：`EquipmentWorkshop.dll`。目标 Skyrim SE 1.5.97、SKSE、Address Library、PrismaUI。两份原有源码作为独立模块编译进同一个目标，不再同时运行 DurabilityManager.dll 和 MagicArrows.dll。
 
@@ -29,7 +29,7 @@ Shift+A 打开整个装备工坊（1.0.3 起）；1.1.0 起统一版只注册这
 
 ## 安装
 
-1. 退出游戏。在 MO2 安装 `EquipmentWorkshop-1.2.1.zip` 为一个新模组。
+1. 退出游戏。在 MO2 安装 `EquipmentWorkshop-1.2.2.zip` 为一个新模组。
 2. 统一版主快捷键为 Shift+A；迁移旧配置后，将 DurabilityManager.ini 的 [Hotkey] 设置为 Key=A、Shift=true、Ctrl=false、Alt=false。分解快捷键仍为 Shift+D。将旧模组中定制过的 `DurabilityManager.ini`、`DurabilityManager.rules.json` 和 `MagicArrows.ini` 复制到新模组同一路径。
 3. 禁用旧的耐久度模组和魔法箭模组，启用装备工坊。保持两个原 ESP 启用及原有排序。不要同时加载旧 DLL。
 4. 启动游戏，用现有存档验证，确认后另存新档。旧存档和旧模组文件可保留作为回退。
@@ -114,3 +114,7 @@ Shift+A 打开整个装备工坊（1.0.3 起）；1.1.0 起统一版只注册这
 ## 1.2.1 · 通用设置
 
 设置新增「通用设置」页签：工坊快捷键录入、界面字号（80–130%）、背景透明度（0–60%）及工坊操作音效。外观调整即时预览，支持恢复默认和还原已保存值；点击保存后由原生插件写入 INI 的 [Display] UIFontScale / UITransparency，下次打开或重启继续生效。透明度只改变背景，文字保持不透明；字号覆盖装备、魔法箭与设置页。分解快捷键仍在装备养护设置。
+
+## 1.2.2 · 自动展示回收材料
+
+靠近锻造设施时，分解页选中装备即自动获取并展示原生回收清单；切换装备及分解后自动更新。保留一次性确认凭据、提交时库存与保护检查，获取清单不消耗物品。移除手动预览和取消预览按钮，Esc 可直接关闭面板；获取失败可重试。
