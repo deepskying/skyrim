@@ -1,3 +1,4 @@
+import { defaultBehavior } from "./behavior.ts";
 export function fixture() {
   const actor = (id, name, group, managed) => ({
     id,
@@ -9,6 +10,18 @@ export function fixture() {
     tint: "mint",
     group,
     managed,
+    behavior: {...defaultBehavior},behaviorOverride:false,carried:182,capacity:300,activity:"idle",request:"",
+    wardrobe:[
+      {key:"00012EB7:00000014:0001",id:"00012EB7",name:"铁剑",count:1,value:25,weight:9,category:1,equipped:true,quest:false,favorite:false,equipment:true},
+      {key:"00012E49:00000014:0002",id:"00012E49",name:"皮甲",count:1,value:125,weight:6,category:2,equipped:true,quest:false,favorite:true,equipment:true},
+      {key:"00012E49:00000014:0003",id:"00012E49",name:"皮甲（火焰抗性）",count:1,value:420,weight:6,category:2,equipped:false,quest:false,favorite:false,equipment:true},
+      {key:"0001BE1A:00000000:0000",id:"0001BE1A",name:"精致服装",count:2,value:55,weight:1,category:2,equipped:false,quest:false,favorite:true,equipment:true},
+      {key:"0003B97C:00000000:0000",id:"0003B97C",name:"银项链",count:1,value:120,weight:.5,category:4,equipped:false,quest:false,favorite:false,equipment:true},
+      {key:"0005ACE4:00000000:0000",id:"0005ACE4",name:"铁锭",count:12,value:7,weight:1,category:128,equipped:false,quest:false,favorite:false,equipment:false},
+      {key:"0003EADD:00000000:0000",id:"0003EADD",name:"治疗药剂",count:5,value:36,weight:.5,category:16,equipped:false,quest:false,favorite:false,equipment:false},
+      {key:"00064B2F:00000000:0000",id:"00064B2F",name:"苹果派",count:3,value:5,weight:.5,category:16,equipped:false,quest:false,favorite:false,equipment:false},
+      {key:"0000000F:00000000:0000",id:"0000000F",name:"金币",count:320,value:1,weight:0,category:8,equipped:false,quest:false,favorite:false,equipment:false},
+    ],
     limited: !managed,
     canRecruit: !managed,
     reason: "",
@@ -80,6 +93,7 @@ export function fixture() {
   });
   return {
     version: 2,
+    automation:{defaults:{...defaultBehavior},history:[],playerCarried:220,playerCapacity:300},
     mode: "game",
     session: "fixture-save-1",
     ready: true,
@@ -132,6 +146,12 @@ export function simulate(s, r) {
   if (r.session !== s.session) return { ok: false, message: "存档已变化" };
   const f = s.followers.find((f) => f.id === r.actorId);
   const ok = (message) => ({ ok: true, message });
+  if(f&&r.command==='exchangeSupplies')return ok('游戏中将打开现有物品交换界面（界面预览）');
+  if(r.command==="behaviorDefaults") {
+    s.automation.defaults=structuredClone(r.settings);
+    for(const a of s.followers)if(!a.behaviorOverride)a.behavior=structuredClone(r.settings);
+    return ok("全队规则已保存（模拟）");
+  }
   if (r.command === "settings") {
     s.settings[r.key] = r.value;
     return ok("设置已保存到当前存档（模拟）");
@@ -149,6 +169,32 @@ export function simulate(s, r) {
   if (r.command !== "adopt" && r.command !== "recruit" && !f.managed)
     return { ok: false, message: "请先纳入同行管理" };
   switch (r.command) {
+    case "favorite": {
+      const item=f.wardrobe.find(i=>i.key===r.itemKey);
+      if(!item)return {ok:false,message:"物品已变化"};
+      item.favorite=r.value;break;
+    }
+    case "behavior":
+      f.behaviorOverride=!r.inherit;f.behavior=structuredClone(r.inherit?s.automation.defaults:r.settings);break;
+    case "deferRequest":f.request="";break;
+    case "changeOutfit": {
+      const choices=f.wardrobe.filter(i=>i.favorite&&i.category===2&&!i.quest);
+      if(!choices.length)return {ok:false,message:"请先收藏一件服装"};
+      for(const i of f.wardrobe)if(i.category===2)i.equipped=false;
+      choices[choices.length-1].equipped=true; f.request="outfit";break;
+    }
+    case "wardrobeTake": {
+      const keys=new Set(),plan=[];
+      let weight=0;
+      for(const item of r.items) {
+        const i=f.wardrobe.find(x=>x.key===item.key);
+        if(!i||i.quest||i.equipped||keys.has(item.key)||!Number.isInteger(item.count)||item.count<1||item.count>i.count)return {ok:false,message:"物品或数量已变化"};
+        keys.add(item.key);weight+=i.weight*item.count;plan.push([i,item.count]);
+      }
+      if(weight+s.automation.playerCarried>s.automation.playerCapacity)return {ok:false,message:"玩家剩余负重不足"};
+      for(const [i,count] of plan)i.count-=count;
+      f.wardrobe=f.wardrobe.filter(i=>i.count>0);s.automation.playerCarried+=weight;f.carried-=weight;f.request="";break;
+    }
     case "adopt":
     case "recruit":
       if (f.dead || f.unavailable || (!f.managed && !f.canRecruit) ||

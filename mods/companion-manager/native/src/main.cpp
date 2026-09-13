@@ -231,6 +231,16 @@ void companion::RefreshManagerView()
 {
     RequestRefresh();
 }
+void companion::CloseManagerView(){Close();}
+bool companion::ManagerViewOpen() { return views && views->HasAnyFocus(); }
+void companion::OpenPartnerWardrobe(RE::FormID actor)
+{
+    if(Open()) {
+        SendSnapshot();
+        const auto js=std::format("window.dispatchEvent(new CustomEvent('companion:wardrobe',{{detail:'{:08X}'}}));",actor);
+        views->ExecuteJavaScript(panel,js.c_str());
+    }
+}
 
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface *skse)
 {

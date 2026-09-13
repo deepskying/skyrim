@@ -12,7 +12,7 @@ def cond(fn, arg, value, op=0):
     return sub(b'CTDA', struct.pack('<B3sfH2sIIIII', op, b'\0'*3, float(value), fn, b'\0'*2, arg, 0, 0, 0, 0xFFFFFFFF))
 def rank(n): return cond(73, FACTION, n)
 vanilla = {edid(r):r for r in records(MASTER, {b'PACK'})}
-def instance(template, form, name, conditions, location=None, floats=None, booleans=None):
+def instance(template, form, name, conditions, location=None, floats=None, booleans=None,target=None):
     out=[]; index=-1; typ=''
     for k,v in subrecords(vanilla[template]['data']):
         if k in (b'CTDA',b'CIS1',b'CIS2',b'QNAM'): continue
@@ -24,7 +24,7 @@ def instance(template, form, name, conditions, location=None, floats=None, boole
             v=bytes.fromhex('ffff00ffff00000000000000')
             out.append(sub(k,v));out.append(conditions);out.append(sub(b'QNAM',U32(QUEST)));continue
         if k==b'ANAM': index+=1;typ=v.rstrip(b'\0').decode()
-        if k==b'PTDA': v=struct.pack('<III',0,0x14,0)
+        if k==b'PTDA': v=struct.pack('<III',*(target or (0,0x14,0)))
         if k==b'PLDT' and location: v=struct.pack('<III',*location)
         if k==b'CNAM' and floats and index in floats: v=struct.pack('<f',floats[index])
         if k==b'CNAM' and booleans and index in booleans: v=bytes([booleans[index]])
@@ -52,6 +52,11 @@ for slot in range(SLOTS):
     fid=0x01000900+slot
     packages.append(instance('DefaultSandboxCurrentLocation1024',fid,f'CMHome{slot:02}',rank(5),location=(8,SLOTS+slot,512),booleans={1:False,2:False}))
     homes.append(fid)
+activities=[]
+for slot in range(SLOTS):
+    fid=0x01000A00+slot
+    packages.append(instance('DefaultSandboxCurrentLocation1024',fid,f'CMActivity{slot:02}',rank(100),location=(8,128+slot,64),booleans={1:False,2:False}))
+    activities.append(fid)
 # Own quest: optional aliases only, no dialogue stages, inventory or vanilla faction injections.
 def wstring(s):
     b=s.encode();return struct.pack('<H',len(b))+b
@@ -59,20 +64,21 @@ vmad=struct.pack('<HHH',5,2,1)+wstring('CMController')+b'\0'+struct.pack('<H',0)
 # No quest fragments or script aliases. Quest VMAD has a fragments trailer.
 vmad+=struct.pack('<BH',2,0)+wstring('')+struct.pack('<H',0)
 q=sub(b'EDID',Z('CMControllerQuest'))+sub(b'VMAD',vmad)+sub(b'FULL',Z('Companion Manager'))
-q+=sub(b'DNAM',struct.pack('<HBBII',0x11,60,0,0,0))+sub(b'NEXT',b'')+sub(b'ANAM',U32(SLOTS*2))
-for alias_id in range(SLOTS*2):
+q+=sub(b'DNAM',struct.pack('<HBBII',0x11,60,0,0,0))+sub(b'NEXT',b'')+sub(b'ANAM',U32(SLOTS*4))
+for alias_id in range(SLOTS*4):
     slot, is_actor = alias_id % SLOTS, alias_id < SLOTS
-    q+=sub(b'ALST',U32(alias_id))+sub(b'ALID',Z(f'CM{"Actor" if is_actor else "Home"}{slot:02}'))
+    q+=sub(b'ALST',U32(alias_id))+sub(b'ALID',Z(f'CM{"Actor" if is_actor else "Home" if alias_id<128 else "Target" if alias_id<192 else "Bed"}{slot:02}'))
     q+=sub(b'FNAM',U32(2|8|16 if is_actor else 2|8))
     # An impossible fill condition prevents automatic recruitment or marker filling.
     q+=cond(72,0x14,0)+cond(72,0x14,1)
     if is_actor:
-        for package in [homes[slot],*common]: q+=sub(b'ALPC',U32(package))
+        for package in [homes[slot],activities[slot],*common]: q+=sub(b'ALPC',U32(package))
     q+=sub(b'VTCK',U32(0))+sub(b'ALED',b'')
 quest=dict(sig=b'QUST',form=QUEST,data=q)
 faction=dict(sig=b'FACT',form=FACTION,data=sub(b'EDID',Z('CMModeFaction'))+sub(b'DATA',U32(0)))
+# Bed aliases 192..255 remain empty for cleanup of the short-lived 1.6.0 test build.
 count=len(packages)+2
-header=dict(sig=b'TES4',form=0,flags=0x200,data=sub(b'HEDR',struct.pack('<fII',1.7,count,0xA00))+sub(b'CNAM',Z('linos'))+sub(b'MAST',Z('Skyrim.esm'))+sub(b'DATA',b'\0'*8))
+header=dict(sig=b'TES4',form=0,flags=0x200,data=sub(b'HEDR',struct.pack('<fII',1.7,count,0xE00))+sub(b'CNAM',Z('linos'))+sub(b'MAST',Z('Skyrim.esm'))+sub(b'DATA',b'\0'*8))
 out=ROOT/'data/CompanionManager.esp';out.parent.mkdir(parents=True,exist_ok=True)
 out.write_bytes(encode(header)+group(b'FACT',[faction])+group(b'PACK',packages)+group(b'QUST',[quest]))
-print(f'{out}: {count} records, {SLOTS} actor slots + {SLOTS} home aliases')
+print(f'{out}: {count} records, {SLOTS} actor slots + {SLOTS} home + {SLOTS} activity targets')

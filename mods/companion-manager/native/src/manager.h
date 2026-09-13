@@ -18,4 +18,8 @@ json ManagerSettings();
 std::string SessionToken();
 RE::TESQuest *Controller();
 void RefreshManagerView();
+bool ManagerViewOpen();
+void CloseManagerView();
+void OpenPartnerWardrobe(RE::FormID actor);
+json ActivityOverview();
 } // namespace companion

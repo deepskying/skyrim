@@ -1,20 +1,24 @@
+import {CompanionVitals} from "./Vitals";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { closeKey, percent, request, type Settings } from "./bridge";
+import { closeKey, request, type Settings } from "./bridge";
 import { useGame } from "./useGame";
 import type { Section as DemoSection } from "./demo";
 import "./game.css";
 import { version } from "../package.json";
 import { plainDescription, teachingBlock } from "./magic";
 import { recruitmentCandidates, recruitmentBlock } from "./recruitment";
+import {Management} from "./Management";
 
-type Section = Exclude<DemoSection, "nearby">;
+type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe";
 const sections: [Section, string, string][] = [
   ["party", "我的队伍", "♧"],
   ["registry", "随从名册", "▤"],
+  ["behavior", "行为管理", "⚙"],
+  ["wardrobe", "伙伴库存", "◇"],
   ["settings", "全局设置", "⚙"],
 ];
-type Tab = "概览" | "行为" | "魔法";
-const tabs: Tab[] = ["概览", "行为", "魔法"];
+type Tab = "概览" | "魔法";
+const tabs: Tab[] = ["概览", "魔法"];
 type Confirmation = {
   title: string;
   description: string;
@@ -55,29 +59,6 @@ function Toggle({
     </div>
   );
 }
-function Resource({
-  name,
-  value,
-  color,
-}: {
-  name: string;
-  value: [number, number];
-  color: string;
-}) {
-  return (
-    <div className="cm-resource">
-      <div>
-        <span>{name}</span>
-        <strong>
-          {Math.round(value[0])} <small>/ {Math.round(value[1])}</small>
-        </strong>
-      </div>
-      <div className="cm-track">
-        <i style={{ width: `${percent(...value)}%`, background: color }} />
-      </div>
-    </div>
-  );
-}
 export function GameApp() {
   const game = useGame(),
     s = game.snapshot;
@@ -91,6 +72,11 @@ export function GameApp() {
     [quantity, setQuantity] = useState(1);
   const [recruitOpen, setRecruitOpen] = useState(false),
     [recruitQuery, setRecruitQuery] = useState("");
+  const [managementActor,setManagementActor]=useState("");
+  useEffect(()=>{
+    const open=(e:Event)=>{const id=(e as CustomEvent).detail;if(typeof id==="string"){setManagementActor(id);setSection("wardrobe");setConfirm(null);setRecruitOpen(false);}};
+    window.addEventListener("companion:wardrobe",open);return()=>window.removeEventListener("companion:wardrobe",open);
+  },[]);
   const candidates = recruitmentCandidates(s, recruitQuery);
   const modalRef = useRef<HTMLDivElement>(null);
   const rows =
@@ -115,6 +101,7 @@ export function GameApp() {
     setConfirm(null);
     setRecruitOpen(false);
     setSelected("");
+    setManagementActor("");
   }, [s?.session]);
   useEffect(() => {
     setItemQuery("");
@@ -229,7 +216,7 @@ export function GameApp() {
               >
                 <span>{icon}</span>
                 {label}
-                {id !== "settings" && (
+                {(id === "party" || id === "registry") && (
                   <small>
                     {s?.followers.filter((f) => f.group === id).length ?? 0}
                   </small>
@@ -299,7 +286,7 @@ export function GameApp() {
               </button>
             </div>
           </header>
-          {section === "settings" ? (
+          {section === "behavior" || section === "wardrobe" ? <Management key={section} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "settings" ? (
             <div className="settings-page">
               <h2>按你的习惯同行</h2>
               <p>外观与行为偏好随当前游戏存档保存。</p>
@@ -413,23 +400,7 @@ export function GameApp() {
                         <p className="cm-card-meta" title={`${a.race} · ${a.role} · 居所：${a.home}`}>
                           {a.race} · {a.role} · <span>{a.home === "未设置" ? "未设置居所" : a.home}</span>
                         </p>
-                        <div className="cm-card-resources">
-                          <Resource
-                            name="生命"
-                            value={a.health}
-                            color="#9cd7b0"
-                          />
-                          <Resource
-                            name="法力"
-                            value={a.magicka}
-                            color="#aabde9"
-                          />
-                          <Resource
-                            name="耐力"
-                            value={a.stamina}
-                            color="#ddc389"
-                          />
-                        </div>
+                        <CompanionVitals f={a}/>
                         <div className="cm-card-bottom">
                           <span>
                             {a.dead
@@ -484,18 +455,6 @@ export function GameApp() {
                         <strong title={f.home}>{f.home}</strong>
                       </div>
                       <div className="cm-home-actions">
-                        <button
-                          disabled={!editable}
-                          title="将你当前站立的位置设为这位同伴的居所"
-                          onClick={() => ask(
-                            "设置居所",
-                            `将你当前站立的位置（${s?.location ?? "当前位置"}）设为${f.name}的居所。离队后，同伴会前往这里休息。`,
-                            "home",
-                            { clear: false },
-                          )}
-                        >
-                          设置居所
-                        </button>
                         {f.home !== "未设置" && (
                           <button
                             disabled={!editable}
@@ -534,7 +493,7 @@ export function GameApp() {
                     {(f.dead || f.unavailable) && (
                       <div className="info-box">
                         {f.dead
-                          ? "人物已死亡，可在行为页释放记录。"
+                          ? "人物已死亡，可在行为管理的通用设置中释放记录。"
                           : "人物正在参与剧情或暂不可操作，请稍后刷新。"}
                       </div>
                     )}
@@ -559,6 +518,24 @@ export function GameApp() {
                     )}
                     {tab === "概览" && (
                       <>
+                        <div className="cm-overview-actions" aria-label="随从快捷操作">
+                          <button className="cm-action-wait" disabled={!editable || f.group !== "party"}
+                            aria-pressed={f.waiting} onClick={() => act("wait", {value: !f.waiting})}>
+                            {f.waiting ? "继续跟随" : "等待"}
+                          </button>
+                          <button className="cm-action-dismiss" disabled={!editable}
+                            onClick={() => ask(
+                              f.group === "party" ? "解散随从" : "重新入队",
+                              f.group === "party" ? `让${f.name}离开队伍，保留名册、收藏和个人设置。已设置居所时会返回居所。` : `让${f.name}重新加入队伍。`,
+                              f.group === "party" ? "dismiss" : "recruit",
+                            )}>{f.group === "party" ? "解散" : "重新入队"}</button>
+                          <button className="cm-action-home" disabled={!editable}
+                            title="将你当前站立的位置设为这位同伴的居所"
+                            onClick={() => ask("设置居所",
+                              `将你当前站立的位置（${s?.location ?? "当前位置"}）设为${f.name}的居所。离队后，同伴会前往这里休息。`,
+                              "home", {clear: false},
+                            )}>设置居所</button>
+                        </div>
                         <div className="cm-attribute-top">
                           <div className="cm-level-tile">
                             <span>角色等级</span>
@@ -570,21 +547,7 @@ export function GameApp() {
                             </p>
                           </div>
                           <div className="cm-resource-panel">
-                            <Resource
-                              name="生命"
-                              value={f.health}
-                              color="#9cd7b0"
-                            />
-                            <Resource
-                              name="法力"
-                              value={f.magicka}
-                              color="#aabde9"
-                            />
-                            <Resource
-                              name="耐力"
-                              value={f.stamina}
-                              color="#ddc389"
-                            />
+                            <CompanionVitals f={f}/>
                           </div>
                         </div>
                         {!!f.attributes?.length && (
@@ -634,113 +597,6 @@ export function GameApp() {
                               f.raised,
                               !editable || !f.canRaise,
                             )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    {tab === "行为" && (
-                      <>
-                        <div className="cm-behavior-columns">
-                          <div className="panel">
-                            <h3>行动安排</h3>
-                            {toggle(
-                              "wait",
-                              "原地等待",
-                              "结束等待后恢复跟随。",
-                              f.waiting,
-                              !editable || f.group !== "party",
-                            )}
-                            {toggle(
-                              "sandbox",
-                              "自由活动",
-                              "停留时可以休息与使用附近设施。",
-                              f.sandbox,
-                            )}
-                            {toggle(
-                              "leash",
-                              "自动跟上",
-                              "落后或跨区域时返回，等待及交战时不传送。",
-                              f.leash,
-                            )}
-                            {toggle(
-                              "passive",
-                              "避免交战",
-                              "降低攻击性与战斗信心，尝试停止战斗。",
-                              f.passive,
-                            )}
-                            {toggle(
-                              "protection",
-                              "死亡保护",
-                              "启用 Essential 保护。",
-                              f.essential,
-                            )}
-                          </div>
-                          <div className="panel">
-                            <div className="cm-person-actions">
-                              <h3>队伍管理</h3>
-                              <div className="button-row">
-                                <button
-                                  disabled={!editable}
-                                  onClick={() =>
-                                    ask(
-                                      "召回同伴",
-                                      `将${f.name}移动到你身边。`,
-                                      "summon",
-                                    )
-                                  }
-                                >
-                                  召回身边
-                                </button>
-                                {f.managed && f.group === "party" && !f.dead ? (
-                                  <button
-                                    disabled={!editable}
-                                    onClick={() =>
-                                      ask(
-                                        "让同伴离队",
-                                        "离队后保留在随从名册，已有居所与个人设置会保留。",
-                                        "dismiss",
-                                      )
-                                    }
-                                  >
-                                    解散
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="primary"
-                                    disabled={
-                                      !enabled ||
-                                      f.dead ||
-                                      f.unavailable ||
-                                      (!f.managed && !f.canRecruit)
-                                    }
-                                    onClick={() =>
-                                      ask(
-                                        f.managed ? "邀请加入队伍" : "纳入同行管理",
-                                        `由同行管理${f.name}的行动、居所与法术。`,
-                                        f.managed ? "recruit" : "adopt",
-                                      )
-                                    }
-                                  >
-                                    {f.managed ? "重新入队" : "纳入同行管理"}
-                                  </button>
-                                )}
-                                {f.managed &&
-                                  (f.group === "registry" || f.dead) && (
-                                    <button
-                                      disabled={!enabled}
-                                      onClick={() =>
-                                        ask(
-                                          "释放名册记录",
-                                          "解除管理，恢复原始行为、保护和等级上限。已学习法术保留，被禁用法术恢复。",
-                                          "forget",
-                                        )
-                                      }
-                                    >
-                                      释放名册
-                                    </button>
-                                  )}
-                              </div>
-                            </div>
                           </div>
                         </div>
                       </>

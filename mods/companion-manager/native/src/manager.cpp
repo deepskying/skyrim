@@ -1,6 +1,10 @@
 #include "manager.h"
 #include "spell_details.h"
 #include "state_rules.h"
+#include "activity_rules.h"
+#include <deque>
+#include <random>
+#include <limits>
 #include <atomic>
 #include <charconv>
 #include <chrono>
@@ -274,6 +278,9 @@ void Equip(RE::Actor *actor, RE::FormID id, bool equipped)
     if (worn != equipped)
         throw std::runtime_error("引擎未确认装备变化，请刷新后检查");
 }
+#include "activities.inc"
+#include "retired_needs.inc"
+
 RE::BGSRefAlias *DialogueAlias()
 {
     auto *dialogue = RE::TESDataHandler::GetSingleton()->LookupForm<RE::TESQuest>(0x750BA, "Skyrim.esm");
@@ -282,6 +289,34 @@ RE::BGSRefAlias *DialogueAlias()
             if (alias && alias->aliasID == 0 && alias->GetVMTypeID() == RE::BGSRefAlias::VMTYPEID)
                 return static_cast<RE::BGSRefAlias *>(alias);
     return nullptr;
+}
+
+void GuardRecruitmentDialogue()
+{
+    // The vanilla alias supplies CurrentFollowerFaction. Clearing that alias to free
+    // its one recruitment slot removes the faction, but the actor remains a teammate.
+    // Prepend an AND guard so existing OR groups, voices and scripts remain intact.
+    static std::unordered_set<RE::TESTopicInfo*> guarded;
+    auto* data=RE::TESDataHandler::GetSingleton();
+    std::size_t added=0;
+    for(const auto id:{0xB0EE6u,0xBCC84u,0x104F1Au,0x104F1Bu}) {
+        auto* topic=data->LookupForm<RE::TESTopic>(id,"Skyrim.esm");
+        if(!topic||!topic->topicInfos) continue;
+        for(std::uint32_t i=0;i<topic->numTopicInfos;++i) {
+            auto* info=topic->topicInfos[i];
+            if(!info||guarded.contains(info)) continue;
+            auto* condition=new RE::TESConditionItem();
+            condition->data.functionData.function=RE::FUNCTION_DATA::FunctionID::kGetPlayerTeammate;
+            condition->data.comparisonValue.f=0.0f;
+            condition->data.flags.opCode=RE::CONDITION_ITEM_DATA::OpCode::kEqualTo;
+            condition->data.flags.isOR=false;
+            condition->data.object=RE::CONDITIONITEMOBJECT::kSelf;
+            condition->next=info->objConditions.head;
+            info->objConditions.head=condition;
+            guarded.insert(info);++added;
+        }
+    }
+    logger::info("Recruitment dialogue teammate guards installed: {}",added);
 }
 void DialogueNotice(RE::FormID id, const std::string &message)
 {
@@ -386,6 +421,7 @@ void Tick()
     SyncDialogueRecruitment();
     if (commandPending)
         return;
+    try { ClearRetiredNeeds(); TickActivities(); if(ManagerViewOpen()){static double refreshAt=0;if(ActivityTime()>refreshAt){refreshAt=ActivityTime()+5;RefreshManagerView();}} } catch(const std::exception& e) { CancelActivity(); ActivityLog(e.what()); }
     for (auto &[id, r] : members)
         if (auto *actor = Actor(id))
         {
@@ -397,7 +433,7 @@ void Tick()
                         actor->RemoveSpell(spell);
             if (r["passive"].get<bool>() && actor->IsInCombat())
                 actor->StopCombat();
-            if (r["active"].get<bool>() && !r["waiting"].get<bool>() && r["leash"].get<bool>() &&
+            if ((!activityJob || activityJob->actor != id) && r["active"].get<bool>() && !r["waiting"].get<bool>() && r["leash"].get<bool>() &&
                 !actor->IsInCombat() && !player->IsInCombat())
             {
                 const bool same = actor->GetParentCell() == player->GetParentCell() ||
@@ -422,6 +458,13 @@ json ManagerSettings()
 {
     std::scoped_lock guard(lock);
     return settings;
+}
+json ActivityOverview()
+{
+    std::scoped_lock guard(lock);
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    return {{"defaults",settings.value("behavior",activity::Defaults())},{"history",activityHistory},
+            {"playerCarried",player?Carried(player):0},{"playerCapacity",player?Capacity(player):0}};
 }
 std::vector<RE::FormID> RegisteredActors()
 {
@@ -451,6 +494,8 @@ void InitializeManager()
         return;
     }
     quest->Start();
+    GuardRecruitmentDialogue();
+    RegisterActivityEvents();
     logger::info("Controller loaded: capacity={} questAliases={}", slots, quest->aliases.size());
     worker = std::jthread([](std::stop_token stop) {
         while (!stop.stop_requested())
@@ -469,6 +514,7 @@ void SetGameReady(bool value)
 {
     std::scoped_lock guard(lock);
     ready = value;
+    ResetActivities();
     commandPending = false;
     requests.clear();
     dialogueCandidate = 0;
@@ -477,6 +523,17 @@ void SetGameReady(bool value)
     ++epoch;
     token = std::to_string(GetTickCount64()) + "-" + std::to_string(epoch);
     if (value)
+    {
+        Call("CleanupRetiredNeeds",[](bool){});
+        ClearRetiredNeeds();
+        activityCleanup=true;
+        const auto stamp=epoch;
+        Call("ResetActivityTargets",[stamp](bool ok){
+            std::scoped_lock guard(lock);
+            if(stamp!=epoch) return;
+            activityCleanup=!ok;
+            if(!ok) logger::error("Activity target cleanup failed; automatic activities suspended");
+        });
         for (auto &[id, r] : members)
             if (auto *actor = Actor(id))
             {
@@ -484,6 +541,7 @@ void SetGameReady(bool value)
                     rules::ApplyGrowthDefault(r, base->HasPCLevelMult());
                 Apply(actor, r);
             }
+    }
 }
 
 void RegisterSerialization()
@@ -501,7 +559,9 @@ void RegisterSerialization()
             row["actor"] = id;
             rows.push_back(row);
         }
-        const auto bytes = json{{"members", rows}, {"settings", settings}}.dump();
+        json retired=json::array();
+        for(const auto& [id,penalties]:retiredNeeds)retired.push_back({{"actor",id},{"penalties",penalties}});
+        const auto bytes = json{{"members",rows},{"settings",settings},{"ignoredDrops",droppedReferences},{"needsActors",retired}}.dump();
         if (bytes.size() > 4 * 1024 * 1024 || !s->OpenRecord(0x44415441, rules::StateRecordVersion) ||
             !s->WriteRecordData(bytes.data(), static_cast<std::uint32_t>(bytes.size())))
             logger::error("Could not save Companion Manager state.");
@@ -525,6 +585,8 @@ void RegisterSerialization()
             }
         }
         members.clear();
+        retiredNeeds.clear();
+        droppedReferences.clear();
         settings = {{"opacity", 82}, {"font", 16}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
     });
     ser->SetLoadCallback([](SKSE::SerializationInterface *s) {
@@ -548,6 +610,8 @@ void RegisterSerialization()
                 for (auto row : rows)
                 {
                     rules::ValidateMember(row);
+                    RemapWardrobe(row,s);
+                    row.erase("restJob");row.erase("restHold");row.erase("noEat");
                     const int slot = row.at("slot").get<int>();
                     if (!usedSlots.insert(slot).second)
                         throw std::runtime_error("Duplicate slot");
@@ -578,8 +642,22 @@ void RegisterSerialization()
                 }
                 auto prefs = data.at("settings");
                 rules::ValidateSettings(prefs);
+                if(prefs.contains("behavior")&&!activity::Valid(prefs["behavior"])) throw std::runtime_error("Invalid behavior defaults");
+                std::unordered_set<RE::FormID> loadedDrops;
+                if(data.contains("ignoredDrops")) {
+                    const auto& dropped=data["ignoredDrops"];
+                    if(!dropped.is_array()||dropped.size()>4096) throw std::runtime_error("Invalid ignored drops");
+                    for(const auto& old:dropped) {
+                        if(!rules::Integer(old,1,0xFFFFFFFF)) throw std::runtime_error("Invalid dropped form");
+                        RE::FormID mapped=0;if(s->ResolveFormID(old.get<RE::FormID>(),mapped))loadedDrops.insert(mapped);
+                    }
+                }
+                auto retired=ReadRetiredNeeds(data,s);
+                prefs.erase("needs");
+                retiredNeeds=std::move(retired);
                 members = std::move(loaded);
                 settings = std::move(prefs);
+                droppedReferences=std::move(loadedDrops);
             }
             catch (const std::exception &error)
             {
@@ -606,6 +684,13 @@ void DescribeActor(RE::Actor *actor, json &row)
     if (!managed)
         return;
     const auto &r = it->second;
+    row["wardrobe"] = WardrobeSnapshot(actor,r);
+    row["carried"] = Carried(actor);
+    row["capacity"] = Capacity(actor);
+    row["behavior"] = Behavior(r);
+    row["behaviorOverride"] = r.contains("behavior");
+    row["activity"] = activityJob && activityJob->actor==actor->GetFormID() ? activityJob->kind : "idle";
+    row["request"] = activityRequests.contains(actor->GetFormID()) ? activityRequests[actor->GetFormID()] : "";
     row["group"] = r["active"].get<bool>() ? "party" : "registry";
     for (const auto *key : {"waiting", "sandbox", "leash", "passive", "raised"})
         row[key] = r[key];
@@ -685,6 +770,10 @@ void ExecuteCommand(const json &request, Completion complete)
             throw std::runtime_error("重复或无效的指令，未再次执行");
         requests.insert(requestID);
         const auto op = request.at("command").get<std::string>();
+        if(op=="behaviorDefaults") {
+            if(!activity::Valid(request.at("settings"))) throw std::runtime_error("行为设置无效");
+            settings["behavior"]=request["settings"]; CancelActivity(); complete(true,"全队行为默认设置已保存");return;
+        }
         if (op == "settings")
         {
             const auto key = request.at("key").get<std::string>();
@@ -701,6 +790,7 @@ void ExecuteCommand(const json &request, Completion complete)
         }
         if (op == "group")
         {
+            CancelActivity();
             const auto action = request.at("action").get<std::string>();
             if (action != "wait" && action != "follow" && action != "summon")
                 throw std::runtime_error("队伍指令无效");
@@ -812,6 +902,8 @@ void ExecuteCommand(const json &request, Completion complete)
         const int slot = r["slot"].get<int>();
         if (!Alias(slot) || Alias(slot)->GetActorReference() != actor)
             throw std::runtime_error("人物槽位与存档记录不匹配，请重新载入完整存档");
+        if(ActivityCommand(op,actor,r,request)) { complete(true,"设置或库存操作已完成");return; }
+        if(activityJob && (activityJob->actor==id)) CancelActivity();
         if (op == "dismiss")
         {
             commandPending = true;

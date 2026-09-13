@@ -1,5 +1,87 @@
 Scriptname CMController extends Quest
 
+Bool Function ResetActivityTargets()
+    Int slot = 0
+    While slot < 64
+        ReferenceAlias goal = GetAlias(slot + 128) as ReferenceAlias
+        If goal == None
+            Return False
+        EndIf
+        If goal.GetReference() != None
+            EndActivity(slot)
+        EndIf
+        slot += 1
+    EndWhile
+    Return True
+EndFunction
+
+Bool Function BeginActivity(Int slot, ObjectReference target)
+    ReferenceAlias member = MemberAlias(slot)
+    ReferenceAlias goal = GetAlias(slot + 128) as ReferenceAlias
+    If member == None || goal == None || target == None
+        Return False
+    EndIf
+    Actor who = member.GetActorReference()
+    If who == None || who.IsInCombat() || Game.GetPlayer().IsInCombat()
+        Return False
+    EndIf
+    goal.ForceRefTo(target)
+    Return goal.GetReference() == target
+EndFunction
+
+Bool Function FaceActivity(Int slot, Bool looting, Bool trading)
+    ReferenceAlias member = MemberAlias(slot)
+    ReferenceAlias goal = GetAlias(slot + 128) as ReferenceAlias
+    If member == None || goal == None
+        Return False
+    EndIf
+    Actor who = member.GetActorReference()
+    ObjectReference target = goal.GetReference()
+    If who == None || target == None || who.IsInCombat() || Game.GetPlayer().IsInCombat()
+        Return False
+    EndIf
+    who.SetAngle(who.GetAngleX(), who.GetAngleY(), who.GetAngleZ() + who.GetHeadingAngle(target))
+    who.SetLookAt(target)
+    If trading
+        Actor merchant = target as Actor
+        If merchant == None || merchant.IsInCombat()
+            Return False
+        EndIf
+        merchant.SetLookAt(who)
+    EndIf
+    If looting
+        If (target as Actor) != None
+            who.PlayIdle(Game.GetFormFromFile(0x000EFC64, "Skyrim.esm") as Idle)
+        Else
+            who.PlayIdle(Game.GetFormFromFile(0x00075C3E, "Skyrim.esm") as Idle)
+        EndIf
+    EndIf
+    Return True
+EndFunction
+
+Bool Function EndActivity(Int slot)
+    ReferenceAlias member = MemberAlias(slot)
+    ReferenceAlias goal = GetAlias(slot + 128) as ReferenceAlias
+    If goal != None
+        Actor other = goal.GetReference() as Actor
+        If other != None && other != Game.GetPlayer() && !other.IsDead()
+            other.ClearLookAt()
+        EndIf
+        goal.Clear()
+    EndIf
+    If member != None
+        Actor who = member.GetActorReference()
+        If who != None
+            who.ClearLookAt()
+            If !who.IsInCombat()
+                Debug.SendAnimationEvent(who, "IdleForceDefaultState")
+            EndIf
+            who.EvaluatePackage()
+        EndIf
+    EndIf
+    Return True
+EndFunction
+
 ; Actor aliases 0..63, matching home aliases 64..127.
 ReferenceAlias Function MemberAlias(Int slot)
     If slot < 0 || slot >= 64
@@ -131,4 +213,18 @@ Bool Function SetProtection(Int slot, Bool enabled)
     EndIf
     who.GetActorBase().SetEssential(enabled)
     Return who.GetActorBase().IsEssential() == enabled
+EndFunction
+
+
+Bool Function CleanupRetiredNeeds()
+    UnregisterForSleep()
+    Int slot = 0
+    While slot < 64
+        ReferenceAlias target = GetAlias(192 + slot) as ReferenceAlias
+        If target != None
+            target.Clear()
+        EndIf
+        slot += 1
+    EndWhile
+    Return True
 EndFunction

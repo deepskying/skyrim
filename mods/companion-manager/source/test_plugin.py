@@ -30,8 +30,8 @@ class PluginTests(unittest.TestCase):
                 if k==b'FNAM':active['flags']=struct.unpack('<I',v)[0]
                 if k==b'CTDA':active['conditions'].append(v)
                 if k==b'ALPC':active['packages'].append(struct.unpack('<I',v)[0])
-        self.assertEqual([a['id'] for a in aliases],list(range(128)))
-        self.assertEqual(next(struct.unpack('<I',v)[0] for k,v in self.parts if k==b'ANAM'),128)
+        self.assertEqual([a['id'] for a in aliases],list(range(256)))
+        self.assertEqual(next(struct.unpack('<I',v)[0] for k,v in self.parts if k==b'ANAM'),256)
         for a in aliases:
             self.assertTrue(a['flags']&2);self.assertFalse(a['flags']&4)
             self.assertEqual(len(a['conditions']),2)
@@ -41,12 +41,15 @@ class PluginTests(unittest.TestCase):
                 self.assertEqual(struct.unpack_from('<I',c,12)[0],0x14)
                 self.assertEqual(c[0],0) # Equal, AND; impossible conjunction
             if a['id']<64:
-                self.assertEqual(len(a['packages']),12)
+                self.assertEqual(len(a['packages']),13)
                 self.assertTrue(all(p in self.packages for p in a['packages']))
                 home=self.packages[a['packages'][0]]
                 locations=[struct.unpack('<III',v) for k,v in subrecords(home['data']) if k==b'PLDT']
                 self.assertEqual(locations,[(8,64+a['id'],512)])
                 self.assertEqual(home['form'],0x01000900+a['id'])
+                activity=self.packages[a['packages'][1]]
+                self.assertEqual([struct.unpack('<III',v) for k,v in subrecords(activity['data']) if k==b'PLDT'],[(8,128+a['id'],64)])
+                self.assertEqual(edid(activity),f"CMActivity{a['id']:02}")
             else:self.assertEqual(a['packages'],[])
 
     def test_packages_have_scoped_owner_and_mode(self):
@@ -60,7 +63,11 @@ class PluginTests(unittest.TestCase):
             modes.add(int(struct.unpack_from('<f',condition,4)[0]))
             if edid(r).startswith('CMFollow'):
                 self.assertEqual([struct.unpack('<III',v) for k,v in parts if k==b'PTDA'],[(0,0x14,0)])
-        self.assertEqual(modes,{1,2,3,4,5,11,12,21,22})
+        self.assertEqual(modes,{1,2,3,4,5,11,12,21,22,100})
+
+    def test_retired_needs_have_no_active_records(self):
+        self.assertFalse(any(edid(r).startswith(('CMRest','CMWater')) for r in self.rows))
+        self.assertFalse(any(r['sig'] in (b'ALCH',b'COBJ') for r in self.rows))
 
     def test_script_binding_and_bytecode(self):
         vmad=next(v for k,v in self.parts if k==b'VMAD')

@@ -1,4 +1,5 @@
 import type { Follower } from "./demo";
+import {validBehavior,validWardrobe,type BehaviorSettings,type WardrobeItem,type Automation} from "./behavior.ts";
 
 export type InventoryItem = {
   description?: string;
@@ -14,6 +15,8 @@ export type InventoryItem = {
   spellName: string;
 };
 export type GameFollower = Omit<Follower, "gear"> & {
+  wardrobe?:WardrobeItem[]; behavior?:BehaviorSettings; behaviorOverride?:boolean;
+  carried?:number;capacity?:number;activity?:string;request?:string;
   managed: boolean;
   canRecruit: boolean;
   reason: string;
@@ -39,6 +42,7 @@ export type Settings = {
   sandbox: boolean;
 };
 export type Snapshot = {
+  automation?:Automation;
   version: 2;
   session: string;
   managerAvailable: boolean;
@@ -145,6 +149,10 @@ export function parseSnapshot(value: unknown): Snapshot | null {
     return null;
   const ids = new Set<string>();
   for (const f of value.followers) {
+    if(record(f)&&((f.wardrobe!==undefined&&!validWardrobe(f.wardrobe))||(f.behavior!==undefined&&!validBehavior(f.behavior))||
+       ["carried","capacity"].some(k=>f[k]!==undefined&&(!number(f[k])||(f[k] as number)<0))||
+       (f.behaviorOverride!==undefined&&typeof f.behaviorOverride!=="boolean")||
+       ["activity","request"].some(k=>f[k]!==undefined&&typeof f[k]!=="string")))return null;
     if (
       !record(f) ||
       ![
@@ -227,6 +235,10 @@ export function parseSnapshot(value: unknown): Snapshot | null {
         return null;
       gearIds.add(g.id);
     }
+  }
+  if(value.automation!==undefined) {
+    const a=value.automation;
+    if(!record(a)||!validBehavior(a.defaults)||!number(a.playerCarried)||!number(a.playerCapacity)||!Array.isArray(a.history)||a.history.length>40||a.history.some(x=>typeof x!=="string"))return null;
   }
   return value as unknown as Snapshot;
 }
