@@ -88,7 +88,7 @@ export function fixture() {
     truncated: false,
     settings: {
       opacity: 82,
-      font: 15,
+      font: 16,
       distance: 1,
       notifications: true,
       sandbox: true,

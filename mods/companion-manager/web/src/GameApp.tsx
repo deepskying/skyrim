@@ -106,7 +106,7 @@ export function GameApp() {
   const editable = enabled && !!f?.managed && !f.dead && !f.unavailable;
   const prefs = s?.settings ?? {
     opacity: 82,
-    font: 15,
+    font: 16,
     distance: 1,
     notifications: true,
     sandbox: true,

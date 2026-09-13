@@ -15,7 +15,7 @@ RE::TESQuest *quest = nullptr;
 RE::TESFaction *modeFaction = nullptr;
 std::recursive_mutex lock;
 std::unordered_map<RE::FormID, json> members;
-json settings = {{"opacity", 82}, {"font", 15}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
+json settings = {{"opacity", 82}, {"font", 16}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
 std::atomic_bool ready = false, tickQueued = false;
 bool commandPending = false;
 std::unordered_set<std::string> requests;
@@ -525,7 +525,7 @@ void RegisterSerialization()
             }
         }
         members.clear();
-        settings = {{"opacity", 82}, {"font", 15}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
+        settings = {{"opacity", 82}, {"font", 16}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
     });
     ser->SetLoadCallback([](SKSE::SerializationInterface *s) {
         std::scoped_lock guard(lock);
