@@ -13,7 +13,9 @@ import { demoState } from './demo';
 import type { EquipmentItem, MaterialRequirement, PanelState, Settings } from './types';
 import { EnhancementPage, MaterialList } from './EnhancementPage';
 import { normalizeCards } from './enhancement';
-import { createHudReceiver, type HudMessage } from './hud';
+import { createHudReceiver, normalizeEquippedHud, type EquippedHudItem, type HudMessage } from './hud';
+import { EquippedHud } from './EquippedHud';
+import './hud.css';
 import { EquippedBadge } from './EquippedBadge';
 import { formatDurability } from './format';
 import { equippedFirst } from './equipment';
@@ -27,6 +29,9 @@ declare global {
       receiveState: (next: PanelState) => void;
       setPanelVisible: (visible: boolean) => void;
       showHud: (message: unknown) => void;
+      updateEquippedHud: (items: unknown) => void;
+      clearHud: () => void;
+      reportReady: () => void;
       escape: () => void;
       openArrows: () => void;
       navigateEquipment: (direction: number) => void;
@@ -37,7 +42,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '0.1.43',
+  version: '1.4.4',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'A', keyCode: 0x1E, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, enableWorkshopSounds: true, allowEnchantedItemsToBreak: true },
@@ -201,6 +206,7 @@ export function App() {
   const [draft, setDraft] = useState<Settings>(state.settings);
   const [panelVisible, setPanelVisible] = useState(import.meta.env.DEV);
   const [hud, setHud] = useState<HudMessage>();
+  const [equippedHud, setEquippedHud] = useState<EquippedHudItem[]>([]);
   const escapeAction = useRef<() => void>(() => {});
   const directAction = useRef<(event: { sequence: string; id: string }) => boolean>(() => false);
   const directPending = useRef(false);
@@ -233,6 +239,9 @@ export function App() {
         if (!visible) setEnhancingId(undefined);
       },
       showHud: hudReceiver.receive,
+      updateEquippedHud: (items) => { const next = normalizeEquippedHud(items); if (next) setEquippedHud(next); },
+      clearHud: () => { hudReceiver.clear(); setEquippedHud([]); },
+      reportReady: () => send('ready', { version: emptyState.version }),
       escape: () => escapeAction.current(),
       openArrows: () => { setTab('arrows'); setEnhancingId(undefined); },
       navigateEquipment: (direction) => { navigateAction.current(direction); },
@@ -372,7 +381,26 @@ export function App() {
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
-  return <>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite"><span className="hud-rune">{hud.kind === 'warning' ? '!' : 'ᛏ'}</span><div className="hud-copy"><b>{hud.title}</b>{hudPercentage !== undefined && <><div className="hud-value"><strong>{formatDurability(hud.current)} / {formatDurability(hud.maximum)}</strong><span>{Math.round(hudPercentage)}%</span></div><div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}><i style={{ width: `${hudPercentage}%` }} /></div></>}<span className="hud-detail">{hud.detail}</span></div></aside>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
+  return <>{!panelVisible && <div className="durability-hud-stack">{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite">
+    <svg className="hud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {hud.kind === 'warning'
+        ? <><path d="m12 3 10 18H2L12 3Z" /><path d="M12 9v5m0 3v.1" /></>
+        : <><path d="m14 3 7-1-1 7-10 10-5-5L14 3Z" /><path d="m7 12 5 5M3 13l8 8m-4-4-4 4m-1-1 2 2" /></>}
+    </svg>
+    <div className="hud-copy">
+      <b className="hud-title">{hud.title}</b>
+      {hudPercentage !== undefined && <>
+        <div className="hud-value">
+          <strong>{formatDurability(hud.current)} <small>/ {formatDurability(hud.maximum)}</small></strong>
+          <span>{Math.round(hudPercentage)}%</span>
+        </div>
+        <div className="hud-track" role="progressbar" aria-label="当前耐久" aria-valuemax={hud.maximum} aria-valuemin={0} aria-valuenow={hud.current}>
+          <i style={{ width: `${hudPercentage}%` }} />
+        </div>
+      </>}
+      {hud.detail && <span className="hud-detail">{hud.detail}</span>}
+    </div>
+  </aside>}<EquippedHud items={equippedHud} /></div>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelDismantle'); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
     <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'dismantle' ? 'SALVAGE WORKSHOP' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'arrows' ? '魔法箭工坊' : tab === 'dismantle' ? '分解与回收' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : tab === 'dismantle' ? '让闲置的装备，继续为下一次冒险效力。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${state.forge.active ? 'active' : ''}`}>{state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 

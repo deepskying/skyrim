@@ -5,6 +5,28 @@ export type HudMessage = {
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
+export type EquippedHudItem = {
+  id: string; kind: 'weapon' | 'warning'; title: string; detail: string;
+  current: number; maximum: number;
+};
+
+// Full snapshots replace the previous list, including [] after unequip or menus.
+export function normalizeEquippedHud(value: unknown): EquippedHudItem[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const seen = new Set<string>();
+  const items: EquippedHudItem[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id || seen.has(raw.id) ||
+        (raw.kind !== 'weapon' && raw.kind !== 'warning') || typeof raw.title !== 'string' ||
+        !finite(raw.current) || !finite(raw.maximum) || raw.maximum <= 0) continue;
+    seen.add(raw.id);
+    items.push({ id: raw.id, kind: raw.kind, title: raw.title,
+      detail: typeof raw.detail === 'string' ? raw.detail : '',
+      current: Math.max(0, Math.min(raw.maximum, raw.current)), maximum: raw.maximum });
+  }
+  return items;
+}
+
 export function normalizeHudMessage(value: unknown): HudMessage | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   const raw = value as Record<string, unknown>;
@@ -47,6 +69,12 @@ export function createHudReceiver(
         display(undefined);
         hidden(message.id);
       }, message.durationMilliseconds);
+    },
+    clear() {
+      ++generation;
+      if (timer !== undefined) timers.clear(timer);
+      timer = undefined;
+      display(undefined);
     },
     dispose() {
       disposed = true;

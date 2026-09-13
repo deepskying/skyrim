@@ -23,6 +23,8 @@ test('list, details and HUD format both values without rounding the stored state
   const native = readFileSync(new URL('../../native/src/main.cpp', import.meta.url), 'utf8');
   assert.match(native, /optional<float> a_current/);
   assert.match(native, /optional<float> a_maximum/);
-  assert.match(native, /const auto current = durability.current;/);
-  assert.match(native, /const auto maximum = durability.maximum;/);
+  assert.ok(native.includes('{"current", durability.current}'));
+  assert.ok(native.includes('{"maximum", durability.maximum}'));
+  const equipped = readFileSync(new URL('../src/EquippedHud.tsx', import.meta.url), 'utf8');
+  for (const field of ['current', 'maximum']) assert.ok(equipped.includes(`formatDurability(item.${field})`));
 });

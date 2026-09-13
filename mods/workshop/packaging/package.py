@@ -5,7 +5,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MODS = ROOT.parent
-OUT = ROOT / 'packaging/release/EquipmentWorkshop-1.4.2'
+OUT = ROOT / 'packaging/release/EquipmentWorkshop-1.4.4'
 
 def package():
     dll = ROOT / 'native/build/windows/x64/release/EquipmentWorkshop.dll'
@@ -38,9 +38,9 @@ def package():
     shutil.copytree(equipment / 'web/dist', OUT / 'MeridianUI/equipmentworkshop')
     shutil.copy2(ROOT / 'native/vendor/MeridianUIAPI/LICENSE-MIT', OUT / 'Meridian-SDK-LICENSE.txt')
     shutil.copy2(ROOT / 'README.md', OUT / 'README.md')
-    (OUT / 'meta.ini').write_text('[General]\ngameName=Skyrim Special Edition\nversion=1.4.2\nnotes=Unified equipment and magic arrow workshop; legacy ESP identities retained.\n', encoding='utf-8')
+    (OUT / 'meta.ini').write_text('[General]\ngameName=Skyrim Special Edition\nversion=1.4.4\nnotes=Unified equipment and magic arrow workshop; legacy ESP identities retained.\n', encoding='utf-8')
     assert [p.name for p in plugins.glob('*.dll')] == ['EquipmentWorkshop.dll']
-    archive = ROOT / 'packaging/EquipmentWorkshop-1.4.2.zip'
+    archive = ROOT / 'packaging/EquipmentWorkshop-1.4.4.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
         for source in sorted(OUT.rglob('*')):
             if source.is_file(): z.write(source, source.relative_to(OUT))

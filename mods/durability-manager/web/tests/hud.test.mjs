@@ -2,11 +2,58 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
+import { runInNewContext } from 'node:vm';
 
 const source = readFileSync(new URL('../src/hud.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
-const { normalizeHudMessage, createHudReceiver } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { normalizeHudMessage, createHudReceiver, normalizeEquippedHud } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const normal = { id: 10, kind: 'weapon', title: '钢弓', detail: '耐久', durationMilliseconds: 1500, current: 50, maximum: 100 };
+
+test('native HUD readiness probe recovers when page mounts before bridge injection', () => {
+  const header = readFileSync(new URL('../../native/src/hud_bridge.h', import.meta.url), 'utf8');
+  const probe = header.match(/R"JS\(([\s\S]*?)\)JS"/)[1];
+  const window = {};
+  const sent = [];
+  runInNewContext(probe, { window }); // Page is not mounted yet.
+  window.DurabilityManager = {
+    updateEquippedHud() {},
+    reportReady() { window.durabilityManagerAction?.('ready'); },
+  };
+  window.DurabilityManager.reportReady(); // Original one-shot ready is lost.
+  runInNewContext(probe, { window }); // Native listener still unavailable.
+  assert.deepEqual(sent, []);
+  window.durabilityManagerAction = value => sent.push(value);
+  runInNewContext(probe, { window });
+  assert.deepEqual(sent, ['ready']);
+  delete window.DurabilityManager;
+  runInNewContext(probe, { window }); // Navigation/reload remains safe.
+  assert.deepEqual(sent, ['ready']);
+});
+
+test('persistent snapshots distinguish copies, reject malformed rows, and clear on unequip', () => {
+  const right = { id: '100:1', kind: 'weapon', title: '钢剑', detail: '右手', current: 80, maximum: 100 };
+  const left = { ...right, id: '100:2', detail: '左手', current: 20 };
+  assert.deepEqual(normalizeEquippedHud([right, left, right, null, { ...left, id: 'bad', maximum: 0 }]), [right, left]);
+  assert.deepEqual(normalizeEquippedHud([left]), [left]);
+  assert.deepEqual(normalizeEquippedHud([]), []);
+  assert.equal(normalizeEquippedHud(null), undefined);
+  assert.equal(normalizeEquippedHud([{ ...right, current: -3 }])[0].current, 0);
+  assert.equal(normalizeEquippedHud([{ ...right, current: 1000 }])[0].current, 100);
+});
+
+test('clearing HUD during a menu or load invalidates callbacks and allows new notifications', () => {
+  const h = harness();
+  h.receiver.receive(normal);
+  h.receiver.clear();
+  h.callbacks[0]();
+  assert.equal(h.shown.at(-1), undefined);
+  assert.deepEqual(h.hidden, []);
+  h.receiver.receive({ ...normal, id: 11 });
+  h.callbacks[0]();
+  assert.equal(h.shown.at(-1).id, 11);
+  h.callbacks[1]();
+  assert.deepEqual(h.hidden, [11]);
+});
 
 test('HUD rejects null, malformed IDs and unknown kinds without throwing', () => {
   for (const value of [null, undefined, [], 'oops', 3, {}, { ...normal, id: null }, { ...normal, id: NaN },

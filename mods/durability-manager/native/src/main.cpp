@@ -8,12 +8,16 @@
 #include "forge_access.h"
 #include "dismantle_rules.h"
 #include "wear_rules.h"
+#include "hud_rules.h"
+#include "hud_bridge.h"
 #ifdef UNIFIED_WORKSHOP
 #include "workshop_bridge.h"
 #include "workshop_ui.h"
 #endif
 
 #include <nlohmann/json.hpp>
+#include <atomic>
+#include <thread>
 
 // Windows multimedia headers define PlaySound as a macro; use Skyrim's UI sound helper.
 #ifdef PlaySound
@@ -87,6 +91,12 @@ namespace
     bool g_capturingDismantleHotkey = false;
     bool g_panelVisible = false;
     bool g_hudVisible = false;
+    bool g_equippedHudVisible = false;
+    bool g_gameHudAllowed = false;
+    bool g_hudBridgeReady = false;
+    std::uint32_t g_hudProbeAttempts = 0;
+    bool g_clearHudPending = true;
+    std::string g_equippedHudPayload;
     std::uint32_t g_hudSequence = 0;
 
     struct DurabilitySnapshot
@@ -158,7 +168,6 @@ namespace
     std::unordered_map<ItemKey, DurabilitySnapshot, ItemKeyHash> g_durability;
     std::unordered_set<ItemKey, ItemKeyHash> g_lowDurabilityWarnings;
     std::unordered_set<ItemKey, ItemKeyHash> g_pendingBreaks;
-    std::unordered_map<ItemKey, std::chrono::steady_clock::time_point, ItemKeyHash> g_weaponNotificationTimes;
     std::mutex g_durabilityLock;
     std::uint16_t g_nextGeneratedUniqueID = 1;
     std::uint64_t g_stateEpoch = 0;
@@ -187,7 +196,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.4.2";
+    constexpr std::string_view kPluginVersion = "1.4.4";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif
@@ -691,7 +700,7 @@ namespace
 
     void UpdateViewVisibility()
     {
-        if (g_prisma && g_view && !g_panelVisible && !g_hudVisible) g_prisma->Hide(g_view);
+        if (g_prisma && g_view && !g_panelVisible && (!g_gameHudAllowed || (!g_hudVisible && !g_equippedHudVisible))) g_prisma->Hide(g_view);
     }
 
     void ShowHUD(
@@ -715,7 +724,7 @@ namespace
             message["maximum"] = *a_maximum;
         }
         g_hudVisible = true;
-        g_prisma->Show(g_view);
+        if (g_gameHudAllowed || g_panelVisible) g_prisma->Show(g_view);
         const auto script = "window.DurabilityManager && window.DurabilityManager.showHud(" + message.dump() + ");";
         g_prisma->Invoke(g_view, script.c_str());
     }
@@ -2566,7 +2575,6 @@ namespace
             g_durability.erase(*key);
             g_lowDurabilityWarnings.erase(*key);
             g_pendingBreaks.erase(*key);
-            g_weaponNotificationTimes.erase(*key);
         }
         ClearEnhancementDraft(*key);
         QueuePlayerRuntimeEffectsSync();
@@ -2681,23 +2689,6 @@ namespace
             }
         }
         for (const auto& key : brokenItems) QueueZeroDurabilityResolution(key);
-    }
-
-    void ShowWeaponDurability(const RE::TESObjectWEAP* a_weapon, RE::InventoryEntryData* a_entry = nullptr)
-    {
-        if (!a_weapon) return;
-        auto* entry = a_entry ? a_entry : FindEquippedWeaponEntry(a_weapon);
-        const auto key = EnsureItemKey(entry, a_weapon);
-        if (!key) return;
-        const auto now = std::chrono::steady_clock::now();
-        if (const auto previous = g_weaponNotificationTimes.find(*key); previous != g_weaponNotificationTimes.end() && now - previous->second < std::chrono::milliseconds(250)) return;
-        g_weaponNotificationTimes[*key] = now;
-
-        const auto durability = GetDurability(*key);
-        const auto current = durability.current;
-        const auto maximum = durability.maximum;
-        ShowHUD("weapon", DisplayName(a_weapon), "当前装备耐久", g_settings.weaponDisplaySeconds, current, maximum);
-        UpdateLowDurabilityWarning(a_weapon, *key, durability);
     }
 
     [[nodiscard]] std::optional<float> BaseWeaponWear(const RE::TESObjectWEAP* a_weapon)
@@ -2830,6 +2821,100 @@ namespace
     wear_rules::Travel g_movementTravel;
     wear_rules::ImpactThrottle g_impactThrottle;
     bool g_environmentWearReady = false;
+
+    // Snapshot on the game thread: never retain engine inventory pointers between ticks.
+    void RefreshEquippedHUD()
+    {
+        if (!g_prisma || !g_view) return;
+        if (!g_hudBridgeReady) {
+            // The initial page-side ready notification may precede native bridge injection.
+            // Do not wait forever for a one-shot notification that has already been lost.
+            if (++g_hudProbeAttempts == 1 || g_hudProbeAttempts == 20) {
+                logger::info("Equipped HUD waiting for page bridge; readiness probe {}.", g_hudProbeAttempts);
+            }
+            g_prisma->Invoke(g_view, durability_hud::kReadyProbe);
+            return;
+        }
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        auto* ui = RE::UI::GetSingleton();
+        const bool allowed = g_environmentWearReady && player && player->GetParentCell() &&
+            player->Is3DLoaded() && !player->IsDead() && ui && ui->IsShowingMenus() &&
+            !ui->GameIsPaused() && !g_panelVisible && !ui->IsMenuOpen("Main Menu") &&
+            !ui->IsMenuOpen("Loading Menu") && !ui->IsMenuOpen("InventoryMenu") &&
+            !ui->IsMenuOpen("MagicMenu") && !ui->IsMenuOpen("ContainerMenu") &&
+            !ui->IsMenuOpen("BarterMenu") && !ui->IsMenuOpen("Dialogue Menu");
+        if (g_clearHudPending || (!allowed && g_gameHudAllowed)) {
+            g_clearHudPending = false;
+            g_hudVisible = false;
+            g_equippedHudVisible = false;
+            ++g_hudSequence;
+            g_equippedHudPayload.clear();
+            g_prisma->Invoke(g_view, "window.DurabilityManager?.clearHud();");
+        }
+        if (g_gameHudAllowed != allowed) {
+            logger::info("Equipped HUD gameplay visibility: {} (loaded={}, player3D={}, paused={}, panel={}).",
+                allowed, g_environmentWearReady, player && player->Is3DLoaded(), ui && ui->GameIsPaused(), g_panelVisible);
+        }
+        g_gameHudAllowed = allowed;
+        if (!allowed) { UpdateViewVisibility(); return; }
+
+        json items = json::array();
+        std::unordered_set<ItemKey, ItemKeyHash> seen;
+        const auto append = [&](RE::TESBoundObject* item, RE::ExtraDataList* extra, bool weapon, const char* slot) {
+            if (!item || !extra || !extra->GetWorn()) return;
+            const auto key = EnsureItemKeyForExtraList(extra, item);
+            if (!key || !seen.insert(*key).second) return;
+            const auto durability = GetDurability(*key);
+            if (!durability_hud::ShouldDisplay(extra->GetWorn(), weapon, durability.current, durability.maximum, g_settings.lowDurabilityThreshold)) return;
+            const bool low = durability.current * 100.0F / durability.maximum < g_settings.lowDurabilityThreshold;
+            items.push_back({ {"id", std::to_string(key->baseFormID) + ":" + std::to_string(key->uniqueID)},
+                {"kind", low ? "warning" : "weapon"}, {"title", DisplayName(item)}, {"detail", slot},
+                {"current", durability.current}, {"maximum", durability.maximum} });
+        };
+        // Hand-specific extra lists preserve two separate instances of the same weapon.
+        for (const bool left : { false, true }) {
+            auto* entry = player->GetEquippedEntryData(left);
+            auto* weapon = entry && entry->object ? entry->object->As<RE::TESObjectWEAP>() : nullptr;
+            if (!weapon || !BaseWeaponWear(weapon)) continue;
+            append(weapon, FindWornExtraListForHand(entry, left), true, left ? "左手" : "右手");
+        }
+        const auto inventory = player->GetInventory();
+        for (const auto& [item, entry] : inventory) {
+            auto* armor = item ? item->As<RE::TESObjectARMO>() : nullptr;
+            if (!armor || entry.first <= 0 || !entry.second || !entry.second->extraLists) continue;
+            for (auto* extra : *entry.second->extraLists) append(armor, extra, false, "低耐久");
+        }
+        const auto payload = items.dump();
+        if (payload != g_equippedHudPayload) {
+            if (g_equippedHudPayload.empty() || g_equippedHudVisible != !items.empty())
+                logger::info("Equipped HUD snapshot: {} item(s).", items.size());
+            g_equippedHudPayload = payload;
+            g_equippedHudVisible = !items.empty();
+            const auto script = "window.DurabilityManager?.updateEquippedHud(" + payload + ");";
+            g_prisma->Invoke(g_view, script.c_str());
+            if (g_equippedHudVisible) g_prisma->Show(g_view);
+        }
+        UpdateViewVisibility();
+    }
+
+    void StartEquippedHUDUpdates()
+    {
+        // At most one pending task; the worker only schedules, all engine access is on the game thread.
+        static std::atomic_bool pending = false;
+        static std::jthread worker([](std::stop_token stop) {
+            while (!stop.stop_requested()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                if (stop.stop_requested()) break;
+                if (auto* tasks = SKSE::GetTaskInterface(); tasks && !pending.exchange(true)) {
+                    tasks->AddTask([] {
+                        try { RefreshEquippedHUD(); }
+                        catch (const std::exception& error) { logger::warn("Equipped HUD refresh failed: {}", error.what()); }
+                        pending = false;
+                    });
+                }
+            }
+        });
+    }
 
     double WearClockSeconds() {
         return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -2969,7 +3054,6 @@ namespace
                     QueueZeroDurabilityResolution(*key);
                     return RE::BSEventNotifyControl::kContinue;
                 }
-                ShowWeaponDurability(weapon, entry);
                 return RE::BSEventNotifyControl::kContinue;
             }
 
@@ -3061,11 +3145,6 @@ namespace
             const auto* player = RE::PlayerCharacter::GetSingleton();
             if (!a_event || !player || a_event->holder != player || Normalize(a_event->tag.c_str()) != "WEAPONDRAW") return RE::BSEventNotifyControl::kContinue;
             QueuePlayerRuntimeEffectsSync();
-            const auto* rightHand = player->GetEquippedObject(false);
-            const auto* leftHand = player->GetEquippedObject(true);
-            const auto* weapon = rightHand ? rightHand->As<RE::TESObjectWEAP>() : nullptr;
-            if (!weapon && leftHand) weapon = leftHand->As<RE::TESObjectWEAP>();
-            ShowWeaponDurability(weapon);
             return RE::BSEventNotifyControl::kContinue;
         }
 
@@ -3285,7 +3364,7 @@ namespace
         {
             std::scoped_lock lock(g_durabilityLock);
             g_durability.erase(*key); g_lowDurabilityWarnings.erase(*key);
-            g_pendingBreaks.erase(*key); g_weaponNotificationTimes.erase(*key);
+            g_pendingBreaks.erase(*key);
         }
         ClearEnhancementDraft(*key);
         QueuePlayerRuntimeEffectsSync();
@@ -3495,6 +3574,11 @@ namespace
         ClearEnchantmentCache("load/new-game transition");
         g_panelVisible = false;
         g_hudVisible = false;
+        g_equippedHudVisible = false;
+        g_gameHudAllowed = false;
+        g_clearHudPending = true;
+        g_equippedHudPayload.clear();
+        ++g_hudSequence;
         g_capturingHotkey = false;
         ClearForgeContext();
         {
@@ -3570,6 +3654,10 @@ namespace
             const auto type = request.value("type", "");
             if (type == "ready") {
                 logger::info("Durability Manager web bridge {} is ready.", request.value("version", "<unknown>"));
+                g_hudBridgeReady = true;
+                g_hudProbeAttempts = 0;
+                g_clearHudPending = true;
+                g_equippedHudPayload.clear();
                 return;
             }
 #ifdef UNIFIED_WORKSHOP
@@ -3852,7 +3940,6 @@ namespace
             g_durability = std::move(restored);
             g_lowDurabilityWarnings.clear();
             g_pendingBreaks.clear();
-            g_weaponNotificationTimes.clear();
             restoredCount = g_durability.size();
         }
         logger::info("Loaded {} durability instance records.", restoredCount);
@@ -3860,6 +3947,8 @@ namespace
 
     void RevertState(SKSE::SerializationInterface*)
     {
+        g_environmentWearReady = false;
+        g_clearHudPending = true;
 #ifdef UNIFIED_WORKSHOP
         unified_workshop::RevertArrows(nullptr);
 #endif
@@ -3874,7 +3963,6 @@ namespace
             g_durability.clear();
             g_lowDurabilityWarnings.clear();
             g_pendingBreaks.clear();
-            g_weaponNotificationTimes.clear();
             g_nextGeneratedUniqueID = 0x8000U;
             ++g_stateEpoch;
         }
@@ -3951,6 +4039,7 @@ namespace
         input->SetCaptureCallback(CaptureHotkey);
         input->SetActionCallback(DismantleShortcut);
         input->RegisterSink();
+        StartEquippedHUDUpdates();
         EquipmentEventSink::GetSingleton()->Register();
         logger::info("Durability Manager loaded with the restored direct Prisma lifecycle.");
     }

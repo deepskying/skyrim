@@ -1,0 +1,41 @@
+/* Floating game HUD: neutral glass, fine rules, and consistent sans-serif numerals. */
+.durability-hud-stack { position: fixed; right: 4.5vw; bottom: 18vh; z-index: 10; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: 91vw; pointer-events: none; }
+.durability-hud {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  width: min(360px, 91vw);
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, .23);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, .68);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .22);
+  color: #ecebea;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+.hud-icon { flex: 0 0 22px; width: 22px; height: 22px; margin-top: 1px; color: #cbc9c5; }
+.hud-copy { flex: 1; min-width: 0; }
+.hud-title { display: block; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }
+.hud-value { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-variant-numeric: tabular-nums; }
+.hud-value strong { font-family: inherit; font-size: 22px; font-weight: 500; }
+.hud-value small, .hud-value > span { color: #bab8b4; font-size: 14px; font-weight: 400; }
+.hud-track { height: 8px; margin-top: 8px; padding: 1px; overflow: hidden; border: 1px solid #9ee7f2; border-radius: 1px; background: rgba(0, 0, 0, .7); box-shadow: 0 0 4px rgba(110, 216, 235, .2); }
+.hud-track i { display: block; height: 100%; background: #d8d6d1; }
+.hud-detail { display: block; margin-top: 9px; color: #b9b7b3; font-size: 14px; overflow-wrap: anywhere; }
+.durability-hud.warning { border-color: rgba(211, 162, 125, .45); }
+.durability-hud.warning .hud-icon, .durability-hud.warning .hud-title { color: #dfb79a; }
+.durability-hud.warning .hud-track { border-color: #ffc18c; box-shadow: 0 0 4px rgba(255, 171, 102, .2); }
+.durability-hud.warning .hud-track i { background: #d1a282; }
+
+.equipped-hud-grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 300px); gap: 6px; max-width: 91vw; }
+.equipped-hud-item { width: 100%; min-width: 0; padding: 10px 14px; }
+.equipped-hud-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.equipped-hud-heading .hud-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.equipped-hud-heading > span { color: #b9b7b3; font-size: 12px; flex-shrink: 0; }
+.equipped-hud-item .hud-value { margin-top: 3px; }
+.equipped-hud-item .hud-value strong { font-size: 17px; }
+.equipped-hud-item .hud-value small, .equipped-hud-item .hud-value > span { font-size: 13px; }
+.equipped-hud-item .hud-track { margin-top: 4px; }
