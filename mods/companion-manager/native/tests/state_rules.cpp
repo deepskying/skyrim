@@ -1,4 +1,7 @@
 #include "../src/state_rules.h"
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <limits>
 using namespace companion::rules;

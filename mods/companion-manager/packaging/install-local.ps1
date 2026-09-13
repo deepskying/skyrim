@@ -4,7 +4,7 @@ param(
     [string]$MO2Root = 'C:/Users/linos/Desktop/games/+skyrim/MO2'
 )
 $ErrorActionPreference = 'Stop'
-if (Get-Process SkyrimSE -ErrorAction SilentlyContinue) { throw 'Exit Skyrim before updating the plugin.' }
+if (Get-Process SkyrimSE,skse64_loader -ErrorAction SilentlyContinue) { throw 'Exit Skyrim and SKSE before updating. MO2 snapshots its virtual file list at launch; new hashed UI assets cannot be hot-installed safely.' }
 $source = (Resolve-Path -LiteralPath $PackageDirectory).Path
 $mods = (Resolve-Path -LiteralPath (Join-Path $MO2Root 'mods')).Path
 $frameworks = @(Get-ChildItem -LiteralPath $mods -Directory | Where-Object {

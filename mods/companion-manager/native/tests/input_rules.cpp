@@ -1,4 +1,7 @@
 #include "../src/input_rules.h"
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 
 int main()

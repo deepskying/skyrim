@@ -1,6 +1,7 @@
 #include "manager.h"
 #include "spell_details.h"
 #include "state_rules.h"
+#include "trade_dialogue.h"
 #include "activity_rules.h"
 #include <deque>
 #include <random>
@@ -318,6 +319,34 @@ void GuardRecruitmentDialogue()
     }
     logger::info("Recruitment dialogue teammate guards installed: {}",added);
 }
+void RestoreTradeDialogue()
+{
+    static std::unordered_set<RE::TESTopicInfo*> patched;
+    auto* data=RE::TESDataHandler::GetSingleton();
+    auto* topic=data->LookupForm<RE::TESTopic>(0x60020,"Skyrim.esm");
+    auto* current=data->LookupForm<RE::TESFaction>(0x5C84E,"Skyrim.esm");
+    // This exceptional response calls RemoveAllItems, not OpenInventory.
+    auto* transferAll=data->LookupForm<RE::TESTopicInfo>(0x2CCC5,"Skyrim.esm");
+    if(!topic||!topic->topicInfos||!current||!modeFaction){
+        logger::error("Follower trade dialogue unavailable; no conditions modified");
+        return;
+    }
+    std::size_t added=0,skipped=0;
+    for(std::uint32_t i=0;i<topic->numTopicInfos;++i){
+        auto* info=topic->topicInfos[i];
+        if(!info||patched.contains(info))continue;
+        if(info==transferAll){++skipped;continue;}
+        bool previousOr=false,changed=false;
+        for(auto* node=info->objConditions.head;node;node=node->next){
+            if(dialogue::ExtendTradeCondition(node,previousOr,current,modeFaction)){
+                patched.insert(info);++added;changed=true;break;
+            }
+            previousOr=node->data.flags.isOR;
+        }
+        if(!changed)++skipped;
+    }
+    logger::info("Follower trade dialogue restored: patched={} skipped={}",added,skipped);
+}
 void DialogueNotice(RE::FormID id, const std::string &message)
 {
     const auto key = ID(id) + message;
@@ -495,6 +524,7 @@ void InitializeManager()
     }
     quest->Start();
     GuardRecruitmentDialogue();
+    RestoreTradeDialogue();
     RegisterActivityEvents();
     logger::info("Controller loaded: capacity={} questAliases={}", slots, quest->aliases.size());
     worker = std::jthread([](std::stop_token stop) {

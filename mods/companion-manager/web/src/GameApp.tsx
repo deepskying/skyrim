@@ -550,11 +550,21 @@ export function GameApp() {
                             <CompanionVitals f={f}/>
                           </div>
                         </div>
-                        {!!f.attributes?.length && (
                           <div className="panel">
                             <h3>基础属性</h3>
                             <div className="cm-stats">
-                              {f.attributes.map((a) => (
+                              <div title="当前负重包含已穿戴装备，与自动拾取的负重检查一致；上限为角色当前负重属性。">
+                                <span>当前负重 / 上限</span>
+                                <strong>
+                                  {f.carried === undefined ? "—" : Number(f.carried.toFixed(1))}
+                                  {" / "}
+                                  {(() => {
+                                    const capacity = f.capacity ?? f.attributes?.find(a => a.name === "负重上限")?.value;
+                                    return capacity === undefined ? "—" : Number(capacity.toFixed(1));
+                                  })()}
+                                </strong>
+                              </div>
+                              {f.attributes?.filter(a => a.name !== "负重上限").map((a) => (
                                 <div key={a.name}>
                                   <span>{a.name}</span>
                                   <strong>{Number(a.value.toFixed(1))}</strong>
@@ -562,7 +572,6 @@ export function GameApp() {
                               ))}
                             </div>
                           </div>
-                        )}
                         <div className="cm-attribute-columns">
                           <div className="panel">
                             <h3>技能</h3>

@@ -1,10 +1,13 @@
 :root {
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   color: #e4eaf0;
-  background: #17222b;
+  background: transparent;
   font-synthesis: none;
   font-weight: 400;
   color-scheme: dark;
+}
+:root[data-runtime="demo"] {
+  background: #17222b;
 }
 :root[data-runtime="game"],
 :root[data-runtime="game"] body,
@@ -101,6 +104,9 @@ select {
   padding: 4vh 3vw 0;
   position: relative;
   isolation: isolate;
+  background: transparent;
+}
+:root[data-runtime="demo"] .preview-world {
   background:
     radial-gradient(ellipse at 76% 8%, #54686e70, transparent 52%),
     linear-gradient(165deg, #253640, #182629 68%, #101820);

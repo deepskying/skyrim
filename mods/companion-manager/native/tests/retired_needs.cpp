@@ -1,6 +1,9 @@
 // Exercise the actual upgrade cleanup with a small actor-value/serialization adapter.
 #include <nlohmann/json.hpp>
 #include <array>
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <cassert>
 #include <cmath>
 #include <unordered_map>
