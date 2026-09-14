@@ -1,4 +1,4 @@
-# 装备工坊 · Equipment Workshop 1.6.2
+# 装备工坊 · Equipment Workshop 1.6.3
 
 装备耐久、修理、强化、分解与魔法箭合并为一个 MO2 模组、一个 SKSE DLL：`EquipmentWorkshop.dll`。目标 Skyrim SE 1.5.97、SKSE、Address Library；界面优先使用 Meridian UI，未启用时回退到 PrismaUI。两份原有源码作为独立模块编译进同一个目标，不再同时运行 DurabilityManager.dll 和 MagicArrows.dll。
 
@@ -20,9 +20,9 @@ SkyUI 回收已重写为 EquipmentWorkshop.dll 内的原生实现，安装包不
 
 这是物品回收重写，收益与旧模组的随机奖励表并非逐项一致；不包含旧模组的删除模式、遗忘法术／龙吼、分解经验或灵魂石恢复魔法。旧快捷键不从旧存档脚本自动导入，首次使用为右 Alt，可在通用设置重新录入。若仍加载 SimpleRecycling.esp，新回收自动停用并提示冲突，避免重复执行。
 
-## 1.6.2 回收提示
+## 1.6.3 回收提示
 
-回收成功后，按照游戏原生的拾取通知队列逐项显示“获得：材料 × 数量”；超过五种材料时，额外材料合并为一条提示。回收的总结果仍独立提示。
+回收成功时不再发送额外的右上角文字通知。实际入包材料交由 Untarnished 的右下角拾取提示显示；只有移除失败才显示错误信息。
 
 ## 1.6.1 修正
 
@@ -40,7 +40,7 @@ SkyUI 回收已重写为 EquipmentWorkshop.dll 内的原生实现，安装包不
 
 ## 安装
 
-1. 退出游戏。在 MO2 安装 `EquipmentWorkshop-1.6.2.zip` 为一个新模组。
+1. 退出游戏。在 MO2 安装 `EquipmentWorkshop-1.6.3.zip` 为一个新模组。
 2. 统一版主快捷键为 Shift+A；迁移旧配置后，将 DurabilityManager.ini 的 [Hotkey] 设置为 Key=A、Shift=true、Ctrl=false、Alt=false。SkyUI 回收默认右 Alt，旧 Shift+D 不再执行分解。将旧模组中定制过的 `DurabilityManager.ini`、`DurabilityManager.rules.json` 和 `MagicArrows.ini` 复制到新模组同一路径。
 3. 禁用旧的耐久度模组和魔法箭模组，启用装备工坊。移除原「简单回收」条目及 SimpleRecycling.esp；从旧工坊升级时也要移除旧 zsr 脚本与翻译（清单见 packaging/retired-recycling-files.json）。保持 DurabilityManager.esp、MagicArrows.esp 两个原 ESP 启用及原有排序。不要同时加载旧 DLL。
 4. 启动游戏，用现有存档验证，确认后另存新档。旧存档和旧模组文件可保留作为回退。

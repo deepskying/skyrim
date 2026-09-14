@@ -291,12 +291,11 @@ void RecycleInventorySelection(const RecyclingSelection& expected, bool entireSt
     if (removed != consumed) for (auto& [material, count] : materials)
         count = static_cast<std::int32_t>(static_cast<std::int64_t>(count) * removed / consumed);
     for (const auto& [material, count] : materials) if (count > 0) player->AddObjectToContainer(material, nullptr, count, nullptr);
-    if (removed) NotifySalvagePickups(materials);
     QueuePlayerRuntimeEffectsSync();
     if (menu && menu->GetRuntimeData().itemList) menu->GetRuntimeData().itemList->Update(player);
     if (removed) PlayWorkshopSound("UIEnchantingItemCreate");
-    const auto message = removed ? "已回收「" + selected->name + "」×" + std::to_string(removed) + "。" + (interrupted ? "其余物品回收已中止。" : "") : "物品未能移除，回收已取消。";
-    RE::DebugNotification(message.c_str());
+    if (!removed) RE::DebugNotification("物品未能移除，回收已取消。");
+    if (interrupted && removed) logger::warn("Recycling ended early after {} item(s).", removed);
     logger::info("Native SkyUI recycling: {:08X} parts={} count={} rewards={}", selected->form, selected->parts.size(), removed, materials.size());
 }
 

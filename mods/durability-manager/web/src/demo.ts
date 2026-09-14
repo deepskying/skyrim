@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '1.6.2',
+  version: '1.6.3',
   unified: true,
   capturingHotkey: false,
   message: '随时选择装备进行强化；修复仍需靠近锻造设施。',

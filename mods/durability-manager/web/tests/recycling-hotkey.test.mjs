@@ -45,11 +45,10 @@ test('recycling materials resolve concrete records through As, not an exact None
   assert.match(resolver, /data->LookupForm\(id,/);
   assert.match(resolver, /form->As<RE::TESBoundObject>\(\)/);
 });
-test('native recycling announces every received material through the pickup notification queue', () => {
+test('native recycling leaves successful reward feedback to the item pickup UI', () => {
   const native = readFileSync(new URL('../../native/src/main.cpp', import.meta.url), 'utf8');
   const service = readFileSync(new URL('../../native/src/inventory_recycling.inl', import.meta.url), 'utf8');
-  assert.match(native, /void NotifySalvagePickups/);
-  assert.match(native, /RE::DebugNotification\(message\.c_str\(\), nullptr, false\)/);
-  assert.match(native, /constexpr std::size_t kVisibleLimit = 5/);
-  assert.match(service, /if \(removed\) NotifySalvagePickups\(materials\)/);
+  assert.doesNotMatch(native, /NotifySalvagePickups/);
+  assert.doesNotMatch(service, /已回收「/);
+  assert.match(service, /if \(!removed\) RE::DebugNotification/);
 });

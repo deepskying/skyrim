@@ -196,7 +196,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.6.2";
+    constexpr std::string_view kPluginVersion = "1.6.3";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif
@@ -2203,24 +2203,6 @@ namespace
             first = false;
         }
         return description;
-    }
-
-    void NotifySalvagePickups(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
-    {
-        constexpr std::size_t kVisibleLimit = 5;
-        std::size_t visible = 0;
-        for (const auto& [material, count] : a_materials) {
-            if (!material || count <= 0) continue;
-            if (visible++ == kVisibleLimit) {
-                const auto message = "另有 " + std::to_string(a_materials.size() - kVisibleLimit) + " 种材料已获得。";
-                RE::DebugNotification(message.c_str(), nullptr, false);
-                break;
-            }
-            const auto message = "获得：" + DisplayName(material) + " ×" + std::to_string(count);
-            // This is the game-native notification queue used for item pickup feedback.
-            // Keep queued items separate so every awarded material remains visible.
-            RE::DebugNotification(message.c_str(), nullptr, false);
-        }
     }
 
     void SetNextEnhancementDraft(
