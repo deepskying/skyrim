@@ -1,6 +1,6 @@
-export type Tab = 'workshop' | 'dismantle' | 'arrows' | 'settings';
+export type Tab = 'workshop' | 'enhancement' | 'arrows' | 'settings';
 const entries: { id: Tab; icon: string; name: string }[] = [
-  { id: 'workshop', icon: '◈', name: '装备养护' }, { id: 'dismantle', icon: '⚒', name: '分解回收' },
+  { id: 'workshop', icon: '◈', name: '装备养护' }, { id: 'enhancement', icon: '⚒', name: '装备强化' },
   { id: 'arrows', icon: '➶', name: '魔法箭' }, { id: 'settings', icon: '⚙', name: '工坊设置' },
 ];
 export function WorkshopNavigation({ tab, forge, arrows, onChange }: { tab: Tab; forge: boolean; arrows: boolean; onChange: (tab: Tab) => void }) {

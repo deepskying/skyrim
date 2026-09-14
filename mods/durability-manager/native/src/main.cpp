@@ -1,3 +1,5 @@
+#include "recycling_keys.h"
+#include "recycling_rules.h"
 #include "../../../../shared/panel-power/panel_power.h"
 #include "PrismaUI_API.h"
 #include "input_handler.h"
@@ -6,7 +8,6 @@
 #include "enchantment_ranking.h"
 #include "enchantment_cache.h"
 #include "forge_access.h"
-#include "dismantle_rules.h"
 #include "wear_rules.h"
 #include "hud_rules.h"
 #include "hud_bridge.h"
@@ -38,8 +39,6 @@ namespace
     struct Settings
     {
         HotkeyConfig hotkey{};
-        HotkeyConfig dismantleHotkey{ 0x20, true, false, false }; // Shift+D
-        bool enableDismantleHotkey = true;
         std::uint32_t lowDurabilityThreshold = 30;
         float weaponDisplaySeconds = 3.0F;
         bool enableLowDurabilityWarning = true;
@@ -87,8 +86,9 @@ namespace
             a_reason, stats.hits, stats.misses, stats.evictions, g_enchantmentCache.Size(), g_enchantmentCache.RetainedIDs());
         g_enchantmentCache.Clear();
     }
+    bool g_capturingRecyclingHotkey = false;
+    recycling::Capture g_recyclingCapture;
     bool g_capturingHotkey = false;
-    bool g_capturingDismantleHotkey = false;
     bool g_panelVisible = false;
     bool g_hudVisible = false;
     bool g_equippedHudVisible = false;
@@ -196,7 +196,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.4.4";
+    constexpr std::string_view kPluginVersion = "1.6.2";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif
@@ -257,15 +257,14 @@ namespace
         if (a_key == 0x1C) return "Enter";
         if (a_key == 0x39) return "Space";
         if (a_key == 0xD3) return "Delete";
+        if (a_key == 0x2A) return "左 Shift";
+        if (a_key == 0x36) return "右 Shift";
+        if (a_key == 0x1D) return "左 Ctrl";
+        if (a_key == 0x9D) return "右 Ctrl";
+        if (a_key == 0x38) return "左 Alt";
+        if (a_key == 0xB8) return "右 Alt";
         return "Scan " + std::to_string(a_key);
     }
-
-    bool DismantleKeyAllowed(std::uint32_t key) {
-        const auto name = KeyName(key);
-        return (name.size() == 1 && name[0] >= 'A' && name[0] <= 'Z') || name == "Delete" ||
-            (key >= 0x3B && key <= 0x44) || key == 0x57 || key == 0x58;
-    }
-
 
     [[nodiscard]] std::filesystem::path ConfigPath()
     {
@@ -318,11 +317,6 @@ namespace
         configFile << "; Skyrim Durability Manager configuration. Changes made in the panel apply immediately.\n\n";
         configFile << "[Hotkey]\nKey=" << KeyName(g_settings.hotkey.keyCode) << "\nShift=" << (g_settings.hotkey.requireShift ? "true" : "false")
                    << "\nCtrl=" << (g_settings.hotkey.requireCtrl ? "true" : "false") << "\nAlt=" << (g_settings.hotkey.requireAlt ? "true" : "false");
-        configFile << "\n\n[DismantleHotkey]\nKey=" << KeyName(g_settings.dismantleHotkey.keyCode)
-                   << "\nShift=" << (g_settings.dismantleHotkey.requireShift ? "true" : "false")
-                   << "\nCtrl=" << (g_settings.dismantleHotkey.requireCtrl ? "true" : "false")
-                   << "\nAlt=" << (g_settings.dismantleHotkey.requireAlt ? "true" : "false")
-                   << "\nEnabled=" << (g_settings.enableDismantleHotkey ? "true" : "false");
         configFile << "\n\n[Display]\nLowDurabilityThreshold=" << g_settings.lowDurabilityThreshold
                    << "\nUIFontScale=" << g_settings.uiFontScale
                    << "\nUITransparency=" << g_settings.uiTransparency
@@ -374,13 +368,7 @@ namespace
             if (separator == std::string::npos) continue;
             const auto key = Normalize(line.substr(0, separator));
             const auto value = line.substr(separator + 1);
-            if (section == "[DISMANTLEHOTKEY]") {
-                if (key == "KEY") { if (const auto parsed = ParseKeyCode(value); parsed && DismantleKeyAllowed(*parsed)) g_settings.dismantleHotkey.keyCode = *parsed; }
-                else if (key == "SHIFT") g_settings.dismantleHotkey.requireShift = ParseBool(value, true);
-                else if (key == "CTRL") g_settings.dismantleHotkey.requireCtrl = ParseBool(value, false);
-                else if (key == "ALT") g_settings.dismantleHotkey.requireAlt = ParseBool(value, false);
-                else if (key == "ENABLED") g_settings.enableDismantleHotkey = ParseBool(value, true);
-            } else if (section == "[HOTKEY]") {
+            if (section == "[HOTKEY]") {
                 if (key == "KEY") {
                     if (const auto parsed = ParseKeyCode(value)) g_settings.hotkey.keyCode = *parsed;
                 } else if (key == "SHIFT") g_settings.hotkey.requireShift = ParseBool(value, g_settings.hotkey.requireShift);
@@ -635,7 +623,7 @@ namespace
         return name && name[0] ? name : DisplayName(a_item);
     }
 
-    void SendState(std::string_view a_message = {}, const json& a_refreshResult = nullptr, const json& a_dismantleResult = nullptr);
+    void SendState(std::string_view a_message = {}, const json& a_refreshResult = nullptr);
 
     struct ForgeContext
     {
@@ -694,8 +682,14 @@ namespace
             }
             return RE::BSContainer::ForEachResult::kContinue;
         });
-        if (!result.active) ClearForgeContext();
         return result;
+    }
+
+    [[nodiscard]] bool CanEnhanceEquipment()
+    {
+        const auto* player = RE::PlayerCharacter::GetSingleton();
+        const auto* cell = player ? player->GetParentCell() : nullptr;
+        return player && !player->IsDead() && cell && cell->IsAttached();
     }
 
     void UpdateViewVisibility()
@@ -2114,7 +2108,7 @@ namespace
 
     void SelectEquipmentForForge(const std::string_view a_equipmentID)
     {
-        if (!GetForgeContext().active) return;
+        if (!CanEnhanceEquipment()) return;
         const auto key = ParseItemKey(a_equipmentID);
         if (!key) {
             SendState("无法为无效的装备实例生成强化卡片。");
@@ -2149,8 +2143,8 @@ namespace
     void RefreshEnhancementCards(const std::string_view a_equipmentID, const std::string_view a_requestID)
     {
         WorkshopFeedback feedback;
-        if (!GetForgeContext().active) {
-            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：附近没有可用的锻造设施，请靠近后重试。");
+        if (!CanEnhanceEquipment()) {
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：角色当前状态不可操作，请载入游戏后重试。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -2209,6 +2203,24 @@ namespace
             first = false;
         }
         return description;
+    }
+
+    void NotifySalvagePickups(const std::map<RE::TESBoundObject*, std::int32_t>& a_materials)
+    {
+        constexpr std::size_t kVisibleLimit = 5;
+        std::size_t visible = 0;
+        for (const auto& [material, count] : a_materials) {
+            if (!material || count <= 0) continue;
+            if (visible++ == kVisibleLimit) {
+                const auto message = "另有 " + std::to_string(a_materials.size() - kVisibleLimit) + " 种材料已获得。";
+                RE::DebugNotification(message.c_str(), nullptr, false);
+                break;
+            }
+            const auto message = "获得：" + DisplayName(material) + " ×" + std::to_string(count);
+            // This is the game-native notification queue used for item pickup feedback.
+            // Keep queued items separate so every awarded material remains visible.
+            RE::DebugNotification(message.c_str(), nullptr, false);
+        }
     }
 
     void SetNextEnhancementDraft(
@@ -2380,8 +2392,8 @@ namespace
     void ApplyEnhancementCard(const std::string_view a_equipmentID, const std::string_view a_cardID)
     {
         WorkshopFeedback feedback;
-        if (!GetForgeContext().active) {
-            SendState("强化失败：附近没有可用的锻造设施，请靠近后重试。");
+        if (!CanEnhanceEquipment()) {
+            SendState("强化失败：角色当前状态不可操作，请载入游戏后重试。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -2477,7 +2489,7 @@ namespace
         const auto canPay = std::all_of(materials.begin(), materials.end(), [player](const auto& cost) {
             return player->GetItemCount(cost.first) >= cost.second;
         });
-        if (!instance || !instance->extraList || instance->extraList->GetWorn() || !GetForgeContext().active || !canPay) {
+        if (!instance || !instance->extraList || instance->extraList->GetWorn() || !CanEnhanceEquipment() || !canPay) {
             equipment.Restore();
             SendState("装备或材料状态已变化，强化已取消，本次未扣费；请检查装备状态。");
             return;
@@ -3236,140 +3248,12 @@ namespace
         return rows;
     }
 
-    json g_dismantleQuote = nullptr;
-    std::uint64_t g_dismantleSequence = 0;
-    std::uint64_t g_shortcutSequence = 0;
-    std::string g_pendingDismantleShortcut;
-    std::string g_pendingDismantleItem;
-
-    bool SameHotkey(const HotkeyConfig& a, const HotkeyConfig& b) {
-        return a.keyCode == b.keyCode && a.requireShift == b.requireShift && a.requireCtrl == b.requireCtrl && a.requireAlt == b.requireAlt;
-    }
-
-    bool DismantleShortcut(std::uint32_t key, bool shift, bool ctrl, bool alt) {
+    bool NavigateEquipmentShortcut(std::uint32_t key, bool shift, bool ctrl, bool alt) {
         if (g_panelVisible && g_prisma && g_view && g_prisma->HasFocus(g_view) && !shift && !ctrl && !alt && (key == 0xC8 || key == 0xD0)) {
             g_prisma->Invoke(g_view, key == 0xC8 ? "window.DurabilityManager?.navigateEquipment(-1);" : "window.DurabilityManager?.navigateEquipment(1);");
             return true;
         }
-        if (!g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view) || !g_settings.enableDismantleHotkey ||
-            !SameHotkey({key, shift, ctrl, alt}, g_settings.dismantleHotkey) || SameHotkey(g_settings.hotkey, g_settings.dismantleHotkey)) return false;
-        std::optional<ItemKey> selected;
-        { std::scoped_lock lock(g_forgeLock); selected = g_forgeSelectedItem; }
-        if (!selected) return true;
-        g_pendingDismantleShortcut = std::to_string(++g_shortcutSequence);
-        g_pendingDismantleItem = std::to_string(selected->baseFormID) + ":" + std::to_string(selected->uniqueID);
-        // The focused view decides whether its recycling page is active and no
-        // text/control editor has focus. Only native IsDown events reach here.
-        const auto script = "window.DurabilityManager?.directDismantle(" + json{{"sequence", g_pendingDismantleShortcut}, {"id", g_pendingDismantleItem}}.dump() + ");";
-        g_prisma->Invoke(g_view, script.c_str());
-        return true;
-    }
-
-    [[nodiscard]] std::map<RE::TESBoundObject*, std::int32_t> DismantleMaterials(RE::TESBoundObject* item)
-    {
-        std::map<RE::TESBoundObject*, std::int32_t> materials;
-        const RE::BGSConstructibleObject* recipe = nullptr;
-        if (auto* data = RE::TESDataHandler::GetSingleton()) for (const auto* candidate : data->GetFormArray<RE::BGSConstructibleObject>()) {
-            if (!candidate || candidate->IsDeleted() || candidate->createdItem != item || IsTemperingBench(candidate->benchKeyword) || !candidate->data.numConstructed) continue;
-            if (!recipe || candidate->requiredItems.numContainerObjects > recipe->requiredItems.numContainerObjects) recipe = candidate;
-        }
-        if (recipe) recipe->requiredItems.ForEachContainerObject([&](RE::ContainerObject& ingredient) {
-            const auto amount = dismantle_rules::MaterialYield(ingredient.count, recipe->data.numConstructed);
-            if (ingredient.obj && amount > 0) {
-                const auto total = static_cast<std::int64_t>(materials[ingredient.obj]) + amount;
-                materials[ingredient.obj] = static_cast<std::int32_t>((std::min)(total, static_cast<std::int64_t>(INT32_MAX)));
-            }
-            return RE::BSContainer::ForEachResult::kContinue;
-        });
-        // Recycling yields materials, not equipment, currency or the item itself.
-        std::erase_if(materials, [item](const auto& row) {
-            return row.first == item || row.first->GetFormID() == 0xFU ||
-                row.first->As<RE::TESObjectWEAP>() || row.first->As<RE::TESObjectARMO>();
-        });
-        if (materials.empty() && !recipe) {
-            const auto* armor = item ? item->As<RE::TESObjectARMO>() : nullptr;
-            if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(armor && armor->IsClothing() ? "LeatherStrips" : "IngotIron")) materials[material] = 1;
-        }
-        return materials;
-    }
-
-    [[nodiscard]] std::string DismantleBlocked(const ItemKey& key)
-    {
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        auto* item = RE::TESForm::LookupByID<RE::TESBoundObject>(key.baseFormID);
-        if (!player || !item || (!item->As<RE::TESObjectWEAP>() && !item->As<RE::TESObjectARMO>())) return "装备已不在背包中";
-        if (const auto* weapon = item->As<RE::TESObjectWEAP>(); weapon && weapon->IsBound()) return "召唤武器不可分解";
-        const auto inventory = player->GetInventory();
-        const auto found = inventory.find(item);
-        if (found == inventory.end() || found->second.first <= 0 || !found->second.second) return "装备已不在背包中";
-        const auto* entry = found->second.second.get();
-        if (entry->IsQuestObject() || IsProtectedUniqueItem(item)) return "任务或唯一装备不可分解";
-        if (key.uniqueID == 0) {
-            if (entry->extraLists) for (auto* extra : *entry->extraLists) if (extra) return "同名装备包含独立实例，请先装备再卸下要分解的那一件";
-        } else {
-            auto* extra = FindExtraListByKey(entry, key);
-            if (!extra) return "装备实例已变化，请重新选择";
-            if (extra->HasQuestObjectAlias()) return "任务装备不可分解";
-            if (extra->GetCount() != 1) return "请先拆分这组装备再分解";
-        }
-        return {};
-    }
-
-    void QuoteDismantle(std::string_view id, bool publish = true)
-    {
-        g_dismantleQuote = nullptr;
-        const auto key = ParseItemKey(id);
-        if (!GetForgeContext().active || !key) { SendState("请靠近锻造设施后选择装备。"); return; }
-        const auto reason = DismantleBlocked(*key);
-        if (!reason.empty()) { SendState(reason); return; }
-        const auto instance = ResolveEquipmentInstance(*key);
-        if (!instance) { SendState("装备实例已变化，请重新选择。"); return; }
-        const auto materials = DismantleMaterials(instance->item);
-        if (materials.empty()) { SendState("没有可回收的材料。"); return; }
-        g_dismantleQuote = {{"token", std::to_string(++g_dismantleSequence)}, {"id", id},
-            {"name", InstanceDisplayName(instance->item, instance->extraList)},
-            {"equipped", instance->extraList && instance->extraList->GetWorn()},
-            {"materials", RepairMaterialsJson(materials)}};
-        if (publish) SendState();
-    }
-
-    void CommitDismantle(const std::string& token)
-    {
-        if (!g_panelVisible || g_dismantleQuote.is_null() || token != g_dismantleQuote.value("token", "")) return;
-        const auto quote = std::exchange(g_dismantleQuote, nullptr); // one-use even if rejected
-        const auto key = ParseItemKey(quote.value("id", ""));
-        if (!GetForgeContext().active || !key) { SendState("分解取消：已离开锻造设施。"); return; }
-        const auto reason = DismantleBlocked(*key);
-        if (!reason.empty()) { SendState(reason); return; }
-        auto instance = ResolveEquipmentInstance(*key);
-        auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!instance || !player) { SendState("装备实例已变化，请重新选择。"); return; }
-        const auto materials = DismantleMaterials(instance->item);
-        if (quote["materials"] != RepairMaterialsJson(materials) ||
-            quote["equipped"] != bool(instance->extraList && instance->extraList->GetWorn())) {
-            SendState("装备或回收清单已变化，请重新预览。"); return;
-        }
-        WorkshopEquipmentRestore equipment(*key);
-        if (key->uniqueID != 0 && !equipment.Prepare()) { SendState("无法安全卸下这件装备，未执行分解。"); return; }
-        instance = ResolveEquipmentInstance(*key);
-        if (!instance || !GetForgeContext().active || !DismantleBlocked(*key).empty()) { SendState("装备状态已变化，未执行分解。"); return; }
-        const auto countBefore = player->GetItemCount(instance->item);
-        player->RemoveItem(instance->item, 1, RE::ITEM_REMOVE_REASON::kRemove, instance->extraList, nullptr);
-        if (player->GetItemCount(instance->item) != countBefore - 1 ||
-            (key->uniqueID != 0 && IsUniqueIDInPlayerInventory(key->baseFormID, key->uniqueID))) {
-            SendState("装备移除未能确认，没有发放回收材料。"); return;
-        }
-        equipment.LeaveUnequipped();
-        for (const auto& [material, count] : materials) player->AddObjectToContainer(material, nullptr, count, nullptr);
-        {
-            std::scoped_lock lock(g_durabilityLock);
-            g_durability.erase(*key); g_lowDurabilityWarnings.erase(*key);
-            g_pendingBreaks.erase(*key);
-        }
-        ClearEnhancementDraft(*key);
-        QueuePlayerRuntimeEffectsSync();
-        PlayWorkshopSound("UIEnchantingItemCreate");
-        SendState("已分解 1 件「" + quote.value("name", "装备") + "」。" + SalvageDescription(materials), nullptr, {{"token", token}, {"id", quote.value("id", "")}});
+        return false;
     }
 
     [[nodiscard]] json BuildEquipmentItem(
@@ -3422,9 +3306,6 @@ namespace
             { "unique", uniqueItem },
             { "broken", broken },
             { "repairable", repairable },
-            { "dismantleBlocked", questItem || uniqueItem ? "任务或唯一装备不可分解" :
-                a_extraList && a_extraList->GetCount() != 1 ? "请先拆分这组装备再分解" :
-                weapon && weapon->IsBound() ? "召唤武器不可分解" : "" },
             { "repairMaterials", RepairMaterialsJson(repairMaterials) }
         };
         if (isStaff || isRangedWeapon || isMeleeWeapon) equipmentItem["wearRate"] = effectiveWeaponWear;
@@ -3483,6 +3364,35 @@ namespace
         return json::array();
     }
 
+    #include "inventory_recycling.inl"
+
+    void SaveRecyclingHotkey(std::uint32_t key, std::uint32_t safety)
+    {
+        if (!g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view) || !g_capturingRecyclingHotkey) return;
+        if (!recycling::Allowed(key) || (safety != key && !recycling::Modifier(safety))) {
+            SendState("请选择字母、F1–F12、Delete、Space 或左右修饰键，最多搭配一个修饰键。"); return;
+        }
+        if (RecyclingKeyConflicts(key)) {
+            g_capturingRecyclingHotkey = false;
+            SendState("该主键与 SkyUI 的装备、丢弃或充能操作冲突，请换一个按键。"); return;
+        }
+        auto settings = g_recyclingSettings; settings.key = key; settings.safety = safety;
+        if (!WriteRecyclingSettings(settings)) { SendState("回收配置保存失败，原快捷键保持不变。"); return; }
+        g_recyclingSettings = settings;
+        g_capturingRecyclingHotkey = false; g_recyclingCapture.Reset(); ResetRecyclingInput();
+        SendState("工坊回收快捷键已保存并立即生效，无需 MCM 或保存游戏。");
+    }
+
+    bool CaptureRecyclingKey(std::uint32_t key, bool down)
+    {
+        if (!g_capturingRecyclingHotkey || !g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
+        if (key == 0x01 && down) { g_capturingRecyclingHotkey = false; g_recyclingCapture.Reset(); SendState("已取消回收按键录入。"); return true; }
+        const auto result = g_recyclingCapture.Feed(key, down);
+        if (result.invalid) SendState("不支持该组合，请使用一个按键，或搭配一个 Shift / Ctrl / Alt。");
+        else if (result.key) SaveRecyclingHotkey(result.key, result.safety);
+        return true;
+    }
+
     [[nodiscard]] json CollectState(std::string_view a_message = {})
     {
         const auto forge = GetForgeContext();
@@ -3496,7 +3406,6 @@ namespace
         auto* player = RE::PlayerCharacter::GetSingleton();
         return {
             { "version", kPluginVersion },
-            { "dismantleQuote", g_dismantleQuote },
 #ifdef UNIFIED_WORKSHOP
             { "unified", true },
 #endif
@@ -3504,14 +3413,15 @@ namespace
             { "repairQueue", CollectRepairQueue() },
             { "forge", {
                 { "active", forge.active },
+                { "enhancementAvailable", CanEnhanceEquipment() },
                 { "station", forge.station },
                 { "gold", PlayerGoldCount(player) },
-                { "refreshCost", forge.active ? CardRefreshCost(refreshes) : 0 },
+                { "refreshCost", CanEnhanceEquipment() ? CardRefreshCost(refreshes) : 0 },
                 { "refreshes", refreshes },
-                { "cards", forge.active ? EnhancementCardsJson() : json::array() }
+                { "cards", CanEnhanceEquipment() ? EnhancementCardsJson() : json::array() }
             } },
             { "settings", {
-                { "dismantleHotkey", {{"key", KeyName(g_settings.dismantleHotkey.keyCode)}, {"keyCode", g_settings.dismantleHotkey.keyCode}, {"shift", g_settings.dismantleHotkey.requireShift}, {"ctrl", g_settings.dismantleHotkey.requireCtrl}, {"alt", g_settings.dismantleHotkey.requireAlt}, {"enabled", g_settings.enableDismantleHotkey}} },
+                { "recyclingHotkey", RecyclingHotkeyState() },
                 { "hotkey", { { "key", KeyName(g_settings.hotkey.keyCode) }, { "keyCode", g_settings.hotkey.keyCode }, { "shift", g_settings.hotkey.requireShift }, { "ctrl", g_settings.hotkey.requireCtrl }, { "alt", g_settings.hotkey.requireAlt } } },
                 { "lowDurabilityThreshold", g_settings.lowDurabilityThreshold },
                 { "uiFontScale", g_settings.uiFontScale },
@@ -3524,28 +3434,26 @@ namespace
 #ifdef UNIFIED_WORKSHOP
             { "pageKeyboard", g_prisma && g_prisma->views != nullptr },
 #endif
+            { "capturingRecyclingHotkey", g_capturingRecyclingHotkey },
             { "capturingHotkey", g_capturingHotkey },
-            { "capturingDismantleHotkey", g_capturingDismantleHotkey },
             { "message", a_message }
         };
     }
 
-    void SendState(std::string_view a_message, const json& a_refreshResult, const json& a_dismantleResult)
+    void SendState(std::string_view a_message, const json& a_refreshResult)
     {
         if (!g_prisma || !g_view) return;
         auto state = CollectState(a_message);
         if (!a_refreshResult.is_null()) state["refreshResult"] = a_refreshResult;
-        if (!a_dismantleResult.is_null()) state["dismantleResult"] = a_dismantleResult;
         const auto script = "window.DurabilityManager && window.DurabilityManager.receiveState(" + state.dump() + ");";
         g_prisma->Invoke(g_view, script.c_str());
     }
 
     void ClosePanel()
     {
+        g_capturingRecyclingHotkey = false; g_recyclingCapture.Reset();
         if (!g_prisma || !g_view) return;
-        g_pendingDismantleShortcut.clear();
-        g_capturingHotkey = g_capturingDismantleHotkey = false;
-        g_dismantleQuote = nullptr;
+        g_capturingHotkey = false;
         g_panelVisible = false;
 #ifdef UNIFIED_WORKSHOP
         unified_workshop::SetArrowsVisible(false);
@@ -3561,6 +3469,8 @@ namespace
     // notification can leave Prisma's render and focus states out of sync.
     void ResetViewForLoad()
     {
+        g_capturingRecyclingHotkey = false; ResetRecyclingInput();
+        g_recyclingCapture.Reset();
 #ifdef UNIFIED_WORKSHOP
         if (g_prisma && g_prisma->views && g_view) {
             g_prisma->Invoke(g_view, "window.DurabilityManager?.setPanelVisible(false);");
@@ -3568,9 +3478,7 @@ namespace
             g_prisma->Hide(g_view);
         }
 #endif
-        g_pendingDismantleShortcut.clear();
-        g_capturingHotkey = g_capturingDismantleHotkey = false;
-        g_dismantleQuote = nullptr;
+        g_capturingHotkey = false;
         ClearEnchantmentCache("load/new-game transition");
         g_panelVisible = false;
         g_hudVisible = false;
@@ -3599,6 +3507,7 @@ namespace
 
     void TogglePanel()
     {
+        ResetRecyclingInput();
         if (!g_prisma || !g_view) return;
         if (g_panelVisible) {
             ClosePanel();
@@ -3627,23 +3536,19 @@ namespace
 
     [[nodiscard]] bool CaptureHotkey(const std::uint32_t a_key, const bool a_shift, const bool a_ctrl, const bool a_alt)
     {
-        if ((!g_capturingHotkey && !g_capturingDismantleHotkey) || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
+        if (!g_capturingHotkey || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
         if (a_key == 0x01) {
-            g_capturingHotkey = g_capturingDismantleHotkey = false;
+            g_capturingHotkey = false;
             SendState("已取消快捷键修改。"); return true;
         }
         const auto name = KeyName(a_key);
-        if (name.starts_with("Scan ") || (g_capturingDismantleHotkey && !DismantleKeyAllowed(a_key))) {
+        if (name.starts_with("Scan ")) {
             SendState("请选择字母、F1–F12 或 Delete，可搭配 Shift / Ctrl / Alt。"); return true;
         }
         const HotkeyConfig binding{a_key, a_shift, a_ctrl, a_alt};
-        if (SameHotkey(binding, g_capturingDismantleHotkey ? g_settings.hotkey : g_settings.dismantleHotkey)) {
-            SendState("面板和分解不能使用同一组合键，请重新按键。"); return true;
-        }
-        if (g_capturingDismantleHotkey) g_settings.dismantleHotkey = binding;
-        else { g_settings.hotkey = binding; InputHandler::GetSingleton()->SetHotkey(binding); }
-        g_pendingDismantleShortcut.clear();
-        g_capturingHotkey = g_capturingDismantleHotkey = false;
+        g_settings.hotkey = binding;
+        InputHandler::GetSingleton()->SetHotkey(binding);
+        g_capturingHotkey = false;
         WriteConfig(); SendState("快捷键已更新并保存。"); return true;
     }
 
@@ -3661,54 +3566,41 @@ namespace
                 return;
             }
 #ifdef UNIFIED_WORKSHOP
-            if (type == "pageShortcut" || type == "captureHotkeyFromPage") {
+            if (type == "captureHotkeyFromPage") {
                 if (!g_prisma || !g_prisma->views || !g_panelVisible || !g_prisma->HasFocus(g_view)) return;
                 const auto key = ParseKeyCode(request.value("key", ""));
                 if (!key) return;
                 const bool shift = request.value("shift", false), ctrl = request.value("ctrl", false), alt = request.value("alt", false);
-                if (type == "captureHotkeyFromPage") (void)CaptureHotkey(*key, shift, ctrl, alt);
-                else if (!g_capturingHotkey && !g_capturingDismantleHotkey) DismantleShortcut(*key, shift, ctrl, alt);
+                (void)CaptureHotkey(*key, shift, ctrl, alt);
                 return;
             }
 #endif
-            if (type == "close") ClosePanel();
-            else if (type == "directDismantle") {
-                const auto sequence = std::exchange(g_pendingDismantleShortcut, "");
-                if (!g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view) || !g_settings.enableDismantleHotkey || sequence.empty() ||
-                    request.value("sequence", "") != sequence || request.value("id", "") != g_pendingDismantleItem) { SendState("快捷分解已失效，请重新选择装备后按键。"); return; }
-                QuoteDismantle(g_pendingDismantleItem, false);
-                if (!g_dismantleQuote.is_null()) CommitDismantle(g_dismantleQuote.value("token", ""));
+            if (type == "beginRecyclingHotkeyCapture" && g_panelVisible) {
+                g_capturingHotkey = false; g_capturingRecyclingHotkey = true; g_recyclingCapture.Reset();
+                SendState("请按下回收按键；单独使用 Alt / Ctrl / Shift 时松开即录入，Esc 取消。");
             }
-            else if (type == "saveDismantleHotkey" && g_panelVisible) {
-                const auto name = Normalize(request.value("key", "D"));
-                const auto key = ParseKeyCode(name);
-                if (!key || !DismantleKeyAllowed(*key)) { SendState("请选择字母或 Delete。"); return; }
-                const HotkeyConfig binding{*key, request.value("shift", false), request.value("ctrl", false), request.value("alt", false)};
-                if (request.value("enabled", true) && SameHotkey(binding, g_settings.hotkey)) { SendState("不能与打开工坊的快捷键相同。"); return; }
-                g_settings.dismantleHotkey = binding;
-                g_settings.enableDismantleHotkey = request.value("enabled", true);
-                g_pendingDismantleShortcut.clear(); WriteConfig(); SendState("直接分解快捷键已保存。");
+            else if ((type == "setRecyclingEnabled" || type == "setRecyclingStackEnabled") && g_panelVisible) {
+                auto settings = g_recyclingSettings;
+                if (type == "setRecyclingEnabled") settings.enabled = request.value("enabled", true);
+                else settings.stack = request.value("enabled", true);
+                if (WriteRecyclingSettings(settings)) { g_recyclingSettings = settings; ResetRecyclingInput(); SendState("回收设置已保存。"); }
+                else SendState("回收配置保存失败，原设置保持不变。");
             }
-            else if (type == "setDismantleHotkeyEnabled" && g_panelVisible) {
-                if (request.value("enabled", true) && SameHotkey(g_settings.dismantleHotkey, g_settings.hotkey)) { SendState("请先在设置中更换分解快捷键，当前与面板快捷键冲突。"); return; }
-                g_settings.enableDismantleHotkey = request.value("enabled", true);
-                g_pendingDismantleShortcut.clear(); WriteConfig(); SendState("快捷分解开关已保存。");
-            }
-            else if (type == "quoteDismantle" && g_panelVisible) QuoteDismantle(request.value("id", ""));
-            else if (type == "dismantle") CommitDismantle(request.value("token", ""));
-            else if (type == "cancelDismantle") { g_dismantleQuote = nullptr; SendState(); }
+            else if (type == "saveRecyclingHotkey") SaveRecyclingHotkey(request.value("keyCode", 0U), request.value("safetyCode", 0U));
+            else if (type == "close") ClosePanel();
 #ifdef UNIFIED_WORKSHOP
             else if (type == "arrows" && g_panelVisible && request.contains("action") && request["action"].is_object()) {
                 const auto action = request["action"].dump();
                 unified_workshop::ArrowAction(action.c_str());
             }
 #endif
-            else if ((type == "beginHotkeyCapture" || type == "beginDismantleHotkeyCapture") && g_panelVisible) {
-                g_capturingHotkey = type == "beginHotkeyCapture";
-                g_capturingDismantleHotkey = type == "beginDismantleHotkeyCapture";
+            else if (type == "beginHotkeyCapture" && g_panelVisible) {
+                g_capturingRecyclingHotkey = false; g_recyclingCapture.Reset();
+                g_capturingHotkey = true;
                 SendState("请按下新的快捷键组合。");
             } else if (type == "cancelHotkeyCapture") {
-                g_capturingHotkey = g_capturingDismantleHotkey = false;
+                g_capturingRecyclingHotkey = false; g_recyclingCapture.Reset();
+                g_capturingHotkey = false;
                 SendState("已取消快捷键修改。");
             } else if (type == "saveGeneralSettings") {
                 g_settings.uiFontScale = std::clamp(request.value("uiFontScale", g_settings.uiFontScale), 80, 130);
@@ -4027,6 +3919,8 @@ namespace
 #endif
         g_prisma->Hide(g_view);
         LoadConfig();
+        LoadRecyclingSettings();
+        if (auto* ui = RE::UI::GetSingleton()) ui->AddEventSink(&g_recyclingMenuSink);
         LoadEnhancementRules();
         BuildEnchantmentPool();
         const auto input = InputHandler::GetSingleton();
@@ -4037,7 +3931,9 @@ namespace
         input->SetToggleCallback(TogglePanel);
         input->SetEscapeCallback(CloseFocusedPanel);
         input->SetCaptureCallback(CaptureHotkey);
-        input->SetActionCallback(DismantleShortcut);
+        input->SetActionCallback(NavigateEquipmentShortcut);
+        input->SetRecyclingCaptureCallback(CaptureRecyclingKey);
+        input->SetInventoryRecyclingCallback(HandleInventoryRecyclingKey);
         input->RegisterSink();
         StartEquippedHUDUpdates();
         EquipmentEventSink::GetSingleton()->Register();

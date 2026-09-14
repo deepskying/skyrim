@@ -1,9 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { PanelState, Settings } from './types';
-import { defaultDismantleHotkey, shortcutLabel } from './dismantle-shortcut';
 import type { WorkshopAction } from './bridge';
-export function EquipmentSettings({ state, draft, setDraft, send }: { state: PanelState; draft: Settings; setDraft: Dispatch<SetStateAction<Settings>>; send: WorkshopAction }) {
-  const dismantleHotkey = state.settings.dismantleHotkey ?? defaultDismantleHotkey;
+export function EquipmentSettings({ draft, setDraft, send }: { state: PanelState; draft: Settings; setDraft: Dispatch<SetStateAction<Settings>>; send: WorkshopAction }) {
   return <>
       <div className="section-heading settings-heading"><div><p>MOD SETTINGS</p><h2>装备养护设置</h2></div><span className="settings-status"><i />保存后立即生效</span></div>
       <div className="settings-layout">
@@ -27,12 +25,6 @@ export function EquipmentSettings({ state, draft, setDraft, send }: { state: Pan
           <footer className="setting-actions"><span>配置将写入 <code>DurabilityManager.ini</code></span><button className="save" onClick={() => send('saveSettings', { lowDurabilityThreshold: draft.lowDurabilityThreshold, weaponDisplaySeconds: draft.weaponDisplaySeconds, enableLowDurabilityWarning: draft.enableLowDurabilityWarning, allowEnchantedItemsToBreak: draft.allowEnchantedItemsToBreak })} type="button">保存配置</button></footer>
         </section>
         <aside className="settings-aside">
-          <section className={`hotkey-card ${state.capturingDismantleHotkey ? 'capturing' : ''}`}>
-            <header><span>⌨</span><div><p>DISMANTLE HOTKEY</p><h3>分解快捷键</h3></div></header>
-            <div className="hotkey-combo"><kbd>{shortcutLabel(dismantleHotkey)}</kbd></div>
-            <button className="capture-button" onClick={() => send(state.capturingDismantleHotkey ? 'cancelHotkeyCapture' : 'beginDismantleHotkeyCapture')}>{state.capturingDismantleHotkey ? '取消录入' : '录入分解快捷键'}</button>
-            <small>{state.capturingDismantleHotkey ? '请按下组合键，Esc 取消。支持字母、F1–F12、Delete。' : '按键录入后自动保存；在分解页开启或关闭。'}</small>
-          </section>
           <section className="settings-note"><span>i</span><div><h3>提示规则</h3><p>武器收起后仍显示耐久；其他装备低于阈值时加入，卸下或修复后移除。</p></div></section>
         </aside>
       </div>

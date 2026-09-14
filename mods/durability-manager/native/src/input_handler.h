@@ -25,6 +25,8 @@ public:
         return std::addressof(singleton);
     }
 
+    void SetRecyclingCaptureCallback(std::function<bool(std::uint32_t, bool)> callback) { recyclingCapture_ = std::move(callback); }
+    void SetInventoryRecyclingCallback(std::function<bool(std::uint32_t, bool)> callback) { inventoryRecycling_ = std::move(callback); }
     void SetHotkey(const HotkeyConfig& a_hotkey) { hotkey_ = a_hotkey; }
     void SetToggleCallback(std::function<void()> a_callback) { toggleCallback_ = std::move(a_callback); }
     void SetEscapeCallback(std::function<bool()> a_callback) { escapeCallback_ = std::move(a_callback); }
@@ -47,11 +49,15 @@ public:
         if (pageInput_ && pageInput_()) return RE::BSEventNotifyControl::kContinue;
         if (!a_events) return RE::BSEventNotifyControl::kContinue;
         for (auto* event = *a_events; event; event = event->next) {
+            if (inventoryRecycling_) inventoryRecycling_(0, false);
             if (event->GetEventType() != RE::INPUT_EVENT_TYPE::kButton) continue;
             const auto* button = event->AsButtonEvent();
-            if (!button || !button->IsDown()) continue;
+            if (!button || (!button->IsDown() && !button->IsUp())) continue;
             if (button->GetDevice() != RE::INPUT_DEVICE::kKeyboard) continue;
             const auto key = button->GetIDCode();
+            if (recyclingCapture_ && recyclingCapture_(key, button->IsDown())) continue;
+            if (inventoryRecycling_ && inventoryRecycling_(key, button->IsDown())) continue;
+            if (!button->IsDown()) continue;
             if (captureCallback_ && !IsModifierKey(key) && captureCallback_(key, Down(VK_SHIFT), Down(VK_CONTROL), Down(VK_MENU))) continue;
             if (actionCallback_ && actionCallback_(key, Down(VK_SHIFT), Down(VK_CONTROL), Down(VK_MENU))) continue;
             if (key == 0x01 && escapeCallback_ && escapeCallback_()) continue;
@@ -68,6 +74,8 @@ private:
         return Down(VK_SHIFT) == a_hotkey.requireShift && Down(VK_CONTROL) == a_hotkey.requireCtrl && Down(VK_MENU) == a_hotkey.requireAlt;
     }
 
+    std::function<bool(std::uint32_t, bool)> recyclingCapture_;
+    std::function<bool(std::uint32_t, bool)> inventoryRecycling_;
     HotkeyConfig hotkey_{};
     std::function<void()> toggleCallback_;
     std::function<bool()> escapeCallback_;

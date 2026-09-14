@@ -14,8 +14,8 @@ function Comparison({ card }: { card: EnhancementCard }) {
   return <table className="enhancement-comparison"><caption>成功后的变化</caption><thead><tr><th>属性</th><th>当前</th><th>强化后</th></tr></thead><tbody>{card.preview.map((row, index) => <tr key={index}><th scope="row">{row.label}</th><td>{row.before}</td><td>{row.after}</td></tr>)}</tbody></table>;
 }
 
-export function EnhancementPage({ item, forge, revision, refreshResult, onBack, onAction }: {
-  item: EquipmentItem; forge: ForgeState; revision: number; refreshResult?: RefreshResult; onBack: () => void;
+export function EnhancementPage({ item, forge, revision, refreshResult, backLabel = '返回装备详情', onBack, onAction }: {
+  item: EquipmentItem; forge: ForgeState; revision: number; refreshResult?: RefreshResult; backLabel?: string; onBack: () => void;
   onAction: (type: string, data: Record<string, unknown>) => void;
 }) {
   const [review, setReview] = useState<{ id: string; key: string }>();
@@ -50,7 +50,7 @@ export function EnhancementPage({ item, forge, revision, refreshResult, onBack, 
   };
 
   return <section className="enhancement-page">
-    <header className="enhancement-heading"><button type="button" disabled={locked && refresh.phase !== 'timeout'} onClick={() => { onAction('playWorkshopClick', {}); onBack(); }}>← 返回装备详情</button><div><p>ENHANCEMENT WORKSHOP</p><h2>{item.name} <span>+{item.enhancementLevel}</span></h2></div><span>{item.quest || item.unique ? '受保护 · 失败降级' : '普通装备 · 失败分解'}</span></header>
+    <header className="enhancement-heading"><button type="button" disabled={locked && refresh.phase !== 'timeout'} onClick={() => { onAction('playWorkshopClick', {}); onBack(); }}>← {backLabel}</button><div><p>ENHANCEMENT WORKSHOP</p><h2>{item.name} <span>+{item.enhancementLevel}</span></h2></div><span>{item.quest || item.unique ? '受保护 · 失败降级' : '普通装备 · 失败分解'}</span></header>
     <p className="enhancement-help">三选一，每次只应用一张卡片。查看变化后再确认；取消不会消耗金币或材料，也不会更换卡片。已装备物品会临时卸下，成功后恢复原槽位。</p>
     <div className="card-heading"><div><h3>本轮强化方案</h3><p>已刷新 {forge.refreshes} 次 · 持有 {forge.gold} 金币</p></div><button disabled={locked || !cards.length || Boolean(reviewed) || forge.gold < forge.refreshCost} onClick={() => {
       if (busy || transition.isPending()) return;

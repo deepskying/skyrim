@@ -1,0 +1,21 @@
+[
+  "Interface/Translations/SimpleRecycling_CZECH.txt",
+  "Interface/Translations/SimpleRecycling_ENGLISH.txt",
+  "Interface/Translations/SimpleRecycling_FRENCH.txt",
+  "Interface/Translations/SimpleRecycling_GERMAN.txt",
+  "Interface/Translations/SimpleRecycling_ITALIAN.txt",
+  "Interface/Translations/SimpleRecycling_JAPANESE.txt",
+  "Interface/Translations/SimpleRecycling_POLISH.txt",
+  "Interface/Translations/SimpleRecycling_RUSSIAN.txt",
+  "Interface/Translations/SimpleRecycling_SPANISH.txt",
+  "scripts/source/zsrFiltersAndRewards.psc",
+  "scripts/source/zsrMCMQuestScript.psc",
+  "scripts/source/zsrPlayerReloadScript.psc",
+  "scripts/source/zsrRecycleQuestScript.psc",
+  "scripts/zsrFiltersAndRewards.pex",
+  "scripts/zsrMCMQuestScript.pex",
+  "scripts/zsrPlayerReloadScript.pex",
+  "scripts/zsrRecycleQuestScript.pex",
+  "SimpleRecycling.esp",
+  "SimpleRecycling-integration.md"
+]

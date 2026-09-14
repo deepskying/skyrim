@@ -1,0 +1,722 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "name": "dwemer",
+      "items": [
+        {
+          "plugin": "Skyrim.esm",
+          "id": 1001859
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 155004
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 154878
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 154728
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 154643
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 925635
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821368
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821364
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821362
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821360
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821358
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821356
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821354
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821352
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821350
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821348
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 821345
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163605
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163602
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163593
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163592
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163591
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163590
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 163587
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 715767
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 715764
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 715763
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 715761
+        }
+      ],
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 899234
+      },
+      "weightRatio": 0.2
+    },
+    {
+      "name": "silverware",
+      "items": [
+        {
+          "plugin": "Skyrim.esm",
+          "id": 1005626
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 1005625
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 934625
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 934624
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 934623
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624167
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624166
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624165
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624164
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624163
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624161
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 624160
+        }
+      ],
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371935
+      },
+      "weightRatio": 0.2
+    },
+    {
+      "name": "pottery",
+      "items": [
+        {
+          "plugin": "Skyrim.esm",
+          "id": 985339
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 985338
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 985337
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 985336
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 985333
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 760796
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 760794
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 760792
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 760784
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 760780
+        }
+      ],
+      "output": {
+        "plugin": "HearthFires.esm",
+        "id": 12355
+      },
+      "weightRatio": 0.2
+    },
+    {
+      "name": "wood",
+      "items": [
+        {
+          "plugin": "Skyrim.esm",
+          "id": 637688
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 703792
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 477182
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 477179
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 422271
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 203235
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 203162
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 203073
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77804
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77803
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77802
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77801
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77800
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77799
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 77791
+        }
+      ],
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 457107
+      },
+      "weightRatio": 0.2
+    },
+    {
+      "name": "ironware",
+      "items": [
+        {
+          "plugin": "Skyrim.esm",
+          "id": 1067840
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 1067839
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 927256
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 927255
+        },
+        {
+          "plugin": "Skyrim.esm",
+          "id": 216274
+        }
+      ],
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 466163
+      },
+      "weightRatio": 0.2
+    },
+    {
+      "name": "cloth",
+      "items": [
+        {
+          "plugin": "Skyrim.esm",
+          "id": 216278
+        }
+      ],
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 524516
+      },
+      "weightRatio": 0.2
+    }
+  ],
+  "rules": [
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 15
+      },
+      "weightRatio": 0.01,
+      "formType": 32,
+      "keyword": "VendorItemGem",
+      "useItemValue": true
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 898514
+      },
+      "weightRatio": 0.2,
+      "formType": 32,
+      "keyword": "VendorItemAnimalHide"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 785161
+      },
+      "weightRatio": 0.2,
+      "formType": 32,
+      "keyword": "VendorItemFirewood"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 216287
+      },
+      "weightRatio": 0.01,
+      "formType": 46,
+      "keyword": "VendorItemFood"
+    },
+    {
+      "output": {
+        "plugin": "HearthFires.esm",
+        "id": 23145
+      },
+      "weightRatio": 0.01,
+      "formType": 46
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 210785
+      },
+      "weightRatio": 0.01,
+      "formType": 23
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 210785
+      },
+      "weightRatio": 0.01,
+      "formType": 27
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 457107
+      },
+      "weightRatio": 0.01,
+      "formType": 31
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 422273
+      },
+      "weightRatio": 3,
+      "formType": 52
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372125
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialDaedric"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372125
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialDaedric"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 241060
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialDragonbone"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 241060
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialDragonbone"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 241060
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialDragonplate"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 241060
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialDragonplate"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 241059
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialDragonscale"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 241059
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialDragonscale"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 899234
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialDwarven"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 899234
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialDwarven"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372125
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialEbony"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372125
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialEbony"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372127
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialElven"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372127
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialElven"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372129
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialGlass"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372129
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialGlass"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372121
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialOrcish"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 372121
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialOrcish"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371939
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialSilver"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371939
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialSilver"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371941
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialSteel"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371941
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialSteel"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371940
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialIron"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371940
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialIron"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371940
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "WeapMaterialDraugr"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371940
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "ArmorMaterialDraugr"
+    },
+    {
+      "output": {
+        "plugin": "Dragonborn.esm",
+        "id": 176235
+      },
+      "weightRatio": 0.1,
+      "formType": 41,
+      "keyword": "DLC2WeaponMaterialStalhrim"
+    },
+    {
+      "output": {
+        "plugin": "Dragonborn.esm",
+        "id": 176235
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "DLC2ArmorMaterialStalhrimHeavy"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 189666
+      },
+      "weightRatio": 0.01,
+      "formType": 41,
+      "keyword": "WeapTypeStaff"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 371935
+      },
+      "weightRatio": 0.05,
+      "formType": 26,
+      "keyword": "VendorItemJewelry"
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 524516
+      },
+      "weightRatio": 0.1,
+      "formType": 41
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 524516
+      },
+      "weightRatio": 0.05,
+      "formType": 26
+    },
+    {
+      "output": {
+        "plugin": "Skyrim.esm",
+        "id": 457107
+      },
+      "weightRatio": 0.01,
+      "formType": 42
+    }
+  ]
+}
