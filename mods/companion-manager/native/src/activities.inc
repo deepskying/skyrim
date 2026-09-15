@@ -342,11 +342,11 @@ bool ChangeOutfit(RE::Actor* actor,json& r,bool restore=false) {
 class ActivityAnswer final:public RE::IMessageBoxCallback {
     RE::FormID actor; std::uint64_t session;
 public:
-    ActivityAnswer(RE::FormID id,std::uint64_t e):actor(id),session(e){}
+    ActivityAnswer(RE::FormID id,std::uint64_t e):RE::IMessageBoxCallback{},actor(id),session(e){}
     void Run(Message choice) override {
         if(auto* tasks=SKSE::GetTaskInterface()) tasks->AddTask([id=actor,e=session,choice]{
             std::scoped_lock guard(lock);
-            if(e!=epoch||!ready) return;
+            if(e!=epoch||!ready||!members.contains(id)||!members[id].value("active",false)) return;
             if(static_cast<int>(choice)==0) wardrobeOpenRequest=id;
         });
     }
@@ -355,8 +355,11 @@ void AskPlayer(RE::Actor* actor,const std::string& kind) {
     const auto id=actor->GetFormID();
     const auto text=std::format("{}：{}",actor->GetName(),kind=="carry"?
         "我快拿不动了，你能挑一些有价值的东西取走吗？":"可以给我一些服装上的建议吗？");
-    activityRequests.erase(id); requestCooldown[id]=ActivityTime()+300;
-    RE::CreateMessage(text.c_str(),new ActivityAnswer(id,epoch),0,4,10,"好的","稍后再说");
+    const bool queued=activity::QueuePrompt(text.c_str(),
+        RE::BSTSmartPointer<RE::IMessageBoxCallback>(new ActivityAnswer(id,epoch)));
+    logger::info("Activity prompt actor={:08X} kind={} queued={}",id,kind,queued);
+    if(queued) activityRequests.erase(id);
+    requestCooldown[id]=ActivityTime()+(queued?300:30);
 }
 void TickActivities() {
     auto* player=RE::PlayerCharacter::GetSingleton(); auto* ui=RE::UI::GetSingleton();
@@ -378,7 +381,8 @@ void TickActivities() {
     }
     if(battleSeen) { quietSince=now;lootUntil=now+180;battleSeen=false; }
     const bool menu=ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)||ui->IsMenuOpen(RE::BarterMenu::MENU_NAME)||
-        ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)||ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ManagerViewOpen();
+        ui->IsMenuOpen(RE::ContainerMenu::MENU_NAME)||ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||
+        ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME)||ManagerViewOpen();
     if(menu) { CancelActivity(); return; }
     if(wardrobeOpenRequest) { const auto id=wardrobeOpenRequest;wardrobeOpenRequest=0;OpenPartnerWardrobe(id);return; }
     if(now-quietSince<4) return;
@@ -453,10 +457,21 @@ void TickActivities() {
     }
     if(chosen) StartActivity(chosen,target,"loot");
 }
+const char* InventoryCategory(RE::TESBoundObject* item) {
+    if(item->As<RE::TESObjectWEAP>()||item->As<RE::TESAmmo>()) return "weapons";
+    if(item->As<RE::TESObjectARMO>()) return "apparel";
+    if(auto* alchemy=item->As<RE::AlchemyItem>()) return alchemy->IsFood()?"food":"potions";
+    if(item->As<RE::ScrollItem>()) return "scrolls";
+    if(item->As<RE::IngredientItem>()) return "ingredients";
+    if(item->As<RE::TESObjectBOOK>()) return "books";
+    if(item->As<RE::TESKey>()) return "keys";
+    return "misc";
+}
 json WardrobeSnapshot(RE::Actor* actor,const json& r) {
     json rows=json::array();
     for(auto& item:Wardrobe(actor,r,true)) rows.push_back({{"key",item.key},{"id",ID(item.item->GetFormID())},
         {"name",item.name},{"count",item.count},{"value",item.value},{"weight",item.weight},{"category",item.category},
+        {"inventoryCategory",InventoryCategory(item.item)},
         {"equipped",item.equipped},{"quest",item.quest},{"favorite",item.favorite},{"equipment",item.equipment}});
     return rows;
 }

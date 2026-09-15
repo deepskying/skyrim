@@ -5,7 +5,8 @@ export type BehaviorSettings = {
 };
 export const defaultBehavior:BehaviorSettings={loot:true,corpses:true,ground:true,containers:false,radius:40,minValue:20,minRatio:5,categories:255,sell:true,outfits:true,outfitHours:12,requests:true};
 export const categories:[number,string,string][]=[[1,"武器","⚔"],[2,"护甲 / 服装","♜"],[4,"首饰","◇"],[8,"金币 / 宝石 / 灵魂石","◈"],[16,"药剂 / 食物","◉"],[32,"材料","❧"],[64,"书籍","▤"],[128,"杂物 / 箭矢","▧"]];
-export type WardrobeItem={key:string;id:string;name:string;count:number;value:number;weight:number;category:number;equipped:boolean;quest:boolean;favorite:boolean;equipment:boolean};
+import { inventoryCategories, type ItemCategory } from "./inventory.ts";
+export type WardrobeItem={key:string;id:string;name:string;count:number;value:number;weight:number;category:number;inventoryCategory?:ItemCategory;equipped:boolean;quest:boolean;favorite:boolean;equipment:boolean};
 export type Automation={defaults:BehaviorSettings;history:string[];playerCarried:number;playerCapacity:number};
 export function validBehavior(v:unknown):v is BehaviorSettings {
   if(!v||typeof v!=="object")return false;
@@ -21,6 +22,7 @@ export function validWardrobe(v:unknown):v is WardrobeItem[] {
        typeof x.id!=="string"||!/^[0-9A-F]{8}$/.test(x.id)||typeof x.name!=="string"||
        !["equipped","quest","favorite","equipment"].every(k=>typeof x[k]==="boolean")||
        !["weight","value","count","category"].every(k=>typeof x[k]==="number"&&Number.isFinite(x[k])&&x[k]>=0)||!Number.isInteger(x.count))return false;
+    if(x.inventoryCategory!==undefined&&!inventoryCategories.some(c=>c.id!=="all"&&c.id===x.inventoryCategory))return false;
     seen.add(x.key);return true;
   });
 }

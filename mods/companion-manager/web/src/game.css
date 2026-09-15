@@ -553,6 +553,14 @@
 .cm-category-options label { display:flex;align-items:center;gap:12px; }
 .cm-wardrobe-toolbar { margin:20px 0; }
 .cm-wardrobe-toolbar>input { flex:1;min-width:180px; }
+.cm-inventory-categories { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9em),1fr));gap:8px;margin-top:18px; }
+.cm-inventory-categories button { display:flex;align-items:center;gap:7px;min-width:0;padding:12px 10px;white-space:nowrap;font-size:1em;background:#a0bdca09;border:1px solid #a5c9cf2b; }
+.cm-inventory-categories button>span { font-size:inherit; }
+.cm-inventory-categories button>span:first-child { color:#a2cfc8;font-size:1.15em; }
+.cm-inventory-categories button small { margin-left:auto;color:#a5b9bb;font-size:.85em;font-variant-numeric:tabular-nums; }
+.cm-inventory-categories button.active,.cm-locked-filter.active { color:#dbfff4;background:#65c6ad24;border-color:#87d5c1; }
+.cm-inventory-categories button:focus-visible { outline:2px solid #a1dfcd;outline-offset:2px; }
+.cm-inventory-result { color:#a5b9bb;font-size:.85em;margin:0 0 14px; }
 .cm-wardrobe-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:18px; }
 .cm-wardrobe-card { background:#a0bdca09;border:1px solid #a5c9cf2b;border-radius:12px;overflow:hidden; }
 .cm-wardrobe-card.favorite { border-color:#d9bf7370;background:#b59e5010; }

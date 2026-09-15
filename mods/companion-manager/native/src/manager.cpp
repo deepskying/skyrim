@@ -3,6 +3,7 @@
 #include "state_rules.h"
 #include "trade_dialogue.h"
 #include "activity_rules.h"
+#include "activity_prompt.h"
 #include <deque>
 #include <random>
 #include <limits>

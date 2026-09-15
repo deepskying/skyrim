@@ -125,3 +125,19 @@
 - 现场日志：22:55:19 Meridian ModSchemeHandler 对 assets/index-B5Mxqt5o.js 报 404，磁盘文件存在；游戏框架启动时间 22:53:40 早于界面复制时间 22:53:43。与游戏启动期间 MO2 映射未纳入新资源的情况吻合。
 - 网页默认 html/runtime 为 game，底层透明无需依赖业务脚本初始化；仅 demo 模式显示浏览器预览背景。
 - 安装前检查 SkyrimSE / skse64_loader 均已退出，完整复制并验证资源哈希。游戏待测：从 MO2 重新启动、打开面板，确认资源 404 消失，面板外可见游戏，面板内按不透明度混合显示。
+
+## 1.6.4 主动询问崩溃（2026-09-14）
+
+- 11:24:42 日志的主调用栈为 CompanionManager → Skyrim 51420+0x136 → 10979+0x43，R15 为 ActivityAnswer，非法地址为 0x2FE1AC81A。运行 DLL 与本地 1.6.3 DLL SHA256 均为 5EF5670796E31FD26C4D02F44264CA5471A2DAD2F220BEF644205B8364BF8E56。
+- 对本机 SkyrimSE 1.5.97 反汇编确认：+08AB180（51420）从第六个参数开始逐项读取按钮指针直到空指针，+08AB2B1 将读取结果传入 BSString::Set_CStr；原调用缺少结束标记。该入口还会把第二个参数包装为函数指针回调（+08AC7E0 间接跳转），不能传 IMessageBoxCallback 对象。
+- 新路径通过 UIMessageQueue 工厂创建 MessageBoxData，使用按钮数组与 BSTSmartPointer 回调。+08AB5C0（51422）的返回值确认代表是否接管消息；排队被拒绝时由本地释放。保留原版消息队列优先级检查。
+- activity-prompt-test 执行生产消息构造代码，使用引擎接口替身验证两个中文按钮、文字所有权、确定 / 稍后响应传递、取消映射、回调寿命，以及队列拒绝 / 工厂失败 / 单例不可用时无泄漏。这不替代游戏内引擎验证。
+- Release DLL 和 TypeScript / Vite 构建通过，六个原生测试目标（含新增 activity-prompt-test）和 21 项网页测试全部通过；git diff --check 通过。
+- 游戏待复测：爱拉接近满负重且玩家有空余时，关闭面板等待求助，分别选择「好的」「稍后再说」及取消；打开对应伙伴库存且可继续取物。允许自动穿搭后同样验证建议询问。连续打开 / 关闭面板和保存读档后观察是否正常，日志应出现 Activity prompt actor=… kind=carry/outfit queued=true。
+
+## 1.6.5 库存分类（2026-09-15）
+
+- 分类顺序参考 SkyUI 的库存分类定义：https://github.com/schlangster/skyui/blob/master/src/Common/skyui/defines/Inventory.as 。新增 inventoryCategory 快照字段，保留拾取行为使用的 category 位掩码。
+- Release DLL、TypeScript / Vite 构建通过，24 项网页测试通过。覆盖食物 / 药剂分离、箭矢 / 杂物分离、护甲 / 首饰归类、其余分类、组数计数、搜索与锁定交集、旧快照可读及未知类型拒绝。
+- 浏览器：食物分类只显示苹果派，叠加仅看已锁定后正确为空；选中苹果派后切到药剂仍显示已选 1 件 / 0.5 负重。18px 字号下在 1280px 与 1048px 视口检查布局，分类文字无额外字号覆盖，按钮 scrollWidth 与 clientWidth 相等；测试后恢复视口。
+- 游戏待测：重新启动 SKSE，进入伙伴库存逐类核对真实物品，重点检查药剂 / 食物、卷轴、钥匙和箭矢；确认锁定与跨类取物仍正常。
