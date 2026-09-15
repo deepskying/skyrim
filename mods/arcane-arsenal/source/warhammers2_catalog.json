@@ -1,0 +1,186 @@
+[
+  {
+    "key": "warhammer2red",
+    "name": "余烬·错压",
+    "design": "faultpress",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6
+    ],
+    "fx": "square",
+    "particle_color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "rate": 4,
+    "speed": 1.2,
+    "radius": 0.4,
+    "life": 0.85,
+    "particle_power": 1.8,
+    "pool": 16,
+    "diffuse_name": "aa_red_d",
+    "diffuse_color": [
+      0.32,
+      0,
+      0
+    ],
+    "spread": 0.35,
+    "particle_secondary": [
+      1,
+      0.12,
+      0.22
+    ],
+    "fx_secondary": "mote",
+    "control_scale": 1,
+    "particle_node_prefix": "AAWarhammerDust"
+  },
+  {
+    "key": "warhammer2green",
+    "name": "流萤·绞岚",
+    "design": "spiraldrum",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5
+    ],
+    "fx": "crescent",
+    "particle_color": [
+      0.16,
+      1,
+      0.67
+    ],
+    "rate": 4,
+    "speed": 1.2,
+    "radius": 0.4,
+    "life": 0.85,
+    "particle_power": 1.8,
+    "pool": 16,
+    "diffuse_name": "aa_ariesgreen_d",
+    "diffuse_color": [
+      0.08,
+      0.5,
+      0.335
+    ],
+    "spread": 0.75,
+    "particle_secondary": [
+      0.2,
+      1,
+      0.75
+    ],
+    "fx_secondary": "mote",
+    "control_scale": 1,
+    "particle_node_prefix": "AAWarhammerDust"
+  },
+  {
+    "key": "warhammer2blue",
+    "name": "寒汐·贯潮",
+    "design": "crossram",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4
+    ],
+    "fx": "streak",
+    "particle_color": [
+      0.16,
+      0.95,
+      1
+    ],
+    "rate": 4,
+    "speed": 1.2,
+    "radius": 0.4,
+    "life": 0.85,
+    "particle_power": 1.8,
+    "pool": 16,
+    "diffuse_name": "aa_ariesblue_d",
+    "diffuse_color": [
+      0.08,
+      0.475,
+      0.5
+    ],
+    "spread": 0.5,
+    "particle_secondary": [
+      0.12,
+      0.7,
+      1
+    ],
+    "fx_secondary": "mote",
+    "control_scale": 1,
+    "particle_node_prefix": "AAWarhammerDust"
+  },
+  {
+    "key": "warhammer2purple",
+    "name": "梦隙·叠轨",
+    "design": "orbitalmaul",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4
+    ],
+    "fx": "kite",
+    "particle_color": [
+      0.72,
+      0.3,
+      1
+    ],
+    "rate": 4,
+    "speed": 1.2,
+    "radius": 0.4,
+    "life": 0.85,
+    "particle_power": 1.8,
+    "pool": 16,
+    "diffuse_name": "aa_ariespurple_d",
+    "diffuse_color": [
+      0.36,
+      0.15,
+      0.5
+    ],
+    "spread": 0.6,
+    "particle_secondary": [
+      0.65,
+      0.3,
+      1
+    ],
+    "fx_secondary": "mote",
+    "control_scale": 1,
+    "particle_node_prefix": "AAWarhammerDust"
+  }
+]

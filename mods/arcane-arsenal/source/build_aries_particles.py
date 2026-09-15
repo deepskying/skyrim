@@ -8,7 +8,7 @@ import sys,struct,math,json,hashlib
 from mathutils import Matrix,Vector
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'source'))
-SERIES='swords2' if '--swords2' in sys.argv else 'swords' if '--swords' in sys.argv else 'greatswords3' if '--greatswords3' in sys.argv else 'greatswords2' if '--greatswords2' in sys.argv else 'greatswords' if '--greatswords' in sys.argv else 'heteromorphic2' if '--heteromorphic2' in sys.argv else 'crystal' if '--crystal' in sys.argv else 'heteromorphic' if '--heteromorphic' in sys.argv else 'scorpio' if '--scorpio' in sys.argv else 'pisces' if '--pisces' in sys.argv else 'aquarius' if '--aquarius' in sys.argv else 'capricorn' if '--capricorn' in sys.argv else 'sagittarius' if '--sagittarius' in sys.argv else 'libra' if '--libra' in sys.argv else 'virgo' if '--virgo' in sys.argv else 'leo' if '--leo' in sys.argv else 'cancer' if '--cancer' in sys.argv else 'gemini' if '--gemini' in sys.argv else 'geometric' if '--geometric' in sys.argv else 'taurus' if '--taurus' in sys.argv else 'aries'
+SERIES='warhammers2' if '--warhammers2' in sys.argv else 'waraxes2' if '--waraxes2' in sys.argv else 'waraxes' if '--waraxes' in sys.argv else 'warhammers' if '--warhammers' in sys.argv else 'daggers3' if '--daggers3' in sys.argv else 'daggers2' if '--daggers2' in sys.argv else 'daggers' if '--daggers' in sys.argv else 'scythes2' if '--scythes2' in sys.argv else 'scythes' if '--scythes' in sys.argv else 'battleaxes3' if '--battleaxes3' in sys.argv else 'battleaxes2' if '--battleaxes2' in sys.argv else 'battleaxes' if '--battleaxes' in sys.argv else 'maces2' if '--maces2' in sys.argv else 'maces' if '--maces' in sys.argv else 'swords2' if '--swords2' in sys.argv else 'swords' if '--swords' in sys.argv else 'greatswords3' if '--greatswords3' in sys.argv else 'greatswords2' if '--greatswords2' in sys.argv else 'greatswords' if '--greatswords' in sys.argv else 'heteromorphic2' if '--heteromorphic2' in sys.argv else 'crystal' if '--crystal' in sys.argv else 'heteromorphic' if '--heteromorphic' in sys.argv else 'scorpio' if '--scorpio' in sys.argv else 'pisces' if '--pisces' in sys.argv else 'aquarius' if '--aquarius' in sys.argv else 'capricorn' if '--capricorn' in sys.argv else 'sagittarius' if '--sagittarius' in sys.argv else 'libra' if '--libra' in sys.argv else 'virgo' if '--virgo' in sys.argv else 'leo' if '--leo' in sys.argv else 'cancer' if '--cancer' in sys.argv else 'gemini' if '--gemini' in sys.argv else 'geometric' if '--geometric' in sys.argv else 'taurus' if '--taurus' in sys.argv else 'aries'
 from nif_blocks import NifBlocks
 from bsa_reference import extract
 p=lambda fmt,*v:struct.pack('<'+fmt,*v)
@@ -69,7 +69,7 @@ def sprite(style):
             rgba+=bytes((255,255,255,round(255*a)))
     header=p('7I',124,0x100f,size,size,size*4,0,1)+p('11I',*([0]*11))
     header+=p('8I',32,0x41,0,32,0xff0000,0xff00,0xff,0xff000000)+p('5I',0x1000,0,0,0,0)
-    prefix='aa_geo_' if style in ('hexagon','needle','streak') and SERIES in ('swords2','swords','greatswords3','greatswords2','greatswords','geometric','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic') else 'aa_aries_'
+    prefix='aa_geo_' if style in ('hexagon','needle','streak') and SERIES in ('warhammers2','waraxes2','waraxes','warhammers','daggers3','daggers2','daggers','scythes2','scythes','battleaxes3','battleaxes2','battleaxes','maces2','swords2','swords','greatswords3','greatswords2','greatswords','geometric','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','crystal','heteromorphic2','heteromorphic') else 'aa_aries_'
     if style=='kite':prefix='aa_virgo_'
     if style in ('chevron','crescent'):prefix='aa_sagittarius_'
     if style in ('droplet','hollowtriangle'):prefix='aa_capricorn_'
@@ -183,6 +183,20 @@ def build(spec):
     if SERIES=='greatswords3':report['version']='0.27.0'
     if SERIES=='swords':report['version']='0.28.0'
     if SERIES=='swords2':report['version']='0.29.0'
+    if SERIES=='maces':report['version']='0.30.0'
+    if SERIES=='maces2':report['version']='0.31.0'
+    if SERIES=='battleaxes':report['version']='0.32.0'
+    if SERIES=='battleaxes2':report['version']='0.33.0'
+    if SERIES=='battleaxes3':report['version']='0.34.0'
+    if SERIES=='scythes':report['version']='0.35.0'
+    if SERIES=='scythes2':report['version']='0.36.0'
+    if SERIES=='daggers':report['version']='0.37.0'
+    if SERIES=='daggers2':report['version']='0.38.0'
+    if SERIES=='daggers3':report['version']='0.39.0'
+    if SERIES=='waraxes2':report['version']='0.42.0'
+    if SERIES=='waraxes':report['version']='0.41.0'
+    if SERIES=='warhammers2':report['version']='0.43.0'
+    if SERIES=='warhammers':report['version']='0.40.0'
     if SERIES=='crystal':report['version']='0.23.0'
     report['textures']=[t.name for t in textures]
     (ROOT/'build'/(key+'-particles.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
