@@ -1,0 +1,82 @@
+[
+  {
+    "key": "staffred",
+    "name": "余烬·裂冕",
+    "design": "riven_crown",
+    "color": [
+      1,
+      0,
+      0
+    ],
+    "edge": [
+      1,
+      0.015,
+      0.025
+    ],
+    "power": [
+      1.8,
+      3.6
+    ],
+    "diffuse_name": "aa_red_d"
+  },
+  {
+    "key": "staffgreen",
+    "name": "流萤·盘枝",
+    "design": "spiral_bough",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5
+    ],
+    "diffuse_name": "aa_ariesgreen_d"
+  },
+  {
+    "key": "staffblue",
+    "name": "寒汐·悬衡",
+    "design": "suspended_balance",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      5.4
+    ],
+    "diffuse_name": "aa_ariesblue_d"
+  },
+  {
+    "key": "staffpurple",
+    "name": "梦隙·缺环",
+    "design": "broken_halo",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.7,
+      5.4
+    ],
+    "diffuse_name": "aa_ariespurple_d"
+  }
+]
