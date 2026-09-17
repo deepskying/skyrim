@@ -15,6 +15,7 @@ $taskInputs = [ordered]@{
     'MainMenuManager/backgrounds/_example/theme.json' = (Join-Path $PSScriptRoot 'backgrounds\_example\theme.json')
     'MainMenuManager/backgrounds/_example/Data/放入配套资源.txt' = (Join-Path $PSScriptRoot 'backgrounds\_example\Data\放入配套资源.txt')
     'MainMenuManager/tools/New-ImageTheme.ps1' = (Join-Path $taskModule 'tools\New-ImageTheme.ps1')
+    'MainMenuManager/tools/remove_dragon_logo.py' = (Join-Path $taskModule 'tools\remove_dragon_logo.py')
     'MainMenuManager/README.md' = (Join-Path $taskModule 'README.md')
     'MainMenuManager/开屏背景管理器.exe' = $taskBrowser
     'MainMenuManager/开屏背景管理器.exe.config' = (Join-Path $taskModule 'browser\App.config')

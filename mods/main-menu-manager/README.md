@@ -49,6 +49,17 @@ MO2/mods/MainMenuManager/
 
 ## 自己生成的新图片
 
+### 移除独立旋转龙徽
+
+`tools/remove_dragon_logo.py` 可检查整个主菜单库（包含可恢复删除区），通过 `Logo02_d.dds` 材质识别原版立体龙徽，将其从模型父节点中断开并隐藏。背景平面、粒子、纹理和动画数据保持原样；不能直接删除 `logo.nif`，因为背景也在该模型内。工具支持库中的 Skyrim 83/100 格式，未知格式停止处理。
+
+```powershell
+python tools/remove_dragon_logo.py 'D:\模组\MainMenuManager'
+python tools/remove_dragon_logo.py 'D:\模组\MainMenuManager' --backup 'D:\备份\移除龙徽-首次'
+```
+
+不传 `--backup` 时只检查；应用时备份目录必须尚不存在，保存原文件和 SHA-256 报告。修改的是背景库源文件，下次启动生效，不改当前部署资源及恢复日志。新导入第三方主题后可再次检查。图片内自带的文字标志及主菜单按钮不受影响。
+
 普通 PNG/JPG 需要配套主菜单模型，不能只改后缀为 DDS。附带离线工具：以一套已验证的静态背景为模板，保留模型/效果/音乐，把自己的图片转换成 DDS，再生成一个新主题。
 
 模板必须使用 `textures/interface/objects/mainmenuwallpaper.dds`，且 `logo.nif` 引用该路径。工具不含第三方模板；以后整理资源时可选定一套适合自己分辨率的模板。
