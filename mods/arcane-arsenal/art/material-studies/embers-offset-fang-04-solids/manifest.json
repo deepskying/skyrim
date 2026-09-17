@@ -1,0 +1,54 @@
+{
+  "weapon": "余烬·错牙",
+  "source": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\arcane-arsenal\\art\\waraxe2red.blend",
+  "source_sha256": "59227b81679e61c578dc57726e08b1108177c52b5c9e6aacc27c0f397a327657",
+  "geometry_changed": false,
+  "renderer": "Blender Cycles",
+  "preview_only": true,
+  "in_game_tested": false,
+  "comparison": "All variants use identical geometry, camera, lights and exposure. Six opaque material directions, with the same restrained red bevel. These Cycles proposals are not verified Skyrim effects.",
+  "variants": [
+    {
+      "key": "01-steel",
+      "name": "拉丝银钢",
+      "description": "冷银金属与细密拉丝",
+      "full": "01-steel-full.png",
+      "detail": "01-steel-detail.png"
+    },
+    {
+      "key": "02-forged",
+      "name": "锻打铁",
+      "description": "粗粝锻打表面，柔暗金属光泽",
+      "full": "02-forged-full.png",
+      "detail": "02-forged-detail.png"
+    },
+    {
+      "key": "03-bronze",
+      "name": "古铜",
+      "description": "温暖铜色和细微锻痕",
+      "full": "03-bronze-full.png",
+      "detail": "03-bronze-detail.png"
+    },
+    {
+      "key": "04-porcelain",
+      "name": "象牙白陶瓷",
+      "description": "温润浅色釉面与红色刃光",
+      "full": "04-porcelain-full.png",
+      "detail": "04-porcelain-detail.png"
+    },
+    {
+      "key": "05-bone",
+      "name": "风化骨质",
+      "description": "哑光骨色、细孔与斑驳",
+      "full": "05-bone-full.png",
+      "detail": "05-bone-detail.png"
+    },
+    {
+      "key": "06-damascus",
+      "name": "层纹钢",
+      "description": "银灰交叠流纹与金属反光",
+      "full": "06-damascus-full.png",
+      "detail": "06-damascus-detail.png"
+    }
+  ]
+}

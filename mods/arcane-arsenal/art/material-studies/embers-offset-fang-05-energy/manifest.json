@@ -1,0 +1,17 @@
+{
+  "weapon": "余烬·错牙",
+  "preview_only": true,
+  "in_game_tested": false,
+  "variants": [
+    {
+      "name": "细亮边方案",
+      "full": "01-thin-full.png",
+      "detail": "01-thin-detail.png"
+    },
+    {
+      "name": "参考方向：发光刃带＋柄芯",
+      "full": "02-energy-full.png",
+      "detail": "02-energy-detail.png"
+    }
+  ]
+}

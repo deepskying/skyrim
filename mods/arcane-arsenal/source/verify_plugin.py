@@ -14,11 +14,11 @@ expected.update({'AA'+s['key']:0x01000000|int(s['stat_form'],16)+1 for s in cata
 header=items[0];hp=dict(subrecords(header['data']))
 assert header['flags']==0x200
 assert abs(struct.unpack_from('<f',hp[b'HEDR'])[0]-1.7)<1e-6
-assert len(items)==493 and len(by_form)==493
-assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(492,0xA11)
+assert len(items)==500 and len(by_form)==500
+assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(499,0xA18)
 assert all(r['version']==44 for r in items)
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in items[1:])
-weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==156
+weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==158
 names=[]
 for r in weapons:
     assert r['form']==expected[edid(r)]
@@ -42,23 +42,23 @@ chest=next(r for r in items if edid(r)=='AAAllBowsTestChest')
 assert chest['form']==expected['AAAllBowsTestChest']
 parts=list(subrecords(chest['data']))
 inventory=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
-assert len(inventory)==157
-assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==157
+assert len(inventory)==159
+assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==159
 assert all((r['form'],1) in inventory for r in weapons)
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='幻律兵装·试武箱'
 # Add the second Heteromorphic warhammer set; preserve old weapons and all container identity fields.
-baseline=list(records(ROOT/'build/before-0.43.0/data/ArcaneArsenal.esp'))
+baseline=list(records(ROOT/'build/before-0.44.0/data/ArcaneArsenal.esp'))
 retired={0x01000000|(int(s['stat_form'],16)+j) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for j in range(3)}
 assert len(retired)==36 and retired.isdisjoint(by_form)
 old_forms={r['form'] for r in baseline}
 assert old_forms <= set(by_form)
-assert set(by_form)-old_forms=={0x01000000|i for i in range(0xA05,0xA11)}
+assert set(by_form)-old_forms=={0x01000000|i for i in range(0xA11,0xA18)}
 assert 0x01000918 not in by_form
 strip=lambda r:[(k,v) for k,v in subrecords(r['data']) if k not in (b'COCT',b'CNTO')]
 for old in baseline:
     if old['form'] in retired or old['form']==0x01000918:continue
     current=by_form[old['form']]
-    if edid(old) in ('AAAllBowsTestChest','AAHeteromorphicWarhammersChest'):assert strip(old)==strip(current)
+    if edid(old) in ('AAAllBowsTestChest','AAHeteromorphicWaraxesChest'):assert strip(old)==strip(current)
     elif old['sig']!=b'TES4':assert current==old,edid(old)
 aries_chest=next(r for r in items if edid(r)=='AAAriesTestChest')
 assert aries_chest['form']==0x0100082F
@@ -74,7 +74,7 @@ taurus_items=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
 assert len(taurus_items)==5 and dict(parts)[b'COCT']==struct.pack('<I',5)
 assert set(taurus_items)=={(f,1) for f in (0x01000831,0x01000834,0x01000837,0x0100083A)}|{(0x1397D,200)}
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='金牛座·试武箱'
-assert len([r for r in items if r['sig']==b'CONT'])==23
+assert len([r for r in items if r['sig']==b'CONT'])==24
 geometric=by_form[0x0100087C]
 assert edid(geometric)=='AAGeometricTestChest'
 gparts=list(subrecords(geometric['data']))
@@ -212,7 +212,7 @@ assert edid(scythes)=='AAHeteromorphicScythesChest'
 scparts=list(subrecords(scythes['data']))
 assert dict(scparts)[b'COCT']==struct.pack('<I',8)
 assert {struct.unpack('<II',v) for k,v in scparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9A2,0x9A5,0x9A8,0x9AB,0x9AF,0x9B2,0x9B5,0x9B8)}
-assert len([r for r in items if r['sig']==b'CONT'])==23
+assert len([r for r in items if r['sig']==b'CONT'])==24
 daggers=by_form[0x010009C6]
 assert edid(daggers)=='AAHeteromorphicDaggersChest'
 dparts=list(subrecords(daggers['data']))
@@ -240,8 +240,8 @@ axes=by_form[0x010009F8]
 assert edid(axes)=='AAHeteromorphicWaraxesChest'
 aparts=list(subrecords(axes['data']))
 assert dict(aparts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='异构单手战斧·试武箱'
-assert dict(aparts)[b'COCT']==struct.pack('<I',8)
-assert {struct.unpack('<II',v) for k,v in aparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9ED,0x9F0,0x9F3,0x9F6,0x9FA,0x9FD,0xA00,0xA03)}
+assert dict(aparts)[b'COCT']==struct.pack('<I',10)
+assert {struct.unpack('<II',v) for k,v in aparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9ED,0x9F0,0x9F3,0x9F6,0x9FA,0x9FD,0xA00,0xA03,0xA12,0xA15)}
 base=next(r for r in master if edid(r).lower()=='ironwaraxe');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAwaraxe'):
@@ -249,6 +249,9 @@ for r in weapons:
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert fields[b'DNAM'][0]==bf[b'DNAM'][0]==3
         assert b'EITM' not in fields and b'EAMT' not in fields
-report={'version':'0.43.0','passed':True,'weapons':156,'test_chests':23,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'maces':{'damage':90,'speed':1.0},'battleaxes':{'damage':99,'speed':1.2},'scythes':{'damage':99,'speed':1.2,'animation_type':'TwoHandAxe'},'daggers':{'damage':75,'speed':1.6},'warhammers':{'damage':99,'speed':1.2},'waraxes':{'damage':80,'speed':1.2},'new_records':12,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
+material_box=by_form[0x01000A17]
+assert edid(material_box)=='AAMaterialTestChest'
+assert {struct.unpack('<II',v) for k,v in subrecords(material_box['data']) if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9FA,0xA12,0xA15)}
+report={'version':'0.44.0','passed':True,'weapons':158,'test_chests':24,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'maces':{'damage':90,'speed':1.0},'battleaxes':{'damage':99,'speed':1.2},'scythes':{'damage':99,'speed':1.2,'animation_type':'TwoHandAxe'},'daggers':{'damage':75,'speed':1.6},'warhammers':{'damage':99,'speed':1.2},'waraxes':{'damage':80,'speed':1.2},'new_records':7,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
 (ROOT/'build/plugin-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report))

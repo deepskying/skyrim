@@ -1786,5 +1786,27 @@
     "damage": 99,
     "weapon_speed": 1.2,
     "enchantment": null
+  },
+  {
+    "key": "waraxefrostruby",
+    "name": "余烬·错牙·磨砂红宝石",
+    "series": "material_trials",
+    "weapon_type": "waraxe",
+    "stat_form": "0xa11",
+    "weight": 12,
+    "damage": 80,
+    "weapon_speed": 1.2,
+    "enchantment": null
+  },
+  {
+    "key": "waraxeobsidian",
+    "name": "余烬·错牙·黑曜石",
+    "series": "material_trials",
+    "weapon_type": "waraxe",
+    "stat_form": "0xa14",
+    "weight": 12,
+    "damage": 80,
+    "weapon_speed": 1.2,
+    "enchantment": null
   }
 ]

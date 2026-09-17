@@ -1,22 +1,29 @@
-# 幻律兵装 · Arcane Armory 0.43.0
+# 幻律兵装 · Arcane Armory 0.45.0
 
-当前收录 **156 把武器**：80 把弓（异构 8、几何律 24、十二星座 48），以及异构巨剑 12 把、异构单手剑 8 把、异构钉锤 8 把、异构双手战斧 12 把、异构双手战镰 8 把、异构长刃匕首 12 把、异构双手战锤 8 把、异构单手战斧 8 把。弓的基础伤害 **90**、攻速参数 **1.5**；巨剑的基础伤害 **99**、攻速参数 **1.2**；单手剑测试版暂用基础伤害 **75**、攻速参数 **1.2**；钉锤基础伤害 **90**、攻速参数 **1.0**；双手战斧、战镰和战锤基础伤害 **99**、攻速参数 **1.2**；长刃匕首基础伤害 **75**、攻速参数 **1.6**；单手战斧基础伤害 **80**、攻速参数 **1.2**。
+当前收录 **158 把武器**：80 把弓（异构 8、几何律 24、十二星座 48），以及异构巨剑 12 把、异构单手剑 8 把、异构钉锤 8 把、异构双手战斧 12 把、异构双手战镰 8 把、异构长刃匕首 12 把、异构双手战锤 8 把、异构单手战斧 10 把（含两把材质测试版）。弓的基础伤害 **90**、攻速参数 **1.5**；巨剑的基础伤害 **99**、攻速参数 **1.2**；单手剑测试版暂用基础伤害 **75**、攻速参数 **1.2**；钉锤基础伤害 **90**、攻速参数 **1.0**；双手战斧、战镰和战锤基础伤害 **99**、攻速参数 **1.2**；长刃匕首基础伤害 **75**、攻速参数 **1.6**；单手战斧基础伤害 **80**、攻速参数 **1.2**。
 
 ## 本版调整
 
-0.43.0 新增第二组异构双手战锤：**余烬·错压、流萤·绞岚、寒汐·贯潮、梦隙·叠轨**。分别制作错位阶梯重块、三股螺旋锤笼、分节横向撞槌、沿锤头轴线旋转排列的三层方框。保留厚实钝击面，握柄沿用平整双手握持区域。主体采用现有几何发光材质与低强度亮边。
+0.45.0 将第二组四把单手战斧的主体更新为**全身发光纹理材质**：
 
-基础伤害 **99**、攻速 **1.2**、重量 **24**。使用原版 IronWarhammer 的握持基准、WeaponBack 挂点、战锤装备关键词与声音，使用游戏现有双手战锤动作。两个 Havok 碰撞盒按锤柄和锤头重新拟合。
+| 武器 | 材质 | 控制台 EditorID |
+| --- | --- | --- |
+| 余烬·错牙 | 熔光脉络 | AAwaraxe2red |
+| 流萤·回翎 | 星砂琉璃 | AAwaraxe2green |
+| 寒汐·叠潮 | 层叠晶片 | AAwaraxe2blue |
+| 梦隙·折冕 | 云雾光晶 | AAwaraxe2purple |
 
-「异构战锤·试武箱」扩充至八把战锤；全部武器试武箱扩充至 156 把。本版同时包含此前 0.42.0 的两组单手战斧。旧武器编号、属性、模型、贴图和脚本保持不变。新增战锤加入现有 SPID 名单，概率字段均为 `0.01`，并补齐尚未同步的单手斧。
+基础伤害 **80**、攻速 **1.2**、重量 **12**。保留原有模型几何、UV、碰撞、亮边与粒子，主体保持 Glow Shader 与原发光倍率。新增彩色漫反射、法线和发光贴图，整张发光图都有非零亮度；使用不透明表面表现纹理深浅，没有加入透明或体积折射。
 
-MO2 版本 **0.43.0**，插件 **ArcaneArsenal.esp** 保留 ESL 标记。更新后重启游戏。
+打开控制台输入 `help "AAHeteromorphicWaraxesChest" 4`，找到 CONT 完整编号，再输入 `player.placeatme <完整编号> 1`。箱内可取四把更新武器，也可用上表 EditorID 搜索 WEAP 后 `player.additem <完整编号> 1`。已有这四把武器会直接使用新材质。此前黑曜石、磨砂红宝石测试版不属于本次四套材质。
+
+本次仅更新这一组，未新增武器或改动插件记录。其余武器仍使用原材质。MO2 版本 **0.45.0**；进入游戏后分别检查室内和日光下的纹理与发光。概念插画和 Blender 预览不等同于游戏实测。
 
 ## 现有系列
 
 | 系列 | 款式 | 配色与命名 |
 | --- | --- | --- |
-| 异构单手战斧 | 裂冠、萦枝、断湾、缺轮、错牙、回翎、叠潮、折冕 | 每款独立配色，共 8 把 |
+| 异构单手战斧 | 裂冠、萦枝、断湾、缺轮、错牙、回翎、叠潮、折冕 | 8 把原款，另加 2 把错牙材质测试版 |
 | 异构双手战锤 | 倾岳、森垒、断垒、沉环、错压、绞岚、贯潮、叠轨 | 每款独立配色，共 8 把 |
 | 异构长刃匕首 | 噬角、回牙、穿隙、隐棱、断霆、脉翎、折阶、蚀月、偏锋、缠枝、双鸣、回棱 | 每款独立配色，共 12 把 |
 | 异构双手战镰 | 断穹、萦月、截潮、折夜、断棘、盘岚、折渊、环寂 | 每款独立配色，共 8 把 |
@@ -102,24 +109,25 @@ player.placeatme <CONT的完整编号> 1
 | AAScorpioTestChest | 天蝎座·试武箱 | 4 把天蝎弓 |
 | AAHeteromorphicTestChest | 异构·试武箱 | 8 把异构弓 |
 | AAHeteromorphicBattleaxesChest | 异构战斧·试武箱 | 12 把双手战斧 |
-| AAHeteromorphicWaraxesChest | 异构单手战斧·试武箱 | 8 把单手战斧 |
+| AAHeteromorphicWaraxesChest | 异构单手战斧·试武箱 | 10 把单手战斧 |
+| AAMaterialTestChest | 材质对比·试武箱 | 原版错牙、磨砂红宝石、黑曜石 |
 | AAHeteromorphicWarhammersChest | 异构战锤·试武箱 | 8 把双手战锤 |
 | AAHeteromorphicDaggersChest | 异构匕首·试武箱 | 12 把长刃匕首 |
 | AAHeteromorphicScythesChest | 异构战镰·试武箱 | 8 把双手战镰 |
 | AAHeteromorphicMacesChest | 异构钉锤·试武箱 | 8 把异构钉锤 |
 | AAHeteromorphicSwordsChest | 异构单手剑·试武箱 | 8 把异构单手剑 |
 | AAHeteromorphicGreatswordsChest | 异构巨剑·试武箱 | 12 把异构巨剑 |
-| AAAllBowsTestChest | 幻律兵装·试武箱 | 全部 156 把武器 |
+| AAAllBowsTestChest | 幻律兵装·试武箱 | 全部 158 把武器 |
 
 弓与全部武器箱另有铁箭 200 支，巨剑专用箱只含十二把巨剑，单手剑专用箱只含八把单手剑，钉锤专用箱只含八把钉锤，战斧专用箱只含十二把战斧。请生成新箱子，旧箱子的存档库存不一定跟随插件更新。已退役的武器不再提供；本次不编辑存档。
 
 ## 安装、验证与工程
 
-安装包为 **ArcaneArmory-0.43.0.zip**。已更新到 MO2 后不需要再次安装。本次不再改名，不修改启用状态、profile 或加载顺序。MO2 若缓存旧版本号，刷新或重启即可。
+安装包为 **ArcaneArmory-0.45.0.zip**。已更新到 MO2 后不需要再次安装。本次不再改名，不修改启用状态、profile 或加载顺序。MO2 若缓存旧版本号，刷新或重启即可。
 
 目标 Skyrim SE 1.5.97；ESP 头版本 1.7、记录版本 44、ESL 标记保持不变，主文件只有 Skyrim.esm。沿用已安装的 SKSE64 2.0.20 / NetImmerse，无新增 DLL 或行为生成步骤。
 
-本版核对 156 把武器、23 个试武箱、装备类型、中文名、模型链接、ESL 标记及旧记录身份，并用 xEdit 检查插件。四把战锤重新导入 NIF 与源模型比对，检查握持区、锤头轮廓、真实镂空、立体框架、发光材质、粒子位置与原生文件序列化。碰撞范围逐顶点检查覆盖新模型。相对 0.42.0 的 179 个运行文件，仅插件更新，另新增 4 个战锤模型；其余 178 个文件保持一致。当前共 183 个运行文件。游戏内握持、挥砍、背挂、落地碰撞与粒子表现仍需实测。
+本版相对 0.44.0，仅更新 4 个 NIF，新增 12 个 DDS，原有其余 188 个运行文件逐字节保持一致（包括 ESP）。当前共 204 个运行文件。检查了原生 NIF 读取、粒子序列化、模型/UV/碰撞不变、Glow Shader、主体发光倍率、贴图路径、不透明 alpha、完整 mipmaps 及发光图最低亮度。使用实际 NIF 导入 Blender 检查纹理分布。游戏内最终发光、纹理清晰度及 ENB 表现仍需实测。
 
 ### SPID 分发维护
 
@@ -127,9 +135,9 @@ player.placeatme <CONT的完整编号> 1
 
 目标文件：`C:/Users/linos/Desktop/games/+skyrim/MO2/mods/功能模组-物品分发-SPID+CID配置-🟪🟨/-item_DISTR.ini`。
 
-规则沿用 `Item = <EditorID>|NONE|NONE|NONE|NONE|1|0.01`。保留原内容、编码和换行，写入前备份到 `build/spid-before-*.ini`，匹配已有规则避免重复。本版新增四条 `AAwarhammer2red/green/blue/purple` 规则，并由同步工具补齐此前尚未安装的单手斧规则。
+规则沿用 `Item = <EditorID>|NONE|NONE|NONE|NONE|1|0.01`。保留原内容、编码和换行，写入前备份到 `build/spid-before-*.ini`，匹配已有规则避免重复。本版没有新增武器，验证现有 158 把武器的分发覆盖，无需追加规则。
 
-本次更新备份位于 `build/mo2-before-0.43.0-*`，改动前的源码、运行文件位于 `build/before-0.43.0/`。改名与 profile 历史备份位于 `build/mo2-rename-*`。源工程路径仍为 `mods/arcane-arsenal`，历史说明与建模素材保留，已移除武器的素材不进入运行包。
+本次更新备份位于 `build/mo2-before-0.45.0-*`，改动前的源码、运行文件位于 `build/before-0.45.0/`。改名与 profile 历史备份位于 `build/mo2-rename-*`。源工程路径仍为 `mods/arcane-arsenal`，历史说明与建模素材保留，已移除武器的素材不进入运行包。
 
 现有系列参数在 `source/geometric_catalog.json`、`source/aries_catalog.json`、`source/taurus_catalog.json`、`source/gemini_catalog.json`、`source/cancer_catalog.json`、`source/leo_catalog.json`、`source/virgo_catalog.json`、`source/libra_catalog.json`、`source/sagittarius_catalog.json`、`source/capricorn_catalog.json`、`source/aquarius_catalog.json`、`source/pisces_catalog.json`、`source/scorpio_catalog.json`、`source/heteromorphic_catalog.json`、`source/heteromorphic2_catalog.json`、`source/greatswords_catalog.json`、`source/greatswords2_catalog.json`、`source/greatswords3_catalog.json`、`source/swords_catalog.json`、`source/swords2_catalog.json`、`source/maces_catalog.json`、`source/maces2_catalog.json`、`source/battleaxes_catalog.json`、`source/battleaxes2_catalog.json`、`source/battleaxes3_catalog.json`；固定编号在 `source/catalog.json`，退役编号在 `source/retired_weapons.json`，清理列表在 `source/obsolete_assets.json`。
 
@@ -170,3 +178,5 @@ player.placeatme <CONT的完整编号> 1
 第二组单手战斧：建模参数为 `waraxe2red`、`waraxe2green`、`waraxe2blue`、`waraxe2purple`，复用 `source/build_waraxes.py`。粒子构建、位置检查和整组渲染参数为 `--waraxes2`；模型检查为 `source/verify_waraxes2.py`。造型与配色位于 `source/waraxes2_geometry.py`、`source/waraxes2_catalog.json`。粒子分别是红色三角、薄荷月牙、青蓝短线、浅紫三角，六个局部发射点沿斧面或刃槽分布，沿用粒子发光 1.8、发射率 3、寿命 0.85 秒、半径 0.3。基线为 `build/before-0.42.0/`，`art/waraxes2-lineup.png` 为模型结构预览，游戏内挥砍与粒子表现仍需实测。
 
 第二组双手战锤：建模参数为 `warhammer2red`、`warhammer2green`、`warhammer2blue`、`warhammer2purple`，复用 `source/build_warhammers.py`。粒子构建、位置检查和整组渲染参数为 `--warhammers2`；模型检查为 `source/verify_warhammers2.py`。造型与参数位于 `source/warhammers2_geometry.py`、`source/warhammers2_catalog.json`。基线为 `build/before-0.43.0/`，`art/warhammers2-lineup.png` 为源模型结构预览，不代表游戏内发光与粒子实测。
+
+四色发光材质：`source/build_emissive_materials.py` 生成四组 DDS 并仅修改第二组单手斧的主体材质；`source/verify_emissive_materials.py` 独立验证。使用包含 numpy/Pillow 的 bundled Python。实际 NIF 的离线预览位于 `art/emissive-materials/`。

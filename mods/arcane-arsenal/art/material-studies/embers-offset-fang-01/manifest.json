@@ -1,0 +1,54 @@
+{
+  "weapon": "余烬·错牙",
+  "source": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\arcane-arsenal\\art\\waraxe2red.blend",
+  "source_sha256": "59227b81679e61c578dc57726e08b1108177c52b5c9e6aacc27c0f397a327657",
+  "geometry_changed": false,
+  "renderer": "Blender Cycles",
+  "preview_only": true,
+  "in_game_tested": false,
+  "comparison": "All variants use identical geometry, camera, lights and exposure. Original shader is preserved for baseline. Alternatives reduce body emission and use a shared restrained emissive bevel.",
+  "variants": [
+    {
+      "key": "01-current",
+      "name": "现有发光材质",
+      "description": "保留现有贴图与着色节点，作为对照",
+      "full": "01-current-full.png",
+      "detail": "01-current-detail.png"
+    },
+    {
+      "key": "02-brushed",
+      "name": "红色拉丝金属",
+      "description": "细密拉丝、清晰反光，刃面更有重量感",
+      "full": "02-brushed-full.png",
+      "detail": "02-brushed-detail.png"
+    },
+    {
+      "key": "03-forged",
+      "name": "暗红锻造金属",
+      "description": "细微凹凸与哑光表面，较沉稳",
+      "full": "03-forged-full.png",
+      "detail": "03-forged-detail.png"
+    },
+    {
+      "key": "04-ceramic",
+      "name": "红釉陶瓷",
+      "description": "平滑釉面、柔亮高光，突出几何折面",
+      "full": "04-ceramic-full.png",
+      "detail": "04-ceramic-detail.png"
+    },
+    {
+      "key": "05-obsidian",
+      "name": "黑曜石",
+      "description": "近黑镜面主体搭配红色亮边",
+      "full": "05-obsidian-full.png",
+      "detail": "05-obsidian-detail.png"
+    },
+    {
+      "key": "06-crystal",
+      "name": "半透明红晶",
+      "description": "透光与折射，厚度影响外观；需另做游戏适配",
+      "full": "06-crystal-full.png",
+      "detail": "06-crystal-detail.png"
+    }
+  ]
+}

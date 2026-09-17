@@ -1,0 +1,54 @@
+{
+  "weapon": "余烬·错牙",
+  "source": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\arcane-arsenal\\art\\waraxe2red.blend",
+  "source_sha256": "59227b81679e61c578dc57726e08b1108177c52b5c9e6aacc27c0f397a327657",
+  "geometry_changed": false,
+  "renderer": "Blender Cycles",
+  "preview_only": true,
+  "in_game_tested": false,
+  "comparison": "All variants use identical geometry, camera, lights and exposure. Six artistic ruby finishes share the same geometry, camera, light rig and restrained emissive bevel. These Cycles material proposals are not verified Skyrim effects or gemological simulations.",
+  "variants": [
+    {
+      "key": "01-deep",
+      "name": "深红宝石",
+      "description": "深红主体、中等透光，保留浓郁颜色与暗面",
+      "full": "01-deep-full.png",
+      "detail": "01-deep-detail.png"
+    },
+    {
+      "key": "02-clear",
+      "name": "通透红宝石",
+      "description": "高透光、高折射，观察边缘与厚度变化",
+      "full": "02-clear-full.png",
+      "detail": "02-clear-detail.png"
+    },
+    {
+      "key": "03-silk",
+      "name": "丝绒红宝石",
+      "description": "细密丝状纹理与柔和光泽，艺术化丝绒效果",
+      "full": "03-silk-full.png",
+      "detail": "03-silk-detail.png"
+    },
+    {
+      "key": "04-frost",
+      "name": "磨砂红宝石",
+      "description": "细磨砂表面与柔化透光",
+      "full": "04-frost-full.png",
+      "detail": "04-frost-detail.png"
+    },
+    {
+      "key": "05-fracture",
+      "name": "冰裂红宝石",
+      "description": "红晶表面的细淡色裂纹，非额外发光纹路",
+      "full": "05-fracture-full.png",
+      "detail": "05-fracture-detail.png"
+    },
+    {
+      "key": "06-inclusions",
+      "name": "云雾红宝石",
+      "description": "体积内的云雾状散射，模拟晶体内含物",
+      "full": "06-inclusions-full.png",
+      "detail": "06-inclusions-detail.png"
+    }
+  ]
+}

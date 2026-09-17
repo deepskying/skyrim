@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 MASTER=Path(r'C:\Users\linos\Desktop\games\+skyrim\SkyrimSE\Data\Skyrim.esm')
 catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
 metadata=configparser.ConfigParser();metadata.read(ROOT/'packaging/meta.ini',encoding='utf-8');version=metadata['General']['version']
-record_count=len(catalog)*3+24
+record_count=len(catalog)*3+25
 source=list(records(MASTER,{b'WEAP',b'STAT',b'ENCH',b'MISC',b'KYWD',b'INGR',b'CONT',b'AMMO'}))
 by_name={edid(r).lower():r for r in source};by_form={r['form']:r for r in source}
 weapon=by_name['imperialbow'];parts=dict(subrecords(weapon['data']))
@@ -191,9 +191,16 @@ warhammers_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,
 waraxes_chest=changed(by_name['treaschestsmallemptynorespawn'],0x010009F8,
     {b'EDID':Z('AAHeteromorphicWaraxesChest'),b'FULL':Z('异构单手战斧·试武箱')},(b'MODT',b'COCT',b'CNTO'))
 waraxe_inventory=[(w['form'],1) for w,spec in zip(weapons,catalog) if spec.get('weapon_type')=='waraxe']
-assert len(waraxe_inventory)==8
-extra=sub(b'COCT',U32(8))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in waraxe_inventory)
+assert len(waraxe_inventory)==10
+extra=sub(b'COCT',U32(10))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in waraxe_inventory)
 waraxes_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(waraxes_chest['data']))
+
+materials_chest=changed(by_name['treaschestsmallemptynorespawn'],0x01000A17,
+    {b'EDID':Z('AAMaterialTestChest'),b'FULL':Z('材质对比·试武箱')},(b'MODT',b'COCT',b'CNTO'))
+material_inventory=[(w['form'],1) for w,spec in zip(weapons,catalog) if spec['key'] in ('waraxe2red','waraxefrostruby','waraxeobsidian')]
+assert len(material_inventory)==3
+extra=sub(b'COCT',U32(3))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in material_inventory)
+materials_chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(materials_chest['data']))
 
 # A hidden start-game quest with one forced player alias. No stages/objectives,
 # no actor edits, and no dependency on load-order-specific light-plugin indices.
@@ -215,12 +222,12 @@ seq=ROOT/'data/seq/ArcaneArsenal.seq';seq.parent.mkdir(parents=True,exist_ok=Tru
 seq.write_bytes(U32(quest_id))
 # Crystal experiment IDs 0x90C..0x918 are retired, including chest 0x918. Never reuse.
 header={'sig':b'TES4','flags':0x200,'form':0,'version':44,'data':
-    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0xA11))+
+    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0xA18))+
     sub(b'CNAM',Z('Arcane Armory'))+
-    sub(b'SNAM',Z(f'{len(catalog)} original weapons and twenty-three test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
+    sub(b'SNAM',Z(f'{len(catalog)} original weapons and twenty-four test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
     sub(b'MAST',b'Skyrim.esm\0')+sub(b'DATA',b'\0'*8)}
 dest=ROOT/'data/ArcaneArsenal.esp';dest.parent.mkdir(parents=True,exist_ok=True)
-dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest,swords_chest,maces_chest,battleaxes_chest,scythes_chest,daggers_chest,warhammers_chest,waraxes_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
+dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest,swords_chest,maces_chest,battleaxes_chest,scythes_chest,daggers_chest,warhammers_chest,waraxes_chest,materials_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
 parsed=list(records(dest));assert len(parsed)==record_count+1
 assert parsed[0]['flags']&0x200
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in parsed[1:])
@@ -244,7 +251,8 @@ result.update(heteromorphic_chest='00090B',heteromorphic_chest_contents='8 Heter
 result.update(greatswords_chest='000931',greatswords_chest_contents='12 Heteromorphic greatswords')
 result.update(swords_chest='000956',swords_chest_contents='8 Heteromorphic one-handed swords')
 result.update(battleaxes_chest='000988',battleaxes_chest_contents='12 Heteromorphic battleaxes')
-result.update(waraxes_chest='0009F8',waraxes_chest_contents='8 Heteromorphic one-handed war axes')
+result.update(materials_chest='000A17',materials_chest_contents='Original offset fang, frosted ruby and obsidian')
+result.update(waraxes_chest='0009F8',waraxes_chest_contents='10 Heteromorphic one-handed war axes')
 result.update(warhammers_chest='0009EB',warhammers_chest_contents='8 Heteromorphic warhammers')
 result.update(daggers_chest='0009C6',daggers_chest_contents='12 Heteromorphic long daggers')
 result.update(scythes_chest='0009AD',scythes_chest_contents='8 Heteromorphic scythes')

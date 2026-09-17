@@ -8,8 +8,8 @@ archive=ROOT/('packaging/ArcaneArmory-'+version+'.zip')
 archive.parent.mkdir(parents=True,exist_ok=True)
 assets=sorted(p for p in (ROOT/'data').rglob('*') if p.is_file())
 assert len([p for p in assets if p.suffix=='.esp'])==1
-assert len([p for p in assets if p.suffix=='.nif'])==156
-assert len([p for p in assets if p.suffix=='.dds'])==24
+assert len([p for p in assets if p.suffix=='.nif'])==158
+assert len([p for p in assets if p.suffix=='.dds'])==43
 assert len([p for p in assets if p.suffix=='.pex'])==1
 assert len([p for p in assets if p.suffix=='.seq'])==1
 assert all(p.suffix.lower() in {'.esp','.nif','.dds','.pex','.seq'} for p in assets)

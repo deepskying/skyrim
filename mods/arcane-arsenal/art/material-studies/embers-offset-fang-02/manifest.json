@@ -1,0 +1,54 @@
+{
+  "weapon": "余烬·错牙",
+  "source": "C:\\Users\\linos\\Desktop\\github\\skyrim\\mods\\arcane-arsenal\\art\\waraxe2red.blend",
+  "source_sha256": "59227b81679e61c578dc57726e08b1108177c52b5c9e6aacc27c0f397a327657",
+  "geometry_changed": false,
+  "renderer": "Blender Cycles",
+  "preview_only": true,
+  "in_game_tested": false,
+  "comparison": "All variants use identical geometry, camera, lights and exposure. Baseline reproduces the approved obsidian preview. Five dark alternatives use the same red bevel except black-gold, which uses a gold surface with weak red emission. All are offline Cycles proposals.",
+  "variants": [
+    {
+      "key": "01-obsidian",
+      "name": "黑曜石（保留对照）",
+      "description": "沿用上一组你喜欢的黑曜石",
+      "full": "01-obsidian-full.png",
+      "detail": "01-obsidian-detail.png"
+    },
+    {
+      "key": "02-fractured",
+      "name": "裂纹黑曜石",
+      "description": "黑色镜面上点缀细红色发光裂纹",
+      "full": "02-fractured-full.png",
+      "detail": "02-fractured-detail.png"
+    },
+    {
+      "key": "03-onyx",
+      "name": "红纹玛瑙",
+      "description": "黑底与弯曲暗红层纹，表面抛光",
+      "full": "03-onyx-full.png",
+      "detail": "03-onyx-detail.png"
+    },
+    {
+      "key": "04-meteor",
+      "name": "暗陨铁",
+      "description": "黑灰金属与细小锤蚀凹凸，保留红色亮边",
+      "full": "04-meteor-full.png",
+      "detail": "04-meteor-detail.png"
+    },
+    {
+      "key": "05-gold",
+      "name": "黑金镶边",
+      "description": "近黑主体、金色倒角，倒角保留弱红色发光",
+      "full": "05-gold-full.png",
+      "detail": "05-gold-detail.png"
+    },
+    {
+      "key": "06-smoky",
+      "name": "烟熏黑晶",
+      "description": "近黑酒红晶体，降低透明度，突出暗红反光",
+      "full": "06-smoky-full.png",
+      "detail": "06-smoky-detail.png"
+    }
+  ]
+}

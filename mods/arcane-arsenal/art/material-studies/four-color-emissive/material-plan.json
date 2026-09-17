@@ -1,0 +1,39 @@
+{
+  "purpose": "Full-body emissive material pairing concept; not game capture",
+  "generation": "Built-in image_gen",
+  "materials_selected_by_user": [
+    "nebula",
+    "stardust",
+    "veins",
+    "lamella"
+  ],
+  "color_pairing_proposed": [
+    {
+      "color": "red",
+      "series": "余烬",
+      "material": "熔光脉络"
+    },
+    {
+      "color": "green",
+      "series": "流萤",
+      "material": "星砂琉璃"
+    },
+    {
+      "color": "blue",
+      "series": "寒汐",
+      "material": "层叠晶片"
+    },
+    {
+      "color": "purple",
+      "series": "梦隙",
+      "material": "云雾光晶"
+    }
+  ],
+  "requirements": [
+    "Full-body emission retained",
+    "Readable fine surface texture and midtones",
+    "Existing reduced emission strengths retained",
+    "Original geometry and approved palette preserved"
+  ],
+  "implementation_scope": "awaiting user choice"
+}
