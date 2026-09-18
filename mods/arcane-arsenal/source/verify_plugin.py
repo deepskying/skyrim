@@ -5,29 +5,32 @@ from plugin_records import records,subrecords,edid,sub
 ROOT=Path(__file__).resolve().parents[1]
 catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
 items=list(records(ROOT/'data/ArcaneArsenal.esp'));by_form={r['form']:r for r in items}
-expected={'AAfrostglass':0x01000801,'AAemberwake':0x01000804,'AAastralorbit':0x01000807,
-          'AAmoonthorn':0x0100080A,'AAfrostwyrm':0x0100080E,'AAAllBowsTestChest':0x0100080C,
-          'AAredplates':0x01000811,'AAredtriangles':0x01000814,'AAreddiamonds':0x01000817}
-expected.update({'AAariesred':0x0100081B,'AAariesgreen':0x01000821,'AAariesblue':0x01000824,'AAariespurple':0x01000827})
-expected.update({'AAtaurusred':0x01000831,'AAtaurusgreen':0x01000834,'AAtaurusblue':0x01000837,'AAtauruspurple':0x0100083A})
-expected.update({'AA'+s['key']:0x01000000|int(s['stat_form'],16)+1 for s in catalog if s['key'].startswith(('waraxe','warhammer','dagger','scythe','battleaxe','mace','geo','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','sword','greatsword','crystal','heteromorphic'))})
+expected={'AAfrostglass':0x03000801,'AAemberwake':0x03000804,'AAastralorbit':0x03000807,
+          'AAmoonthorn':0x0300080A,'AAfrostwyrm':0x0300080E,'AAAllBowsTestChest':0x0300080C,
+          'AAredplates':0x03000811,'AAredtriangles':0x03000814,'AAreddiamonds':0x03000817}
+expected.update({'AAariesred':0x0300081B,'AAariesgreen':0x03000821,'AAariesblue':0x03000824,'AAariespurple':0x03000827})
+expected.update({'AAtaurusred':0x03000831,'AAtaurusgreen':0x03000834,'AAtaurusblue':0x03000837,'AAtauruspurple':0x0300083A})
+expected.update({'AA'+s['key']:0x03000000|int(s['stat_form'],16)+1 for s in catalog if s['key'].startswith(('crossbow','waraxe','warhammer','dagger','scythe','battleaxe','mace','geo','gemini','cancer','leo','virgo','libra','sagittarius','capricorn','aquarius','pisces','scorpio','sword','greatsword','crystal','heteromorphic'))})
 header=items[0];hp=dict(subrecords(header['data']))
 assert header['flags']==0x200
 assert abs(struct.unpack_from('<f',hp[b'HEDR'])[0]-1.7)<1e-6
-assert len(items)==500 and len(by_form)==500
-assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(499,0xA18)
+assert len(items)==561 and len(by_form)==561
+assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(560,0xB80)
 assert all(r['version']==44 for r in items)
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in items[1:])
-weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==158
+weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==166
 names=[]
+staff_forms={r['form'] for r in items if 0xB00<=(r['form']&0xFFFFFF)<=0xB7F}
+assert len(staff_forms)==48
 for r in weapons:
+    if r['form'] in staff_forms:continue  # verified by the dedicated graph validator below
     assert r['form']==expected[edid(r)]
     fields=dict(subrecords(r['data']))
     spec=next(s for s in catalog if 'AA'+s['key']==edid(r))
-    assert struct.unpack_from('<H',fields[b'DATA'],8)[0]==spec['damage']==(80 if spec.get('weapon_type')=='waraxe' else 75 if spec.get('weapon_type')=='dagger' else 99 if spec.get('weapon_type') in ('warhammer','battleaxe','scythe') else 90 if spec.get('weapon_type')=='mace' else 75 if spec.get('weapon_type')=='sword' else 99 if spec.get('weapon_type')=='greatsword' else 90)
+    assert struct.unpack_from('<H',fields[b'DATA'],8)[0]==spec['damage']==(95 if spec.get('weapon_type')=='crossbow' else 80 if spec.get('weapon_type')=='waraxe' else 75 if spec.get('weapon_type')=='dagger' else 99 if spec.get('weapon_type') in ('warhammer','battleaxe','scythe') else 90 if spec.get('weapon_type')=='mace' else 75 if spec.get('weapon_type')=='sword' else 99 if spec.get('weapon_type')=='greatsword' else 90)
     assert abs(struct.unpack_from('<f',fields[b'DNAM'],4)[0]-spec['weapon_speed'])<1e-6
-    assert spec['weapon_speed']==(1.6 if spec.get('weapon_type')=='dagger' else 1.0 if spec.get('weapon_type')=='mace' else 1.2 if spec.get('weapon_type') in ('waraxe','warhammer','dagger','scythe','battleaxe','sword','greatsword') else 1.5)
-    assert fields[b'DNAM'][0]==(3 if spec.get('weapon_type')=='waraxe' else 2 if spec.get('weapon_type')=='dagger' else 6 if spec.get('weapon_type') in ('warhammer','battleaxe','scythe') else 4 if spec.get('weapon_type')=='mace' else 1 if spec.get('weapon_type')=='sword' else 5 if spec.get('weapon_type')=='greatsword' else 7)
+    assert spec['weapon_speed']==(1.4 if spec.get('weapon_type')=='crossbow' else 1.6 if spec.get('weapon_type')=='dagger' else 1.0 if spec.get('weapon_type')=='mace' else 1.2 if spec.get('weapon_type') in ('waraxe','warhammer','dagger','scythe','battleaxe','sword','greatsword') else 1.5)
+    assert fields[b'DNAM'][0]==(9 if spec.get('weapon_type')=='crossbow' else 3 if spec.get('weapon_type')=='waraxe' else 2 if spec.get('weapon_type')=='dagger' else 6 if spec.get('weapon_type') in ('warhammer','battleaxe','scythe') else 4 if spec.get('weapon_type')=='mace' else 1 if spec.get('weapon_type')=='sword' else 5 if spec.get('weapon_type')=='greatsword' else 7)
     label=fields[b'FULL'].rstrip(b'\0').decode('utf-8')
     assert label==next(s['name'] for s in catalog if 'AA'+s['key']==edid(r))
     assert all('\u4e00'<=c<='\u9fff' or c=='·' for c in label),label
@@ -42,131 +45,133 @@ chest=next(r for r in items if edid(r)=='AAAllBowsTestChest')
 assert chest['form']==expected['AAAllBowsTestChest']
 parts=list(subrecords(chest['data']))
 inventory=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
-assert len(inventory)==159
-assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==159
+assert len(inventory)==168
+assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==168
 assert all((r['form'],1) in inventory for r in weapons)
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='幻律兵装·试武箱'
 # Add the second Heteromorphic warhammer set; preserve old weapons and all container identity fields.
-baseline=list(records(ROOT/'build/before-0.44.0/data/ArcaneArsenal.esp'))
-retired={0x01000000|(int(s['stat_form'],16)+j) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for j in range(3)}
+baseline=list(records(ROOT/'build/before-0.47.0/data/ArcaneArsenal.esp'))
+from plugin_self_index import remap_self
+baseline=[remap_self(r,1,3) for r in baseline]
+retired={0x03000000|(int(s['stat_form'],16)+j) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for j in range(3)}
 assert len(retired)==36 and retired.isdisjoint(by_form)
 old_forms={r['form'] for r in baseline}
 assert old_forms <= set(by_form)
-assert set(by_form)-old_forms=={0x01000000|i for i in range(0xA11,0xA18)}
-assert 0x01000918 not in by_form
+assert set(by_form)-old_forms=={0x03000000|i for i in range(0xA18,0xA25)}|staff_forms
+assert 0x03000918 not in by_form
 strip=lambda r:[(k,v) for k,v in subrecords(r['data']) if k not in (b'COCT',b'CNTO')]
 for old in baseline:
-    if old['form'] in retired or old['form']==0x01000918:continue
+    if old['form'] in retired or old['form']==0x03000918:continue
     current=by_form[old['form']]
-    if edid(old) in ('AAAllBowsTestChest','AAHeteromorphicWaraxesChest'):assert strip(old)==strip(current)
+    if edid(old) in ('AAAllBowsTestChest',):assert strip(old)==strip(current)
     elif old['sig']!=b'TES4':assert current==old,edid(old)
 aries_chest=next(r for r in items if edid(r)=='AAAriesTestChest')
-assert aries_chest['form']==0x0100082F
+assert aries_chest['form']==0x0300082F
 parts=list(subrecords(aries_chest['data']))
 aries_items=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
 assert len(aries_items)==5 and dict(parts)[b'COCT']==struct.pack('<I',5)
-assert set(aries_items)=={(f,1) for f in (0x0100081B,0x01000821,0x01000824,0x01000827)}|{(0x1397D,200)}
+assert set(aries_items)=={(f,1) for f in (0x0300081B,0x03000821,0x03000824,0x03000827)}|{(0x1397D,200)}
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='白羊座·试武箱'
 taurus_chest=next(r for r in items if edid(r)=='AATaurusTestChest')
-assert taurus_chest['form']==0x0100083C
+assert taurus_chest['form']==0x0300083C
 parts=list(subrecords(taurus_chest['data']))
 taurus_items=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
 assert len(taurus_items)==5 and dict(parts)[b'COCT']==struct.pack('<I',5)
-assert set(taurus_items)=={(f,1) for f in (0x01000831,0x01000834,0x01000837,0x0100083A)}|{(0x1397D,200)}
+assert set(taurus_items)=={(f,1) for f in (0x03000831,0x03000834,0x03000837,0x0300083A)}|{(0x1397D,200)}
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='金牛座·试武箱'
-assert len([r for r in items if r['sig']==b'CONT'])==24
-geometric=by_form[0x0100087C]
+assert len([r for r in items if r['sig']==b'CONT'])==26
+geometric=by_form[0x0300087C]
 assert edid(geometric)=='AAGeometricTestChest'
 gparts=list(subrecords(geometric['data']))
 ginventory=[struct.unpack('<II',v) for k,v in gparts if k==b'CNTO']
 assert len(ginventory)==25 and dict(gparts)[b'COCT']==struct.pack('<I',25)
-assert set(ginventory)=={(0x01000000|int(s['stat_form'],16)+1,1) for s in catalog if s.get('series')=='geometric'}|{(0x1397D,200)}
+assert set(ginventory)=={(0x03000000|int(s['stat_form'],16)+1,1) for s in catalog if s.get('series')=='geometric'}|{(0x1397D,200)}
 # The legacy chest changes inventory only, preserving the template and identity.
 old_chest=next(r for r in baseline if edid(r)=='AAAllBowsTestChest')
 strip=lambda r:[(k,v) for k,v in subrecords(r['data']) if k not in (b'COCT',b'CNTO')]
 assert strip(old_chest)==strip(chest)
 quest=next(r for r in items if r['sig']==b'QUST')
-assert quest['form']==0x01000819 and edid(quest)=='AARedDrawFXQuest'
+assert quest['form']==0x03000819 and edid(quest)=='AARedDrawFXQuest'
 qp=dict(subrecords(quest['data']))
 assert struct.unpack('<I',qp[b'ALFR'])[0]==0x14
 assert struct.unpack_from('<H',qp[b'DNAM'])[0]==0x111
 assert b'AARedDrawFX' in qp[b'VMAD']
 assert (ROOT/'data/seq/ArcaneArsenal.seq').read_bytes()==struct.pack('<I',quest['form'])
 assert (ROOT/'data/scripts/AARedDrawFX.pex').read_bytes()[:4]==bytes.fromhex('fa57c0de')
-gemini=by_form[0x01000889]
+gemini=by_form[0x03000889]
 assert edid(gemini)=='AAGeminiTestChest'
 parts=list(subrecords(gemini['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='双子座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x87E,0x881,0x884,0x887)}|{(0x1397D,200)}
-cancer=by_form[0x01000896]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x87E,0x881,0x884,0x887)}|{(0x1397D,200)}
+cancer=by_form[0x03000896]
 assert edid(cancer)=='AACancerTestChest'
 parts=list(subrecords(cancer['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='巨蟹座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x88B,0x88E,0x891,0x894)}|{(0x1397D,200)}
-leo=by_form[0x010008A3]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x88B,0x88E,0x891,0x894)}|{(0x1397D,200)}
+leo=by_form[0x030008A3]
 assert edid(leo)=='AALeoTestChest'
 parts=list(subrecords(leo['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='狮子座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x898,0x89B,0x89E,0x8A1)}|{(0x1397D,200)}
-virgo=by_form[0x010008B0]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x898,0x89B,0x89E,0x8A1)}|{(0x1397D,200)}
+virgo=by_form[0x030008B0]
 assert edid(virgo)=='AAVirgoTestChest'
 parts=list(subrecords(virgo['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='处女座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8A5,0x8A8,0x8AB,0x8AE)}|{(0x1397D,200)}
-libra=by_form[0x010008BD]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8A5,0x8A8,0x8AB,0x8AE)}|{(0x1397D,200)}
+libra=by_form[0x030008BD]
 assert edid(libra)=='AALibraTestChest'
 parts=list(subrecords(libra['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='天秤座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8B2,0x8B5,0x8B8,0x8BB)}|{(0x1397D,200)}
-sagittarius=by_form[0x010008CA]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8B2,0x8B5,0x8B8,0x8BB)}|{(0x1397D,200)}
+sagittarius=by_form[0x030008CA]
 assert edid(sagittarius)=='AASagittariusTestChest'
 parts=list(subrecords(sagittarius['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='射手座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8BF,0x8C2,0x8C5,0x8C8)}|{(0x1397D,200)}
-capricorn=by_form[0x010008D7]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8BF,0x8C2,0x8C5,0x8C8)}|{(0x1397D,200)}
+capricorn=by_form[0x030008D7]
 assert edid(capricorn)=='AACapricornTestChest'
 parts=list(subrecords(capricorn['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='摩羯座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8CC,0x8CF,0x8D2,0x8D5)}|{(0x1397D,200)}
-aquarius=by_form[0x010008E4]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8CC,0x8CF,0x8D2,0x8D5)}|{(0x1397D,200)}
+aquarius=by_form[0x030008E4]
 assert edid(aquarius)=='AAAquariusTestChest'
 parts=list(subrecords(aquarius['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='水瓶座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8D9,0x8DC,0x8DF,0x8E2)}|{(0x1397D,200)}
-pisces=by_form[0x010008F1]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8D9,0x8DC,0x8DF,0x8E2)}|{(0x1397D,200)}
+pisces=by_form[0x030008F1]
 assert edid(pisces)=='AAPiscesTestChest'
 parts=list(subrecords(pisces['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='双鱼座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8E6,0x8E9,0x8EC,0x8EF)}|{(0x1397D,200)}
-scorpio=by_form[0x010008FE]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8E6,0x8E9,0x8EC,0x8EF)}|{(0x1397D,200)}
+scorpio=by_form[0x030008FE]
 assert edid(scorpio)=='AAScorpioTestChest'
 parts=list(subrecords(scorpio['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='天蝎座·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',5)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x8F3,0x8F6,0x8F9,0x8FC)}|{(0x1397D,200)}
-heteromorphic=by_form[0x0100090B]
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x8F3,0x8F6,0x8F9,0x8FC)}|{(0x1397D,200)}
+heteromorphic=by_form[0x0300090B]
 assert edid(heteromorphic)=='AAHeteromorphicTestChest'
 parts=list(subrecords(heteromorphic['data']))
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='异构·试武箱'
 assert dict(parts)[b'COCT']==struct.pack('<I',9)
-assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x900,0x903,0x906,0x909,0x91A,0x91D,0x920,0x923)}|{(0x1397D,200)}
-assert [v for k,v in subrecords(header['data']) if k==b'MAST']==[b'Skyrim.esm\0']
+assert {struct.unpack('<II',v) for k,v in parts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x900,0x903,0x906,0x909,0x91A,0x91D,0x920,0x923)}|{(0x1397D,200)}
+assert [v for k,v in subrecords(header['data']) if k==b'MAST']==[b'Skyrim.esm\0',b'Update.esm\0',b'Dawnguard.esm\0']
 for spec in catalog:
-    base=0x01000000|int(spec['stat_form'],16)
+    base=0x03000000|int(spec['stat_form'],16)
     recipe=by_form[base+2]
     assert recipe['sig']==b'COBJ' and dict(subrecords(recipe['data']))[b'CNAM']==struct.pack('<I',base+1)
-gs=by_form[0x01000931]
+gs=by_form[0x03000931]
 assert edid(gs)=='AAHeteromorphicGreatswordsChest'
-assert {struct.unpack('<II',v) for k,v in subrecords(gs['data']) if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x926,0x929,0x92C,0x92F,0x933,0x936,0x939,0x93C,0x93F,0x942,0x945,0x948)}
+assert {struct.unpack('<II',v) for k,v in subrecords(gs['data']) if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x926,0x929,0x92C,0x92F,0x933,0x936,0x939,0x93C,0x93F,0x942,0x945,0x948)}
 master=list(records(Path(r'C:\Users\linos\Desktop\games\+skyrim\SkyrimSE\Data\Skyrim.esm'),{b'WEAP'}))
 base=next(r for r in master if edid(r)=='IronGreatsword');bf=dict(subrecords(base['data']))
 for r in weapons:
@@ -174,61 +179,61 @@ for r in weapons:
         fields=dict(subrecords(r['data']))
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert b'EITM' not in fields
-swords=by_form[0x01000956]
+swords=by_form[0x03000956]
 assert edid(swords)=='AAHeteromorphicSwordsChest'
 sparts=list(subrecords(swords['data']))
 assert dict(sparts)[b'COCT']==struct.pack('<I',8)
-assert {struct.unpack('<II',v) for k,v in sparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x94B,0x94E,0x951,0x954,0x958,0x95B,0x95E,0x961)}
+assert {struct.unpack('<II',v) for k,v in sparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x94B,0x94E,0x951,0x954,0x958,0x95B,0x95E,0x961)}
 base=next(r for r in master if edid(r)=='IronSword');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAsword'):
         fields=dict(subrecords(r['data']))
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert b'EITM' not in fields and b'EAMT' not in fields
-maces=by_form[0x0100096F]
+maces=by_form[0x0300096F]
 assert edid(maces)=='AAHeteromorphicMacesChest'
 mparts=list(subrecords(maces['data']))
 assert dict(mparts)[b'COCT']==struct.pack('<I',8)
-assert {struct.unpack('<II',v) for k,v in mparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x964,0x967,0x96A,0x96D,0x971,0x974,0x977,0x97A)}
+assert {struct.unpack('<II',v) for k,v in mparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x964,0x967,0x96A,0x96D,0x971,0x974,0x977,0x97A)}
 base=next(r for r in master if edid(r)=='IronMace');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAmace'):
         fields=dict(subrecords(r['data']))
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert b'EITM' not in fields and b'EAMT' not in fields
-battleaxes=by_form[0x01000988]
+battleaxes=by_form[0x03000988]
 assert edid(battleaxes)=='AAHeteromorphicBattleaxesChest'
 bparts=list(subrecords(battleaxes['data']))
 assert dict(bparts)[b'COCT']==struct.pack('<I',12)
-assert {struct.unpack('<II',v) for k,v in bparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x97D,0x980,0x983,0x986,0x98A,0x98D,0x990,0x993,0x996,0x999,0x99C,0x99F)}
+assert {struct.unpack('<II',v) for k,v in bparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x97D,0x980,0x983,0x986,0x98A,0x98D,0x990,0x993,0x996,0x999,0x99C,0x99F)}
 base=next(r for r in master if edid(r)=='IronBattleaxe');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith(('AAbattleaxe','AAscythe')):
         fields=dict(subrecords(r['data']))
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert b'EITM' not in fields and b'EAMT' not in fields
-scythes=by_form[0x010009AD]
+scythes=by_form[0x030009AD]
 assert edid(scythes)=='AAHeteromorphicScythesChest'
 scparts=list(subrecords(scythes['data']))
 assert dict(scparts)[b'COCT']==struct.pack('<I',8)
-assert {struct.unpack('<II',v) for k,v in scparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9A2,0x9A5,0x9A8,0x9AB,0x9AF,0x9B2,0x9B5,0x9B8)}
-assert len([r for r in items if r['sig']==b'CONT'])==24
-daggers=by_form[0x010009C6]
+assert {struct.unpack('<II',v) for k,v in scparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x9A2,0x9A5,0x9A8,0x9AB,0x9AF,0x9B2,0x9B5,0x9B8)}
+assert len([r for r in items if r['sig']==b'CONT'])==26
+daggers=by_form[0x030009C6]
 assert edid(daggers)=='AAHeteromorphicDaggersChest'
 dparts=list(subrecords(daggers['data']))
 assert dict(dparts)[b'COCT']==struct.pack('<I',12)
-assert {struct.unpack('<II',v) for k,v in dparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9BB,0x9BE,0x9C1,0x9C4,0x9C8,0x9CB,0x9CE,0x9D1,0x9D4,0x9D7,0x9DA,0x9DD)}
+assert {struct.unpack('<II',v) for k,v in dparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x9BB,0x9BE,0x9C1,0x9C4,0x9C8,0x9CB,0x9CE,0x9D1,0x9D4,0x9D7,0x9DA,0x9DD)}
 base=next(r for r in master if edid(r)=='IronDagger');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAdagger'):
         fields=dict(subrecords(r['data']))
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert b'EITM' not in fields and b'EAMT' not in fields
-hammers=by_form[0x010009EB]
+hammers=by_form[0x030009EB]
 assert edid(hammers)=='AAHeteromorphicWarhammersChest'
 hparts=list(subrecords(hammers['data']))
 assert dict(hparts)[b'COCT']==struct.pack('<I',8)
-assert {struct.unpack('<II',v) for k,v in hparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9E0,0x9E3,0x9E6,0x9E9,0xA06,0xA09,0xA0C,0xA0F)}
+assert {struct.unpack('<II',v) for k,v in hparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x9E0,0x9E3,0x9E6,0x9E9,0xA06,0xA09,0xA0C,0xA0F)}
 base=next(r for r in master if edid(r)=='IronWarhammer');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAwarhammer'):
@@ -236,12 +241,12 @@ for r in weapons:
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert fields[b'DNAM'][0]==bf[b'DNAM'][0]==6
         assert b'EITM' not in fields and b'EAMT' not in fields
-axes=by_form[0x010009F8]
+axes=by_form[0x030009F8]
 assert edid(axes)=='AAHeteromorphicWaraxesChest'
 aparts=list(subrecords(axes['data']))
 assert dict(aparts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='异构单手战斧·试武箱'
 assert dict(aparts)[b'COCT']==struct.pack('<I',10)
-assert {struct.unpack('<II',v) for k,v in aparts if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9ED,0x9F0,0x9F3,0x9F6,0x9FA,0x9FD,0xA00,0xA03,0xA12,0xA15)}
+assert {struct.unpack('<II',v) for k,v in aparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x9ED,0x9F0,0x9F3,0x9F6,0x9FA,0x9FD,0xA00,0xA03,0xA12,0xA15)}
 base=next(r for r in master if edid(r).lower()=='ironwaraxe');bf=dict(subrecords(base['data']))
 for r in weapons:
     if edid(r).startswith('AAwaraxe'):
@@ -249,9 +254,24 @@ for r in weapons:
         assert fields[b'ETYP']==bf[b'ETYP'] and fields[b'KWDA']==bf[b'KWDA']
         assert fields[b'DNAM'][0]==bf[b'DNAM'][0]==3
         assert b'EITM' not in fields and b'EAMT' not in fields
-material_box=by_form[0x01000A17]
+material_box=by_form[0x03000A17]
 assert edid(material_box)=='AAMaterialTestChest'
-assert {struct.unpack('<II',v) for k,v in subrecords(material_box['data']) if k==b'CNTO'}=={(0x01000000|f,1) for f in (0x9FA,0xA12,0xA15)}
-report={'version':'0.44.0','passed':True,'weapons':158,'test_chests':24,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'maces':{'damage':90,'speed':1.0},'battleaxes':{'damage':99,'speed':1.2},'scythes':{'damage':99,'speed':1.2,'animation_type':'TwoHandAxe'},'daggers':{'damage':75,'speed':1.6},'warhammers':{'damage':99,'speed':1.2},'waraxes':{'damage':80,'speed':1.2},'new_records':7,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
+assert {struct.unpack('<II',v) for k,v in subrecords(material_box['data']) if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x9FA,0xA12,0xA15)}
+assert [v.rstrip(b'\0').decode() for k,v in subrecords(header['data']) if k==b'MAST']==['Skyrim.esm','Update.esm','Dawnguard.esm']
+dlc=list(records(Path('C:/Users/linos/Desktop/games/+skyrim/SkyrimSE/Data/Dawnguard.esm'),{b'WEAP',b'AMMO'}))
+reference=next(r for r in dlc if edid(r)=='DLC1CrossBow');rf=dict(subrecords(reference['data']))
+for r in weapons:
+    if edid(r).startswith('AAcrossbow'):
+        fields=dict(subrecords(r['data']))
+        for key in (b'ETYP',b'KWDA',b'INAM',b'SNAM',b'XNAM',b'TNAM',b'NAM9',b'NAM8'):
+            assert fields[key]==rf[key],key
+        assert b'EITM' not in fields
+crossbows=by_form[0x03000A24]
+assert edid(crossbows)=='AAHeteromorphicCrossbowsChest'
+assert {struct.unpack('<II',v) for k,v in subrecords(crossbows['data']) if k==b'CNTO'}=={(0x03000000|f,1) for f in (0xA19,0xA1C,0xA1F,0xA22)}|{(0x02000BB3,200)}
+report={'version':'0.49.1','passed':True,'weapons':166,'test_chests':26,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'maces':{'damage':90,'speed':1.0},'battleaxes':{'damage':99,'speed':1.2},'scythes':{'damage':99,'speed':1.2,'animation_type':'TwoHandAxe'},'daggers':{'damage':75,'speed':1.6},'warhammers':{'damage':99,'speed':1.2},'waraxes':{'damage':80,'speed':1.2},'new_records':61,'staff_records':48,'removed_records':0,'retired_records_absent':37,'gameplay_tested':False}
 (ROOT/'build/plugin-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report))
+
+import subprocess,sys
+subprocess.run([sys.executable,str(ROOT/'source/verify_staff_plugin.py')],check=True)

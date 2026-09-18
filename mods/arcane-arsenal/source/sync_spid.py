@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--target',type=Path,default=TARGET)
     args=parser.parse_args()
     catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
+    catalog+=json.loads((ROOT/'source/arcane_staves_catalog.json').read_text(encoding='utf-8'))
     plugin={edid(r):r['form'] for r in records(ROOT/'data/ArcaneArsenal.esp') if r['sig']==b'WEAP'}
     assert set(plugin)=={'AA'+s['key'] for s in catalog}
     path=args.target.resolve();raw=path.read_bytes()

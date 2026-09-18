@@ -1808,5 +1808,49 @@
     "damage": 80,
     "weapon_speed": 1.2,
     "enchantment": null
+  },
+  {
+    "key": "crossbowred",
+    "name": "余烬·折翼",
+    "series": "crossbows",
+    "weapon_type": "crossbow",
+    "stat_form": "0xa18",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbowgreen",
+    "name": "流萤·萦弧",
+    "series": "crossbows",
+    "weapon_type": "crossbow",
+    "stat_form": "0xa1b",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbowblue",
+    "name": "寒汐·并轨",
+    "series": "crossbows",
+    "weapon_type": "crossbow",
+    "stat_form": "0xa1e",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbowpurple",
+    "name": "梦隙·偏枢",
+    "series": "crossbows",
+    "weapon_type": "crossbow",
+    "stat_form": "0xa21",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
   }
 ]

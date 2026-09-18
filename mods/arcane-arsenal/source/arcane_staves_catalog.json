@@ -1,0 +1,78 @@
+[
+  {
+    "key": "stafftorch",
+    "name": "余烬·叠炬",
+    "color": [
+      1,
+      0.015,
+      0.025
+    ],
+    "edge": [
+      1,
+      0.1,
+      0.07
+    ],
+    "power": [
+      1.8,
+      3.6
+    ],
+    "diffuse_name": "aa_red_d"
+  },
+  {
+    "key": "staffshuttle",
+    "name": "流萤·回梭",
+    "color": [
+      0.01,
+      0.8,
+      0.24
+    ],
+    "edge": [
+      0.16,
+      1,
+      0.67
+    ],
+    "power": [
+      2.25,
+      4.5
+    ],
+    "diffuse_name": "aa_ariesgreen_d"
+  },
+  {
+    "key": "staffsteps",
+    "name": "寒汐·悬阶",
+    "color": [
+      0.01,
+      0.32,
+      1
+    ],
+    "edge": [
+      0.16,
+      0.95,
+      1
+    ],
+    "power": [
+      2.25,
+      4.5
+    ],
+    "diffuse_name": "aa_ariesblue_d"
+  },
+  {
+    "key": "stafffold",
+    "name": "梦隙·折界",
+    "color": [
+      0.42,
+      0.035,
+      1
+    ],
+    "edge": [
+      0.72,
+      0.3,
+      1
+    ],
+    "power": [
+      2.25,
+      4.5
+    ],
+    "diffuse_name": "aa_ariespurple_d"
+  }
+]

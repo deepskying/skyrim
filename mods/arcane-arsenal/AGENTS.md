@@ -16,3 +16,5 @@
 - Back up the external SPID file before modifying it, avoid duplicate rules, verify EditorIDs against the built plugin, and preserve unrelated contents and encoding/newlines. Use the project SPID sync helper when available.
 - Package and update the existing MO2 installation with visible version metadata and backups. Do not kill the running game. Build/verify/package first if installation must wait for it to close.
 - Scope changes to this mod; unrelated workspace mods may be under active development. Commit or push only when requested.
+
+- Crossbows use damage 95 and Speed 1.4, confirmed for the first set. Preserve the native Dawnguard crossbow skeleton, embedded controllers, BGED and bolt ammunition. The ESP masters are Skyrim.esm, Update.esm, Dawnguard.esm; self index is 3 (plugin-local identities unchanged).
