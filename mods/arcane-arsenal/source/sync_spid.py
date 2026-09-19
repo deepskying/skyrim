@@ -18,7 +18,10 @@ def main():
     parser.add_argument('--target',type=Path,default=TARGET)
     args=parser.parse_args()
     catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
-    plugin={edid(r):r['form'] for r in records(ROOT/'data/ArcaneArsenal.esp') if r['sig']==b'WEAP'}
+    weapons_count=len(catalog)
+    shields=json.loads((ROOT/'source/shields_catalog.json').read_text(encoding='utf-8'))
+    catalog+=shields
+    plugin={edid(r):r['form'] for r in records(ROOT/'data/ArcaneArsenal.esp') if r['sig'] in (b'WEAP',b'ARMO')}
     assert set(plugin)=={'AA'+s['key'] for s in catalog}
     path=args.target.resolve();raw=path.read_bytes()
     # Decode for parsing, retaining the original bytes when appending.
@@ -37,15 +40,15 @@ def main():
         if aliases.isdisjoint(assigned):missing.append(spec)
     if args.check:
         assert not missing,[s['key'] for s in missing]
-        print(json.dumps({'passed':True,'active_weapons':len(catalog),'all_active_weapons_distributed':True}))
+        print(json.dumps({'passed':True,'active_items':len(catalog),'active_weapons':weapons_count,'active_shields':len(shields),'all_active_items_distributed':True}))
         return
     if not missing:
-        print(json.dumps({'changed':False,'missing':0,'active_weapons':len(catalog)}))
+        print(json.dumps({'changed':False,'missing':0,'active_items':len(catalog),'active_weapons':weapons_count,'active_shields':len(shields)}))
         return
     stamp=datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
     backup=ROOT/'build'/('spid-before-'+stamp+'.ini');backup.write_bytes(raw)
     suffix=('' if not text or text.endswith(('\r','\n')) else newline)+newline
-    suffix+='; Arcane Armory - additional active weapons'+newline
+    suffix+='; Arcane Armory - additional active equipment'+newline
     added=[]
     for spec in missing:
         rule='Item = AA'+spec['key']+'|NONE|NONE|NONE|NONE|1|0.01'
@@ -63,7 +66,7 @@ def main():
     final=updated[len(bom):].decode(encoding)
     for rule in added:assert final.splitlines().count(rule)==1
     report={'passed':True,'path':str(path),'backup':str(backup),'added':added,
-            'literal_chance':'0.01','active_weapons':len(catalog),'original_bytes_preserved':True,
+            'literal_chance':'0.01','active_items':len(catalog),'active_weapons':weapons_count,'active_shields':len(shields),'original_bytes_preserved':True,
             'sha256':hashlib.sha256(updated).hexdigest()}
     (ROOT/'build/spid-sync-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=True))

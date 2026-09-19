@@ -1,0 +1,46 @@
+[
+  {
+    "key": "shieldred",
+    "name": "绯玉日蚀",
+    "color": "red",
+    "armor": 90,
+    "weight": 8,
+    "value": 1800,
+    "addon_form": "000BA0",
+    "armor_form": "000BA1",
+    "recipe_form": "000BA2"
+  },
+  {
+    "key": "shieldgreen",
+    "name": "青碧折叶",
+    "color": "green",
+    "armor": 90,
+    "weight": 8,
+    "value": 1800,
+    "addon_form": "000BA3",
+    "armor_form": "000BA4",
+    "recipe_form": "000BA5"
+  },
+  {
+    "key": "shieldblue",
+    "name": "海蓝潮门",
+    "color": "blue",
+    "armor": 90,
+    "weight": 8,
+    "value": 1800,
+    "addon_form": "000BA6",
+    "armor_form": "000BA7",
+    "recipe_form": "000BA8"
+  },
+  {
+    "key": "shieldpurple",
+    "name": "幻紫星棱",
+    "color": "purple",
+    "armor": 90,
+    "weight": 8,
+    "value": 1800,
+    "addon_form": "000BA9",
+    "armor_form": "000BAA",
+    "recipe_form": "000BAB"
+  }
+]

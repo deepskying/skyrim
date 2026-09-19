@@ -1,4 +1,18 @@
-# 幻律兵装 · Arcane Armory 0.52.3
+# 幻律兵装 · Arcane Armory 0.53.0
+
+## 0.53.0 四款发光盾牌
+
+新增已确认的四款盾牌：**绯玉日蚀**（旋叠圆盾）、**青碧折叶**（不对称叶形盾）、**海蓝潮门**（阶梯塔盾）、**幻紫星棱**（星盘菱形盾）。全部为轻甲盾，**基础护甲 90、重量 8、价值 1800**。游戏界面显示护甲会受技能和增益影响。
+
+盾面复用现有武器的 R5 绯玉霜华、G7 青碧层晶、B7 海蓝层晶和 P3 幻紫欧泊材质，并沿用 0.52.2 降低后的发光：红/绿/蓝/紫主体分别为 0.45/0.55/0.55/0.50，亮边分别为 1.20/1.35/1.45/1.20。暗金属边框、背板和握柄不发光；没有新增附魔、脚本或 DLL。
+
+使用原版精灵盾的 `SHIELD` 挂点、盾牌装备类型、轻甲关键词和种族支持；男女共用对应盾牌模型。保留原版库存标记和刚体设置，为每款几何生成包围模型的凸碰撞。可在熔炉用 2 个银锭和 3 个精炼孔雀石锻造。
+
+获取整组：控制台输入 `help "AAShieldsTestChest" 4`，找到 CONT 的完整编号，再执行 `player.placeatme <完整编号> 1`。盾牌也加入现有总试武箱。单件 EditorID 分别为 `AAshieldred`、`AAshieldgreen`、`AAshieldblue`、`AAshieldpurple`。为这四件装备在既有 `-item_DISTR.ini` 中添加 `Item = <EditorID>|NONE|NONE|NONE|NONE|1|0.01`，添加前备份并保留其他规则。
+
+当前为 **164 把武器 + 4 面盾牌、25 个试用箱、246 个运行文件**。新增 4 个 NIF 和 2 张带完整 mipmap 的 DDS；新增记录使用 `000BA0–000BAC`，不复用任何退役编号。原 164 把武器的模型、材质、属性和编号保持不变。
+
+构建：`prepare_shield_reference.py`、`build_shield_textures.py`、Blender 运行 `build_shields.py`、`build_plugin.py`。验证：`verify_plugin.py`、`verify_shields.py`；实际 NIF/DDS 正面、背面及暗处发光预览位于 `art/shields/`，由 `render_shields.py` 生成。基线保存于 `build/before-0.53.0/`；MO2 安装和 SPID 同步均生成备份。离线检查覆盖模型解析、三角形、材质引用、装备记录、碰撞包围及旧资产保留；游戏内持盾、格挡、掉落和 ENB 显示仍需实测。
 
 ## 0.52.3 移除材质试制战斧
 

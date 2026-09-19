@@ -9,8 +9,8 @@ archive=ROOT/('packaging/ArcaneArmory-'+version+'.zip')
 archive.parent.mkdir(parents=True,exist_ok=True)
 assets=runtime_paths()
 assert len([p for p in assets if p.suffix=='.esp'])==1
-assert len([p for p in assets if p.suffix=='.nif'])==164
-assert len([p for p in assets if p.suffix=='.dds'])==73
+assert len([p for p in assets if p.suffix=='.nif'])==168
+assert len([p for p in assets if p.suffix=='.dds'])==75
 assert len([p for p in assets if p.suffix=='.pex'])==1
 assert len([p for p in assets if p.suffix=='.seq'])==1
 assert len([p for p in assets if p.suffix=='.dll'])==0

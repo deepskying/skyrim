@@ -8,7 +8,8 @@ catalog=json.loads((ROOT/'source/catalog.json').read_text(encoding='utf-8'))
 retired=json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8'))
 reserved_forms={0x03000000|(int(s['stat_form'],16)+offset) for s in retired for offset in range(3)}|{0x03000A17}
 metadata=configparser.ConfigParser();metadata.read(ROOT/'packaging/meta.ini',encoding='utf-8');version=metadata['General']['version']
-record_count=len(catalog)*3+25
+from shield_records import CATALOG as shield_catalog, NEXT_FORM, build as build_shield_records
+record_count=len(catalog)*3+25+len(shield_catalog)*3+1
 source=list(records(MASTER,{b'WEAP',b'STAT',b'ENCH',b'MISC',b'KYWD',b'INGR',b'CONT',b'AMMO'}))
 source += [r for r in records(MASTER.parent/'Dawnguard.esm',{b'WEAP',b'STAT',b'AMMO'}) if r['form'] >> 24 == 2]
 by_name={edid(r).lower():r for r in source};by_form={r['form']:r for r in source}
@@ -60,11 +61,13 @@ for i,spec in enumerate(catalog):
     recipes.append({'sig':b'COBJ','form':recipe_id,'version':44,'data':d})
     report.append({'name':spec['name'],'key':spec['key'],'local_form':f'{weapon_id & 0xffffff:06X}','enchantment':spec['enchantment'],'damage':spec['damage'],'weapon_speed':spec['weapon_speed'],'weight':spec['weight']})
 
+armors,addons,shield_recipes,shield_chest=build_shield_records(MASTER,by_name,changed)
+recipes.extend(shield_recipes)
 # A spawnable, non-respawning chest provides the complete test set without scripts.
 chest_id=0x0300080C
 chest=changed(by_name['treaschestsmallemptynorespawn'],chest_id,
               {b'EDID':Z('AAAllBowsTestChest'),b'FULL':Z('幻律兵装·试武箱')},(b'MODT',b'COCT',b'CNTO'))
-inventory=[(w['form'],1) for w in weapons]+[(by_name['ironarrow']['form'],200),(by_name['dlc1boltsteel']['form'],200)]
+inventory=[(w['form'],1) for w in weapons+armors]+[(by_name['ironarrow']['form'],200),(by_name['dlc1boltsteel']['form'],200)]
 extra=sub(b'COCT',U32(len(inventory)))+b''.join(sub(b'CNTO',struct.pack('<II',f,c)) for f,c in inventory)
 # Container inventory comes before DATA in the record schema.
 chest['data']=b''.join((extra if k==b'DATA' else b'')+sub(k,v) for k,v in subrecords(chest['data']))
@@ -223,15 +226,15 @@ qd+=sub(b'ALST',U32(0))+sub(b'ALID',Z('Player'))+sub(b'FNAM',U32(0))
 qd+=sub(b'ALFR',U32(0x14))+sub(b'ALED',b'')
 quest={'sig':b'QUST','form':quest_id,'version':44,'data':qd}
 seq=ROOT/'data/seq/ArcaneArsenal.seq';seq.parent.mkdir(parents=True,exist_ok=True)
-seq.write_bytes(U32(quest_id))
+if not seq.exists() or seq.read_bytes()!=U32(quest_id):seq.write_bytes(U32(quest_id))
 # Crystal experiment IDs and retired material trials, including chest 0xA17, are never reused.
 header={'sig':b'TES4','flags':0x200,'form':0,'version':44,'data':
-    sub(b'HEDR',struct.pack('<fII',1.7,record_count,0xB92))+
+    sub(b'HEDR',struct.pack('<fII',1.7,record_count,NEXT_FORM))+
     sub(b'CNAM',Z('Arcane Armory'))+
-    sub(b'SNAM',Z(f'{len(catalog)} original weapons and twenty-four test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
+    sub(b'SNAM',Z(f'{len(catalog)} original weapons, {len(shield_catalog)} shields and twenty-five test chests. Version {version} for Skyrim SE 1.5.97. <cp:utf8>'))+
     b''.join(sub(b'MAST',Z(name))+sub(b'DATA',b'\0'*8) for name in ('Skyrim.esm','Update.esm','Dawnguard.esm'))}
 dest=ROOT/'data/ArcaneArsenal.esp';dest.parent.mkdir(parents=True,exist_ok=True)
-dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest,swords_chest,maces_chest,battleaxes_chest,scythes_chest,daggers_chest,warhammers_chest,waraxes_chest,crossbows_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'QUST',[quest]))
+dest.write_bytes(encode(header)+group(b'STAT',stats)+group(b'CONT',[chest,aries_chest,taurus_chest,geometric_chest,gemini_chest,cancer_chest,leo_chest,virgo_chest,libra_chest,sagittarius_chest,capricorn_chest,aquarius_chest,pisces_chest,scorpio_chest,heteromorphic_chest,greatswords_chest,swords_chest,maces_chest,battleaxes_chest,scythes_chest,daggers_chest,warhammers_chest,waraxes_chest,crossbows_chest,shield_chest])+group(b'COBJ',recipes)+group(b'WEAP',weapons)+group(b'ARMA',addons)+group(b'ARMO',armors)+group(b'QUST',[quest]))
 parsed=list(records(dest));assert len(parsed)==record_count+1
 assert parsed[0]['flags']&0x200
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in parsed[1:])
@@ -261,5 +264,6 @@ result.update(warhammers_chest='0009EB',warhammers_chest_contents='8 Heteromorph
 result.update(daggers_chest='0009C6',daggers_chest_contents='12 Heteromorphic long daggers')
 result.update(scythes_chest='0009AD',scythes_chest_contents='8 Heteromorphic scythes')
 result.update(maces_chest='00096F',maces_chest_contents='8 Heteromorphic maces')
+result.update(shields=shield_catalog,shields_chest='000BAC',shields_chest_contents='4 luminous shields',test_chest_contents=f'{len(catalog)} weapons, 4 shields, 200 iron arrows, 200 steel bolts')
 (ROOT/'build/plugin-report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
 print(json.dumps(result,indent=2))

@@ -14,8 +14,8 @@ expected.update({'AA'+s['key']:0x03000000|int(s['stat_form'],16)+1 for s in cata
 header=items[0];hp=dict(subrecords(header['data']))
 assert header['flags']==0x200
 assert abs(struct.unpack_from('<f',hp[b'HEDR'])[0]-1.7)<1e-6
-assert len(items)==518 and len(by_form)==518
-assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(517,0xB92)
+assert len(items)==531 and len(by_form)==531
+assert struct.unpack('<fII',hp[b'HEDR'])[1:]==(530,0xBAD)
 assert all(r['version']==44 for r in items)
 assert all(0x800<=(r['form']&0xffffff)<=0xFFF for r in items[1:])
 weapons=[r for r in items if r['sig']==b'WEAP'];assert len(weapons)==164
@@ -45,8 +45,8 @@ chest=next(r for r in items if edid(r)=='AAAllBowsTestChest')
 assert chest['form']==expected['AAAllBowsTestChest']
 parts=list(subrecords(chest['data']))
 inventory=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
-assert len(inventory)==166
-assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==166
+assert len(inventory)==170
+assert struct.unpack('<I',dict(parts)[b'COCT'])[0]==170
 assert all((r['form'],1) in inventory for r in weapons)
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='幻律兵装·试武箱'
 # Add the second Heteromorphic warhammer set; preserve old weapons and all container identity fields.
@@ -54,7 +54,8 @@ baseline=list(records(ROOT/'build/before-0.51.1/data/ArcaneArsenal.esp'))
 retired={0x03000000|(int(s['stat_form'],16)+j) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for j in range(3)}
 assert len(retired)==48 and retired.isdisjoint(by_form)
 old_forms={r['form'] for r in baseline}
-assert set(by_form) <= old_forms
+shield_forms={0x03000000|f for f in range(0xBA0,0xBAD)}
+assert set(by_form)-old_forms==shield_forms
 removed_forms={r['form'] for r in baseline if 0xB00<=(r['form']&0xffffff)<=0xB7F}|(retired&old_forms)|{0x03000A17}
 assert len(removed_forms)==61 and old_forms-set(by_form)==removed_forms
 assert 0x03000918 not in by_form and 0x03000A17 not in by_form
@@ -78,7 +79,7 @@ taurus_items=[struct.unpack('<II',v) for k,v in parts if k==b'CNTO']
 assert len(taurus_items)==5 and dict(parts)[b'COCT']==struct.pack('<I',5)
 assert set(taurus_items)=={(f,1) for f in (0x03000831,0x03000834,0x03000837,0x0300083A)}|{(0x1397D,200)}
 assert dict(parts)[b'FULL'].rstrip(b'\0').decode('utf-8')=='金牛座·试武箱'
-assert len([r for r in items if r['sig']==b'CONT'])==24
+assert len([r for r in items if r['sig']==b'CONT'])==25
 geometric=by_form[0x0300087C]
 assert edid(geometric)=='AAGeometricTestChest'
 gparts=list(subrecords(geometric['data']))
@@ -216,7 +217,7 @@ assert edid(scythes)=='AAHeteromorphicScythesChest'
 scparts=list(subrecords(scythes['data']))
 assert dict(scparts)[b'COCT']==struct.pack('<I',8)
 assert {struct.unpack('<II',v) for k,v in scparts if k==b'CNTO'}=={(0x03000000|f,1) for f in (0x9A2,0x9A5,0x9A8,0x9AB,0x9AF,0x9B2,0x9B5,0x9B8)}
-assert len([r for r in items if r['sig']==b'CONT'])==24
+assert len([r for r in items if r['sig']==b'CONT'])==25
 daggers=by_form[0x030009C6]
 assert edid(daggers)=='AAHeteromorphicDaggersChest'
 dparts=list(subrecords(daggers['data']))
@@ -266,6 +267,6 @@ for r in weapons:
 crossbows=by_form[0x03000A24]
 assert edid(crossbows)=='AAHeteromorphicCrossbowsChest'
 assert {struct.unpack('<II',v) for k,v in subrecords(crossbows['data']) if k==b'CNTO'}=={(0x03000000|f,1) for f in (0xA19,0xA1C,0xA1F,0xA22,0xB81,0xB84,0xB87,0xB8A)}|{(0x02000BB3,200)}
-report={'version':'0.52.3','passed':True,'weapons':164,'test_chests':24,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'maces':{'damage':90,'speed':1.0},'battleaxes':{'damage':99,'speed':1.2},'scythes':{'damage':99,'speed':1.2,'animation_type':'TwoHandAxe'},'daggers':{'damage':75,'speed':1.6},'warhammers':{'damage':99,'speed':1.2},'waraxes':{'damage':80,'speed':1.2},'new_records':0,'staff_records':0,'removed_records':61,'retired_records_absent':49,'gameplay_tested':False}
+report={'version':'0.53.0','passed':True,'weapons':164,'shields':4,'test_chests':25,'existing_record_identities_preserved':True,'bows':{'damage':90,'speed':1.5},'greatswords':{'damage':99,'speed':1.2},'ESL':True,'swords':{'damage':75,'speed':1.2},'maces':{'damage':90,'speed':1.0},'battleaxes':{'damage':99,'speed':1.2},'scythes':{'damage':99,'speed':1.2,'animation_type':'TwoHandAxe'},'daggers':{'damage':75,'speed':1.6},'warhammers':{'damage':99,'speed':1.2},'waraxes':{'damage':80,'speed':1.2},'new_records':13,'staff_records':0,'removed_records':0,'retired_records_absent':49,'gameplay_tested':False}
 (ROOT/'build/plugin-verification.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report))

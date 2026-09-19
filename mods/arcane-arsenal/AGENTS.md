@@ -18,3 +18,5 @@
 - Scope changes to this mod; unrelated workspace mods may be under active development. Commit or push only when requested.
 
 - Crossbows use damage 95 and Speed 1.4, confirmed for the first set. Preserve the native Dawnguard crossbow skeleton, embedded controllers, BGED and bolt ammunition. The ESP masters are Skyrim.esm, Update.esm, Dawnguard.esm; self index is 3 (plugin-local identities unchanged).
+
+- First shield set: 绯玉日蚀、青碧折叶、海蓝潮门、幻紫星棱. User confirmed base armor 90 and SPID distribution in the existing `-item_DISTR.ini`. Preserve native SHIELD attachment, light-armor shield equipment, both-sex/race support, and local IDs 0xBA0–0xBAC. Shields use a separate `shields_catalog.json` and ARMO/ARMA records; do not count them as WEAP. Reuse the current 0.52.2 reduced weapon emission (body red/green/blue/purple: 0.45/0.55/0.55/0.50; edge: 1.20/1.35/1.45/1.20).
