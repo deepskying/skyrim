@@ -582,8 +582,10 @@
 .cm-inventory-categories button:focus-visible { outline:2px solid #a1dfcd;outline-offset:2px; }
 .cm-inventory-result { color:#a5b9bb;font-size:.85em;margin:0 0 14px; }
 .cm-wardrobe-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:18px; }
-.cm-wardrobe-card { background:#a0bdca09;border:1px solid #a5c9cf2b;border-radius:12px;overflow:hidden; }
-.cm-wardrobe-card.favorite { border-color:#d9bf7370;background:#b59e5010; }
+.cm-wardrobe-card { background:#a0bdca09;border:2px solid #a5c9cf2b;border-radius:12px;overflow:hidden; }
+.cm-wardrobe-card.favorite { border-color:#ffe15a;background:#b59e5010;box-shadow:inset 0 0 0 1px #ffe15a; }
+.cm-wardrobe-card.equipped { border-color:#60dfd0;box-shadow:inset 0 0 0 1px #60dfd0; }
+.cm-wardrobe-card.favorite.equipped { border-color:#ffe15a;box-shadow:inset 0 0 0 3px #60dfd0; }
 .cm-wardrobe-main { display:block;text-align:left;border:0;border-radius:0;width:100%;height:100%;padding:18px;background:transparent; }
 .cm-wardrobe-main:disabled { opacity:1;cursor:default; }
 .cm-wardrobe-main h3 { min-height:2.8em;line-height:1.4;overflow-wrap:anywhere; }
@@ -965,8 +967,9 @@
   }
 }
 
-.cm-wardrobe-card.selected { border-color:#9bdfcf;background:#77cbb924;box-shadow:inset 0 0 0 1px #9bdfcf; }
-.cm-wardrobe-card.unavailable { opacity:.65; }
+.cm-wardrobe-card.selected { background:#77cbb924; }
+.cm-wardrobe-card.selected:not(.favorite):not(.equipped) { border-color:#9bdfcf;box-shadow:inset 0 0 0 1px #9bdfcf; }
+.cm-wardrobe-card.unavailable .cm-wardrobe-main { opacity:.75; }
 .cm-take-mark { position:absolute;right:10px;top:10px;display:grid;place-items:center;width:30px;height:30px;border:2px solid #a3cbc9;border-radius:7px;background:#16272e;font-size:23px;font-weight:700;line-height:1; }
 .cm-take-mark.checked { background:#a1dfcd;border-color:#a1dfcd;color:#142b27; }
 .cm-wardrobe-main:focus-visible { outline:2px solid #a1dfcd;outline-offset:-4px; }

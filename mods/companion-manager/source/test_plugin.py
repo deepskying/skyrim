@@ -25,7 +25,7 @@ class PluginTests(unittest.TestCase):
     def test_outfit_dialogue_is_owned_scoped_and_scripted(self):
         by_type={r['sig']:dict(subrecords(r['data'])) for r in self.rows if r['sig'] in (b'DLBR',b'DIAL',b'INFO')}
         branch,topic,info=(by_type[k] for k in (b'DLBR',b'DIAL',b'INFO'))
-        self.assertEqual(branch[b'QNAM'],struct.pack('<I',0x01000800))
+        self.assertEqual(branch[b'QNAM'],struct.pack('<I',0x01000B03))
         self.assertEqual(branch[b'DNAM'],struct.pack('<I',1)) # top-level, not blocking/exclusive
         self.assertEqual(branch[b'SNAM'],struct.pack('<I',0x01000B01))
         self.assertEqual(topic[b'BNAM'],struct.pack('<I',0x01000B00))
@@ -33,7 +33,8 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),'随机换装')
         self.assertEqual(topic[b'TIFC'],struct.pack('<I',1))
         self.assertEqual(info[b'TPIC'],branch[b'SNAM'])
-        self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0x801,0))
+        self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0xA01,0))
+        self.assertTrue(info[b'NAM1'].rstrip(b'\0'))
         row=next(r for r in self.rows if r['sig']==b'INFO')
         conditions=[v for k,v in subrecords(row['data']) if k==b'CTDA']
         self.assertEqual([(struct.unpack_from('<H',c,8)[0],struct.unpack_from('<I',c,12)[0],struct.unpack_from('<f',c,4)[0]) for c in conditions],
@@ -54,6 +55,19 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(offset,len(vmad))
         for script in ('CMDialogue','CMRandomOutfitTopic'):
             self.assertEqual((ROOT/f'data/Scripts/{script}.pex').read_bytes()[:4],bytes.fromhex('fa57c0de'))
+
+    def test_dialogue_quest_can_start_independently_on_existing_saves(self):
+        dialogue=next(r for r in self.rows if edid(r)=='CMOutfitDialogueQuest')
+        parts=dict(subrecords(dialogue['data']))
+        flags=struct.unpack_from('<H',parts[b'DNAM'])[0]
+        self.assertEqual(flags & 0x8011,0x8011) # dialogue data, starts enabled, start game enabled
+        self.assertNotIn(b'VMAD',parts)
+        self.assertNotIn(b'ALST',parts)
+        self.assertNotIn(b'CTDA',parts)
+        self.assertNotEqual(dialogue['form'],self.quest['form'])
+        seq=(ROOT/'data/SEQ/CompanionManager.seq').read_bytes()
+        self.assertEqual(list(struct.unpack('<'+'I'*(len(seq)//4),seq)),
+                         [r['form'] for r in self.rows if r['sig']==b'QUST' and struct.unpack_from('<H',dict(subrecords(r['data']))[b'DNAM'])[0]&1])
 
     def test_optional_aliases_cannot_autofill_and_all_packages_resolve(self):
         aliases=[];active=None

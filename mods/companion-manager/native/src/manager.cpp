@@ -19,6 +19,10 @@ namespace
 {
 constexpr std::size_t slots = rules::MemberCapacity;
 RE::TESQuest *quest = nullptr;
+RE::TESQuest *outfitDialogueQuest = nullptr;
+RE::TESTopic *outfitTopic = nullptr;
+RE::TESTopicInfo *outfitInfo = nullptr;
+RE::FormID lastOutfitSpeaker = 0;
 RE::TESFaction *modeFaction = nullptr;
 std::recursive_mutex lock;
 std::unordered_map<RE::FormID, json> members;
@@ -449,6 +453,18 @@ void Tick()
     auto *player = RE::PlayerCharacter::GetSingleton();
     if (!ui || ui->GameIsPaused() || !player || !player->GetParentCell())
         return;
+    if(ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) {
+        auto* manager=RE::MenuTopicManager::GetSingleton();
+        auto speaker=manager?manager->speaker.get():RE::NiPointer<RE::TESObjectREFR>{};
+        auto* actor=speaker?speaker->As<RE::Actor>():nullptr;
+        if(actor&&actor->GetFormID()!=lastOutfitSpeaker) {
+            lastOutfitSpeaker=actor->GetFormID();
+            logger::info("Outfit dialogue actor={} managed={} teammate={} modeFaction={} questRunning={} infos={} conditions={}",
+                ID(lastOutfitSpeaker),members.contains(lastOutfitSpeaker),actor->IsPlayerTeammate(),
+                modeFaction&&actor->IsInFaction(modeFaction),outfitDialogueQuest&&outfitDialogueQuest->IsRunning(),
+                outfitTopic?outfitTopic->numTopicInfos:0,outfitInfo&&outfitInfo->objConditions.IsTrue(actor,player));
+        }
+    } else lastOutfitSpeaker=0;
     SyncDialogueRecruitment();
     if (commandPending)
         return;
@@ -551,6 +567,11 @@ void InitializeManager()
     auto *data = RE::TESDataHandler::GetSingleton();
     quest = data->LookupForm<RE::TESQuest>(0x800, "CompanionManager.esp");
     modeFaction = data->LookupForm<RE::TESFaction>(0x801, "CompanionManager.esp");
+    outfitDialogueQuest=data->LookupForm<RE::TESQuest>(0xB03,"CompanionManager.esp");
+    outfitTopic=data->LookupForm<RE::TESTopic>(0xB01,"CompanionManager.esp");
+    outfitInfo=data->LookupForm<RE::TESTopicInfo>(0xB02,"CompanionManager.esp");
+    logger::info("Outfit dialogue records: quest={} topic={} info={} topicInfos={}",
+        outfitDialogueQuest!=nullptr,outfitTopic!=nullptr,outfitInfo!=nullptr,outfitTopic?outfitTopic->numTopicInfos:0);
     if (!quest || !modeFaction)
     {
         logger::error("CompanionManager.esp missing; commands disabled.");
@@ -584,10 +605,16 @@ void SetGameReady(bool value)
     dialogueCandidate = 0;
     dialogueNotice.clear();
     dialogueRetry = {};
+    lastOutfitSpeaker=0;
     ++epoch;
     token = std::to_string(GetTickCount64()) + "-" + std::to_string(epoch);
     if (value)
     {
+        // Start only the new alias-free dialogue quest. Never reset the follower controller.
+        if(outfitDialogueQuest) {
+            if(!outfitDialogueQuest->IsRunning()&&!outfitDialogueQuest->IsStarting()) outfitDialogueQuest->Start();
+            logger::info("Outfit dialogue ready: running={} starting={}",outfitDialogueQuest->IsRunning(),outfitDialogueQuest->IsStarting());
+        } else logger::error("Outfit dialogue quest missing; install complete 1.7.1 package including ESP and SEQ");
         Call("CleanupRetiredNeeds",[](bool){});
         ClearRetiredNeeds();
         activityCleanup=true;

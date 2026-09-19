@@ -45,7 +45,7 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
         const takeable=!i.quest&&!i.equipped&&i.count>0;
         const picked=takeable&&!!selected[i.key];
         const togglePick=()=>setSelected(old=>{const next={...old};if(next[i.key])delete next[i.key];else next[i.key]=1;return next;});
-        return <article className={`cm-wardrobe-card ${i.favorite?"favorite":""} ${taking&&picked?"selected":""} ${taking&&!takeable?"unavailable":""}`} key={i.key}>
+        return <article className={`cm-wardrobe-card ${i.favorite?"favorite":""} ${i.equipped?"equipped":""} ${taking&&picked?"selected":""} ${taking&&!takeable?"unavailable":""}`} key={i.key}>
           <button className="cm-wardrobe-main" disabled={!usable||(taking&&!takeable)}
             aria-label={taking?(takeable?`${picked?"取消选择":"选择取走"}${i.name}`:`${i.name}，不可取走`):`${i.favorite?"取消锁定":"锁定"}${i.name}`}
             aria-pressed={taking?(takeable?picked:undefined):i.favorite}

@@ -12,6 +12,7 @@ foreach ($required in @($dll, (Join-Path $web 'index.html'), (Join-Path $moduleR
 foreach ($script in @('CMDialogue', 'CMRandomOutfitTopic')) {
     if (-not (Test-Path -LiteralPath (Join-Path $moduleRoot "data/Scripts/$script.pex") -PathType Leaf)) { throw "Dialogue script missing: $script" }
 }
+if (-not (Test-Path -LiteralPath (Join-Path $moduleRoot 'data/SEQ/CompanionManager.seq') -PathType Leaf)) { throw 'Dialogue startup index missing' }
 $release = Join-Path $PSScriptRoot 'release'
 $name = "CompanionManager-$version-fulltest-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 $stage = Join-Path $release $name
@@ -23,6 +24,7 @@ Copy-Item -LiteralPath $dll -Destination $plugins
 Copy-Item -Path (Join-Path $web '*') -Destination $view -Recurse
 Copy-Item -LiteralPath (Join-Path $moduleRoot 'data/CompanionManager.esp') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $moduleRoot 'data/Scripts') -Destination $stage -Recurse
+Copy-Item -LiteralPath (Join-Path $moduleRoot 'data/SEQ') -Destination $stage -Recurse
 Copy-Item -LiteralPath (Join-Path $moduleRoot 'README.md') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $moduleRoot 'native/vendor/MeridianUIAPI/LICENSE-MIT') -Destination (Join-Path $stage 'Meridian-SDK-LICENSE.txt')
 $files = @(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
