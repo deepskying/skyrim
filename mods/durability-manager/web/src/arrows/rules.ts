@@ -7,6 +7,10 @@ export function matchingMaterials(materials: Material[], spell?: Spell) {
     .sort((a, b) => rank(a.kind) - rank(b.kind) || b.units - a.units || a.name.localeCompare(b.name, 'zh-CN') || a.id - b.id);
 }
 export function selectionKey(selection: Selection) { return JSON.stringify(selection); }
+export function craftingAccessError(state: ArrowState, normal: boolean) {
+  if (state.loaded && state.craftingAccess?.[normal ? 'normal' : 'magic']) return '';
+  return normal ? '请靠近锻造炉、冶炼炉、磨刀石或护甲工作台后制作普通箭矢。' : '请靠近附魔台后制作魔法箭。';
+}
 export function matchesCraftReply(request: { id: number; key: string; type: string } | undefined, key: string, reply: ArrowState['workshopReply']) {
   return !!request && !!reply && request.key === key && reply.requestID === request.id && reply.type === request.type;
 }

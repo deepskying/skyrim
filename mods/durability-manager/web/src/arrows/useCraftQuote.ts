@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { WorkshopAction } from '../bridge';
 import type { ArrowState, NormalQuote, Quote } from './types';
 import { nextArrowRequest } from './useArrowBridge';
-import { matchesCraftReply } from './rules';
+import { craftingAccessError, matchesCraftReply } from './rules';
 
 /** Correlates native receipts; changing a selection invalidates its previous token. */
 export function useCraftQuote<T extends Quote | NormalQuote>(state: ArrowState, action: WorkshopAction, normal: boolean, selection: Record<string, unknown>, active: boolean) {
+  active = active && !craftingAccessError(state, normal);
   const key = JSON.stringify(selection), quoteType = normal ? 'normalQuote' : 'quote', craftType = normal ? 'normalCraft' : 'craft';
   const [accepted, setAccepted] = useState<{ key: string; quote: T }>();
   const [error, setError] = useState('');

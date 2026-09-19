@@ -10,6 +10,25 @@ async function module(name) {
 const { planCraft, matchingMaterials, moveQueue, matchesCraftReply } = await module('rules');
 const { arrowDemo: state } = await module('demo');
 const selection = { spell: 101, bases: [{ id: 10, count: 5 }], materials: [{ id: 201, count: 1 }] };
+
+test('crafting requires the matching nearby station and fails closed before state arrives', async () => {
+  const { craftingAccessError } = await module('rules');
+  for (const normal of [false, true]) {
+    assert.notEqual(craftingAccessError({ ...state, craftingAccess: undefined }, normal), '');
+    assert.notEqual(craftingAccessError({ ...state, loaded: false }, normal), '');
+    assert.equal(craftingAccessError(state, normal), '');
+  }
+  const enchanting = { ...state, craftingAccess: { magic: true, normal: false } };
+  const forge = { ...state, craftingAccess: { magic: false, normal: true } };
+  assert.equal(craftingAccessError(enchanting, false), '');
+  assert.match(craftingAccessError(enchanting, true), /铁匠|锻造炉/);
+  assert.equal(craftingAccessError(forge, true), '');
+  assert.match(craftingAccessError(forge, false), /附魔台/);
+  // A fresh snapshot after walking away must revoke both permissions.
+  const away = { ...state, craftingAccess: { magic: false, normal: false } };
+  assert.notEqual(craftingAccessError(away, false), '');
+  assert.notEqual(craftingAccessError(away, true), '');
+});
 test('matching potions precede raw ingredients and unsupported families never charge', () => {
   const before = JSON.stringify(state.materials);
   assert.deepEqual(matchingMaterials(state.materials, state.spells[0]).map(m => m.id), [201, 202, 203]);

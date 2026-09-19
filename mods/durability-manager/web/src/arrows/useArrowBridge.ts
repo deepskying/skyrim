@@ -6,10 +6,13 @@ import { allocateBases } from './quantity';
 import type { ArrowState, Selection } from './types';
 declare global { interface Window { MagicArrows?: { receiveState: (state: ArrowState) => void } } }
 const empty: ArrowState = { loaded: false, arrows: [], spells: [], materials: [], recipes: [] };
+// Browser-only fixture for reviewing the out-of-range crafting messages.
+const previewState: ArrowState = import.meta.env.DEV && new URLSearchParams(window.location.search).get('stations') === 'none'
+  ? { ...arrowDemo, craftingAccess: { magic: false, normal: false } } : arrowDemo;
 let requestSequence = 0;
 export const nextArrowRequest = () => ++requestSequence;
 export function useArrowBridge() {
-  const [state, setState] = useState<ArrowState>(import.meta.env.DEV ? arrowDemo : empty);
+  const [state, setState] = useState<ArrowState>(import.meta.env.DEV ? previewState : empty);
   useEffect(() => {
     window.MagicArrows = { receiveState: next => setState(previous => ({ ...next,
       // Native inventory snapshots contain only the active crafting catalogue.

@@ -1,4 +1,18 @@
-# 装备工坊 · Equipment Workshop 1.6.3
+# 装备工坊 · Equipment Workshop 1.6.6
+
+## 1.6.6 附魔台识别修复
+
+修复误用不存在于原版 Skyrim.esm 的 CraftingEnchanting 关键词，导致附近附魔台无法识别的问题。现在优先读取家具的附魔工作台类型（含附魔实验类型），并兼容 isEnchanting、WICraftingEnchanting 关键词。支持没有关键词但具有附魔工作台类型的设备。距离和可用性检查保持不变。已完成原版记录核对及离线回归；实际游戏内识别仍需复测。
+
+## 1.6.5 装备养护排序
+
+已装备物品保持置顶及原顺序；未装备物品按剩余耐久百分比从低到高排列，损坏的优先、满耐久的最后，比例相同保持原顺序。修复或装备状态更新后自动重排，继续按物品实例保留当前选择。此排序仅用于装备养护页。
+
+## 1.6.4 箭矢制作设备限制
+
+制作魔法箭需要靠近附魔台；制作普通箭需要靠近锻造炉、冶炼炉、磨刀石或护甲工作台。范围沿用装备修理的 600 游戏单位，无需进入设备交互界面。附魔台按工作台类型或附魔关键词识别，铁匠设备按设备关键词识别，支持对应的第三方设备；只计算已加载且未禁用的设备，室内不跨房间单元、室外不跨世界空间。
+
+制作页显示设备状态，范围外仍可查看配方，但无法制作；报价与确认制作均重新核验附近设备，检查失败时清除旧报价，不扣材料。靠近设备后重新打开工坊或点击「同步背包」更新状态。游戏内距离边界和第三方设备仍需实测。
 
 装备耐久、修理、强化、分解与魔法箭合并为一个 MO2 模组、一个 SKSE DLL：`EquipmentWorkshop.dll`。目标 Skyrim SE 1.5.97、SKSE、Address Library；界面优先使用 Meridian UI，未启用时回退到 PrismaUI。两份原有源码作为独立模块编译进同一个目标，不再同时运行 DurabilityManager.dll 和 MagicArrows.dll。
 
@@ -40,7 +54,7 @@ SkyUI 回收已重写为 EquipmentWorkshop.dll 内的原生实现，安装包不
 
 ## 安装
 
-1. 退出游戏。在 MO2 安装 `EquipmentWorkshop-1.6.3.zip` 为一个新模组。
+1. 退出游戏。在 MO2 安装 `EquipmentWorkshop-1.6.6.zip` 为一个新模组。
 2. 统一版主快捷键为 Shift+A；迁移旧配置后，将 DurabilityManager.ini 的 [Hotkey] 设置为 Key=A、Shift=true、Ctrl=false、Alt=false。SkyUI 回收默认右 Alt，旧 Shift+D 不再执行分解。将旧模组中定制过的 `DurabilityManager.ini`、`DurabilityManager.rules.json` 和 `MagicArrows.ini` 复制到新模组同一路径。
 3. 禁用旧的耐久度模组和魔法箭模组，启用装备工坊。移除原「简单回收」条目及 SimpleRecycling.esp；从旧工坊升级时也要移除旧 zsr 脚本与翻译（清单见 packaging/retired-recycling-files.json）。保持 DurabilityManager.esp、MagicArrows.esp 两个原 ESP 启用及原有排序。不要同时加载旧 DLL。
 4. 启动游戏，用现有存档验证，确认后另存新档。旧存档和旧模组文件可保留作为回退。

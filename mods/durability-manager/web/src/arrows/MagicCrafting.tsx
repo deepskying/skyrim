@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WorkshopAction } from '../bridge';
 import type { ArrowState, Quote, Selection } from './types';
-import { planCraft } from './rules';
+import { craftingAccessError, planCraft } from './rules';
 import { allocateBases, fillCharge, reconcileSelection, replaceStack } from './quantity';
 import { QuantityInput } from './QuantityInput';
 import { ResourceMeter } from './ResourceMeter';
@@ -11,6 +11,7 @@ import { useCraftQuote } from './useCraftQuote';
 export function MagicCrafting({ state, action, active }: { state: ArrowState; action: WorkshopAction; active: boolean }) {
   const [selection, setSelection] = useState<Selection>({ spell: 0, bases: [], materials: [] });
   const [search, setSearch] = useState(''), [filter, setFilter] = useState('candidate');
+  const accessError = craftingAccessError(state, false);
   const plan = planCraft(state, selection);
   const tx = useCraftQuote<Quote>(state, action, false, { ...selection, runtime: !!plan.spell?.adapter?.runtime }, active && !plan.error);
   const { quote, busy, quoting, error } = tx;
@@ -74,7 +75,7 @@ export function MagicCrafting({ state, action, active }: { state: ArrowState; ac
         <p className="arrow-muted">已选材料提供充能 · 计划需要 {plan.target * plan.charge}{plan.energy < plan.target * plan.charge ? `，还差 ${plan.target * plan.charge - plan.energy}` : ''}。{excess > 0 ? '多余充能不会保留。' : ''}</p>
         <section className="craft-receipt"><header><h3>消耗材料清单</h3><small>{quote ? '已核对' : '预估'}</small></header>{baseUse.map(b => <div key={`base-${b.id}`}><span>{state.arrows.find(a => a.id === b.id)?.name ?? '箭矢'}</span><b>×{b.count}</b></div>)}{ingredients.map((m, index) => <div key={`material-${index}`}><span>{m.name}</span><b>×{m.count}</b></div>)}{!baseUse.length && !ingredients.length && <p>选择箭矢和充能材料后，清单将在这里显示。</p>}</section>
       </div>
-      <footer><p role="status">{error || plan.error || (quoting ? '正在核对库存与费用…' : quote ? '清单已核对，可以确认制作。' : '请重新核对清单。')}</p><button className="arrow-primary" disabled={!quote || busy || quoting || !!plan.error} onClick={tx.commit}>{busy ? '正在制作…' : `确认制作 ${total} 支`}</button><button className="recheck-quote" disabled={busy || !!plan.error} onClick={tx.refresh}>重新核对清单</button></footer>
+      <footer><p role="status">{accessError || error || plan.error || (quoting ? '正在核对库存与费用…' : quote ? '清单已核对，可以确认制作。' : '请重新核对清单。')}</p><button className="arrow-primary" disabled={!quote || busy || quoting || !!plan.error} onClick={tx.commit}>{busy ? '正在制作…' : `确认制作 ${total} 支`}</button><button className="recheck-quote" disabled={busy || !!plan.error || !!accessError} onClick={tx.refresh}>重新核对清单</button></footer>
     </aside>
   </div>;
 }

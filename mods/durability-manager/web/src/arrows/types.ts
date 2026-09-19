@@ -8,6 +8,7 @@ export type Selection = { spell: number; bases: Stack[]; materials: Stack[] };
 export type Quote = { token: number; runtime?: boolean; selection: Selection; total: number; gold: number; magicka: number; suppliedCharge: number; ingredients: { name: string; count: number }[]; outputs: { name: string; count: number }[]; bases: Stack[] };
 export type NormalQuote = { token: number; recipe: number; batches: number; total: number; name: string; ingredients: { name: string; count: number }[] };
 export type ArrowState = {
+  craftingAccess?: { magic: boolean; normal: boolean };
   loaded: boolean; page?: string; mode?: string; message?: string;
   arrows: Arrow[]; spells: Spell[]; materials: Material[]; recipes: Recipe[];
   resources?: { gold: number; magicka: number }; alchemy?: number;

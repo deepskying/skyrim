@@ -19,7 +19,7 @@ import { EquippedHud } from './EquippedHud';
 import './hud.css';
 import { EquippedBadge } from './EquippedBadge';
 import { formatDurability } from './format';
-import { equippedFirst } from './equipment';
+import { equippedFirst, maintenanceOrder } from './equipment';
 import { costLabel, missingCost } from './cost';
 import { normalizeRefreshResult } from './refresh';
 
@@ -42,7 +42,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '1.6.3',
+  version: '1.6.6',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'A', keyCode: 0x1E, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, enableWorkshopSounds: true, allowEnchantedItemsToBreak: true },
@@ -264,7 +264,8 @@ export function App() {
     const equippedIds = new Set(state.equipped.map((item) => item.id));
     return equippedFirst([...state.equipped, ...state.repairQueue.filter((item) => !equippedIds.has(item.id))]);
   }, [state.equipped, state.repairQueue]);
-  const filteredEquipment = visibleEquipment.filter((item) => (filter === 'all' || item.category === filter || filter === 'worn' && item.equipped) && item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const orderedEquipment = useMemo(() => tab === 'workshop' ? maintenanceOrder(visibleEquipment) : visibleEquipment, [tab, visibleEquipment]);
+  const filteredEquipment = orderedEquipment.filter((item) => (filter === 'all' || item.category === filter || filter === 'worn' && item.equipped) && item.name.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const selected = useMemo(() => filteredEquipment.find((item) => item.id === selectedId) ?? filteredEquipment[0], [selectedId, filteredEquipment]);
   const hasRepairMaterials = Boolean(selected?.repairMaterials.every((material) => material.owned >= material.required));
   const canRepair = Boolean(selected?.repairable && state.forge.active && hasRepairMaterials);

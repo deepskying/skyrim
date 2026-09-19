@@ -5,8 +5,24 @@ import ts from 'typescript';
 
 const source = readFileSync(new URL('../src/equipment.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
-const { equippedFirst } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { equippedFirst, maintenanceOrder } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const item = (id, equipped) => Object.freeze({ id, equipped, name: '钢剑' });
+
+test('maintenance prioritizes equipped, then percentage, with stable ties and immutable input', () => {
+  const gear = (id, equipped, current, maximum) => Object.freeze({ id, equipped, current, maximum });
+  const input = Object.freeze([
+    gear('full', false, 50, 50), gear('worn-full', true, 100, 100),
+    gear('low', false, 60, 200), gear('broken', false, 0, 85),
+    gear('worn-low', true, 1, 100), gear('equal', false, 30, 100),
+  ]);
+  const sorted = maintenanceOrder(input);
+  assert.deepEqual(sorted.map(x => x.id), ['worn-full', 'worn-low', 'broken', 'low', 'equal', 'full']);
+  assert.deepEqual(input.map(x => x.id), ['full', 'worn-full', 'low', 'broken', 'worn-low', 'equal']);
+  assert.equal(sorted[3], input[2]);
+  assert.deepEqual(maintenanceOrder([]), []);
+  const repaired = input.map(x => x.id === 'broken' ? { ...x, current: 85 } : x);
+  assert.deepEqual(maintenanceOrder(repaired).map(x => x.id), ['worn-full', 'worn-low', 'low', 'equal', 'full', 'broken']);
+});
 
 test('equipped instances come first with stable group order and no input mutation', () => {
   const input = Object.freeze([item('1:1', false), item('1:2', true), item('1:3', false), item('1:4', true)]);

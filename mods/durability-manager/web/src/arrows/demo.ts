@@ -1,5 +1,6 @@
 import type { ArrowState } from './types';
 export const arrowDemo: ArrowState = {
+  craftingAccess: { magic: true, normal: true },
   loaded: true, resources: { gold: 850, magicka: 220 }, alchemy: 35,
   ammoQueue: { available: true, enabled: true, ids: [21, 10], limit: 64 },
   followers: { available: true, consumeMagicArrows: true },
