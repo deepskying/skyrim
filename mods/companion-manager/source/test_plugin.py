@@ -20,7 +20,40 @@ class PluginTests(unittest.TestCase):
         ids=[r['form'] for r in self.rows[1:]]
         self.assertEqual(len(ids),len(set(ids)))
         self.assertTrue(all(0x01000800<=n<0x01001000 for n in ids))
-        self.assertEqual(set(r['sig'] for r in self.rows[1:]),{b'FACT',b'PACK',b'QUST'})
+        self.assertEqual(set(r['sig'] for r in self.rows[1:]),{b'FACT',b'PACK',b'QUST',b'DLBR',b'DIAL',b'INFO'})
+
+    def test_outfit_dialogue_is_owned_scoped_and_scripted(self):
+        by_type={r['sig']:dict(subrecords(r['data'])) for r in self.rows if r['sig'] in (b'DLBR',b'DIAL',b'INFO')}
+        branch,topic,info=(by_type[k] for k in (b'DLBR',b'DIAL',b'INFO'))
+        self.assertEqual(branch[b'QNAM'],struct.pack('<I',0x01000800))
+        self.assertEqual(branch[b'DNAM'],struct.pack('<I',1)) # top-level, not blocking/exclusive
+        self.assertEqual(branch[b'SNAM'],struct.pack('<I',0x01000B01))
+        self.assertEqual(topic[b'BNAM'],struct.pack('<I',0x01000B00))
+        self.assertEqual(topic[b'QNAM'],branch[b'QNAM'])
+        self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),'随机换装')
+        self.assertEqual(topic[b'TIFC'],struct.pack('<I',1))
+        self.assertEqual(info[b'TPIC'],branch[b'SNAM'])
+        self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0x801,0))
+        row=next(r for r in self.rows if r['sig']==b'INFO')
+        conditions=[v for k,v in subrecords(row['data']) if k==b'CTDA']
+        self.assertEqual([(struct.unpack_from('<H',c,8)[0],struct.unpack_from('<I',c,12)[0],struct.unpack_from('<f',c,4)[0]) for c in conditions],
+                         [(71,0x01000801,1),(453,0,1),(46,0,0),(289,0,0)])
+        self.assertTrue(all(c[0]==0 for c in conditions))
+        vmad=info[b'VMAD']; offset=6
+        def string():
+            nonlocal offset
+            n=struct.unpack_from('<H',vmad,offset)[0];offset+=2
+            value=vmad[offset:offset+n].decode();offset+=n;return value
+        self.assertEqual(struct.unpack_from('<HHH',vmad),(5,2,1))
+        self.assertEqual(string(),'CMRandomOutfitTopic')
+        self.assertEqual(vmad[offset:offset+3],b'\0\0\0');offset+=3
+        self.assertEqual(vmad[offset:offset+2],b'\x02\x01');offset+=2 # OnBegin
+        self.assertEqual(string(),'CMRandomOutfitTopic')
+        self.assertEqual(vmad[offset],1);offset+=1 # fragment version, matching vanilla INFO
+        self.assertEqual(string(),'CMRandomOutfitTopic');self.assertEqual(string(),'Fragment_0')
+        self.assertEqual(offset,len(vmad))
+        for script in ('CMDialogue','CMRandomOutfitTopic'):
+            self.assertEqual((ROOT/f'data/Scripts/{script}.pex').read_bytes()[:4],bytes.fromhex('fa57c0de'))
 
     def test_optional_aliases_cannot_autofill_and_all_packages_resolve(self):
         aliases=[];active=None

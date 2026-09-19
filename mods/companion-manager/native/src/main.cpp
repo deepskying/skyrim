@@ -247,6 +247,8 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface *sks
     REL::Module::reset();
     SKSE::Init(skse);
     companion::RegisterSerialization();
+    if(auto* papyrus=SKSE::GetPapyrusInterface()) papyrus->Register(companion::RegisterPapyrus);
+    else return false;
     if (auto directory = SKSE::log::log_directory())
     {
         *directory /= "CompanionManager.log";

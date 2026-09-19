@@ -19,6 +19,8 @@ std::unordered_map<RE::FormID,std::string> activityRequests;
 std::unordered_set<RE::FormID> battleEnemies, droppedReferences;
 std::deque<std::string> activityHistory;
 RE::FormID wardrobeOpenRequest=0;
+RE::FormID dialogueOutfitRequest=0;
+double dialogueOutfitDeadline=0;
 bool battleSeen=false;
 bool activityCleanup=false;
 double lootUntil=0, quietSince=0;
@@ -164,6 +166,7 @@ void ResetActivities() {
     activityJob.reset(); activityRequests.clear(); activityCooldown.clear(); requestCooldown.clear();
     battleEnemies.clear(); activityHistory.clear();
     battleSeen=false; activityCleanup=false; wardrobeOpenRequest=0; lootUntil=quietSince=0;
+    dialogueOutfitRequest=0; dialogueOutfitDeadline=0;
 }
 bool StartActivity(RE::Actor* actor,RE::TESObjectREFR* target,const std::string& kind) {
     if(activityJob||activityCleanup||!members.contains(actor->GetFormID())) return false;
@@ -305,7 +308,7 @@ bool WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selected) {
         return std::any_of(after.begin(),after.end(),[&](const auto& row){return row.key==item.key&&row.equipped;});
     });
 }
-bool ChangeOutfit(RE::Actor* actor,json& r,bool restore=false) {
+bool ChangeOutfit(RE::Actor* actor,json& r,bool restore=false,bool fallback=false) {
     auto inventory=Wardrobe(actor,r,true);
     if(restore) {
         if(!r.value("casual",false)) return false;
@@ -315,28 +318,29 @@ bool ChangeOutfit(RE::Actor* actor,json& r,bool restore=false) {
         if(WearSet(actor,original)) {r["casual"]=false;return true;}
         return false;
     }
-    std::vector<WardrobeItem> candidates;
-    for(auto& row:inventory) if(row.favorite&&!row.quest&&row.item->As<RE::TESObjectARMO>()) candidates.push_back(row);
+    std::vector<outfit::Candidate> candidates;
+    for(std::size_t i=0;i<inventory.size();++i) {
+        auto& row=inventory[i];
+        if(auto* armor=row.item->As<RE::TESObjectARMO>();armor&&!row.quest)
+            candidates.push_back({i,static_cast<std::uint32_t>(armor->GetSlotMask()),row.favorite,row.equipped});
+    }
     if(candidates.empty()) return false;
     static std::mt19937 rng{std::random_device{}()}; std::shuffle(candidates.begin(),candidates.end(),rng);
     std::uint32_t occupied=0;
     for(auto& row:inventory) if(row.quest&&row.equipped)
         if(auto* armor=row.item->As<RE::TESObjectARMO>()) occupied|=static_cast<std::uint32_t>(armor->GetSlotMask());
     std::vector<WardrobeItem> selected;
-    for(auto& row:candidates) {
-        const auto mask=static_cast<std::uint32_t>(row.item->As<RE::TESObjectARMO>()->GetSlotMask());
-        if(!mask||(occupied&mask)) continue;
-        occupied|=mask; selected.push_back(row);
-    }
+    for(auto index:outfit::Select(candidates,occupied,fallback)) selected.push_back(inventory[index]);
     if(selected.empty()) return false;
+    if(std::all_of(selected.begin(),selected.end(),[](const auto& row){return row.equipped;})) return false;
     if(!r.value("casual",false)) {
         r["battleOutfit"]=json::array();
         for(auto& row:inventory) if(row.equipped&&row.item->As<RE::TESObjectARMO>()) r["battleOutfit"].push_back(row.key);
     }
     r["casual"]=true;
     if(!WearSet(actor,selected)) return false;
-    ActivityLog(std::format("{}从锁定服饰中更换了穿搭",actor->GetName()),false);
-    activityRequests[actor->GetFormID()]="outfit";
+    ActivityLog(std::format("{}更换了穿搭",actor->GetName()),false);
+    if(!fallback) activityRequests[actor->GetFormID()]="outfit";
     return true;
 }
 class ActivityAnswer final:public RE::IMessageBoxCallback {
@@ -516,9 +520,11 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         return true;
     }
     if(op=="changeOutfit") {
-        if(!ActorAvailable(actor,r)||RE::PlayerCharacter::GetSingleton()->IsInCombat()) throw std::runtime_error("请在同伴闲暇且未战斗时换装");
+        if(!actor||!r.value("active",false)||!actor->IsPlayerTeammate()||actor->IsDead()||actor->IsDisabled()||
+           !actor->Is3DLoaded()||actor->GetCurrentScene()||actor->IsInCombat()||RE::PlayerCharacter::GetSingleton()->IsInCombat())
+            throw std::runtime_error("请在同伴闲暇且未战斗时换装");
         CancelActivity();
-        if(!ChangeOutfit(actor,r)) throw std::runtime_error("没有可搭配的收藏服饰，或引擎尚未确认换装，请刷新检查");
+        if(!ChangeOutfit(actor,r,false,true)) throw std::runtime_error("没有可替换的服饰，或引擎尚未确认换装，请刷新检查");
         r["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
         return true;
     }

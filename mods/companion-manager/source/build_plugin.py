@@ -57,7 +57,7 @@ for slot in range(SLOTS):
     fid=0x01000A00+slot
     packages.append(instance('DefaultSandboxCurrentLocation1024',fid,f'CMActivity{slot:02}',rank(100),location=(8,128+slot,64),booleans={1:False,2:False}))
     activities.append(fid)
-# Own quest: optional aliases only, no dialogue stages, inventory or vanilla faction injections.
+# Own quest: optional aliases, plus an owned top-level outfit dialogue branch.
 def wstring(s):
     b=s.encode();return struct.pack('<H',len(b))+b
 vmad=struct.pack('<HHH',5,2,1)+wstring('CMController')+b'\0'+struct.pack('<H',0)
@@ -77,8 +77,28 @@ for alias_id in range(SLOTS*4):
 quest=dict(sig=b'QUST',form=QUEST,data=q)
 faction=dict(sig=b'FACT',form=FACTION,data=sub(b'EDID',Z('CMModeFaction'))+sub(b'DATA',U32(0)))
 # Bed aliases 192..255 remain empty for cleanup of the short-lived 1.6.0 test build.
-count=len(packages)+2
+BRANCH, TOPIC, INFO = 0x01000B00, 0x01000B01, 0x01000B02
+branch=dict(sig=b'DLBR',form=BRANCH,data=sub(b'EDID',Z('CMRandomOutfitBranch'))+
+    sub(b'QNAM',U32(QUEST))+sub(b'TNAM',U32(0))+sub(b'DNAM',U32(1))+sub(b'SNAM',U32(TOPIC)))
+topic=dict(sig=b'DIAL',form=TOPIC,data=sub(b'EDID',Z('CMRandomOutfitTopic'))+
+    sub(b'FULL',Z('随机换装'))+sub(b'PNAM',struct.pack('<f',50))+sub(b'BNAM',U32(BRANCH))+
+    sub(b'QNAM',U32(QUEST))+sub(b'DATA',struct.pack('<BBH',0,0,0))+sub(b'SNAM',b'CUST')+sub(b'TIFC',U32(1)))
+# INFO VMAD OnBegin fragment; no properties or persistent script state.
+fragment='CMRandomOutfitTopic'
+info_vmad=struct.pack('<HHH',5,2,1)+wstring(fragment)+b'\0'+struct.pack('<H',0)
+info_vmad+=bytes([2,1])+wstring(fragment)+b'\x01'+wstring(fragment)+wstring('Fragment_0')
+# Goodbye + No LIP File. Empty response: run the fragment without a voiced reply.
+info=dict(sig=b'INFO',form=INFO,data=sub(b'EDID',Z('CMRandomOutfitResponse'))+sub(b'VMAD',info_vmad)+
+    sub(b'ENAM',struct.pack('<HH',0x801,0))+sub(b'TPIC',U32(TOPIC))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
+    sub(b'TRDT',struct.pack('<IIIB3sIB3s',0,0,0,1,b'\0'*3,0,0,b'\0'*3))+
+    sub(b'NAM1',Z(''))+sub(b'NAM2',Z(''))+sub(b'NAM3',Z(''))+
+    cond(71,FACTION,1)+cond(453,0,1)+cond(46,0,0)+cond(289,0,0))
+info_bytes=encode(info)
+topic_children=struct.pack('<4sI4siHHHH',b'GRUP',24+len(info_bytes),U32(TOPIC),7,0,0,0,0)+info_bytes
+dialogue_bytes=encode(topic)+topic_children
+dialogue_group=struct.pack('<4sI4siHHHH',b'GRUP',24+len(dialogue_bytes),b'DIAL',0,0,0,0,0)+dialogue_bytes
+count=len(packages)+5
 header=dict(sig=b'TES4',form=0,flags=0x200,data=sub(b'HEDR',struct.pack('<fII',1.7,count,0xE00))+sub(b'CNAM',Z('linos'))+sub(b'MAST',Z('Skyrim.esm'))+sub(b'DATA',b'\0'*8))
 out=ROOT/'data/CompanionManager.esp';out.parent.mkdir(parents=True,exist_ok=True)
-out.write_bytes(encode(header)+group(b'FACT',[faction])+group(b'PACK',packages)+group(b'QUST',[quest]))
+out.write_bytes(encode(header)+group(b'FACT',[faction])+group(b'PACK',packages)+group(b'QUST',[quest])+group(b'DLBR',[branch])+dialogue_group)
 print(f'{out}: {count} records, {SLOTS} actor slots + {SLOTS} home + {SLOTS} activity targets')

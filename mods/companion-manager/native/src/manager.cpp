@@ -4,6 +4,7 @@
 #include "trade_dialogue.h"
 #include "activity_rules.h"
 #include "activity_prompt.h"
+#include "outfit_rules.h"
 #include <deque>
 #include <random>
 #include <limits>
@@ -451,6 +452,26 @@ void Tick()
     SyncDialogueRecruitment();
     if (commandPending)
         return;
+    if(dialogueOutfitRequest) {
+        const auto id=dialogueOutfitRequest;
+        if(ActivityTime()>dialogueOutfitDeadline) dialogueOutfitRequest=0;
+        else if(!ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) {
+            dialogueOutfitRequest=0;
+            auto* actor=Actor(id);
+            const auto it=members.find(id);
+            if(it!=members.end()&&actor&&it->second.value("active",false)&&actor->IsPlayerTeammate()&&
+               !actor->IsDead()&&!actor->IsDisabled()&&actor->Is3DLoaded()&&!actor->GetCurrentScene()&&
+               !actor->IsInCombat()&&!player->IsInCombat()&&Nearby(actor,player,600)) {
+                try {
+                    CancelActivity();
+                    const bool changed=ChangeOutfit(actor,it->second,false,true);
+                    if(changed) it->second["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
+                    RE::DebugNotification(changed?"已随机更换穿搭":"没有可替换的服饰，或换装未确认；请检查伙伴库存");
+                    RefreshManagerView();
+                } catch(const std::exception& e) { logger::warn("Dialogue outfit: {}",e.what()); RE::DebugNotification("换装未完成，请检查伙伴库存"); }
+            } else RE::DebugNotification("同伴当前无法换装，请在非战斗时重试");
+        }
+    }
     try { ClearRetiredNeeds(); TickActivities(); if(ManagerViewOpen()){static double refreshAt=0;if(ActivityTime()>refreshAt){refreshAt=ActivityTime()+5;RefreshManagerView();}} } catch(const std::exception& e) { CancelActivity(); ActivityLog(e.what()); }
     for (auto &[id, r] : members)
         if (auto *actor = Actor(id))
@@ -478,6 +499,18 @@ void Tick()
 RE::TESQuest *Controller()
 {
     return quest;
+}
+bool RegisterPapyrus(RE::BSScript::IVirtualMachine* vm)
+{
+    vm->RegisterFunction("RandomOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor) {
+        std::scoped_lock guard(lock);
+        if(!ready||!actor||dialogueOutfitRequest) return;
+        const auto it=members.find(actor->GetFormID());
+        if(it==members.end()||!it->second.value("active",false)) return;
+        dialogueOutfitRequest=actor->GetFormID();
+        dialogueOutfitDeadline=ActivityTime()+20;
+    });
+    return true;
 }
 std::string SessionToken()
 {

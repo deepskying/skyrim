@@ -183,10 +183,20 @@ export function simulate(s, r) {
       f.behaviorOverride=!r.inherit;f.behavior=structuredClone(r.inherit?s.automation.defaults:r.settings);break;
     case "deferRequest":f.request="";break;
     case "changeOutfit": {
-      const choices=f.wardrobe.filter(i=>i.favorite&&i.category===2&&!i.quest);
-      if(!choices.length)return {ok:false,message:"请先收藏一件服装"};
-      for(const i of f.wardrobe)if(i.category===2)i.equipped=false;
-      choices[choices.length-1].equipped=true; f.request="outfit";break;
+      // Preview fixtures model body clothing and accessories as separate slots.
+      // Native selection uses the actual armor slot masks.
+      const selected=[2,4].flatMap(category=>{
+        if(f.wardrobe.some(i=>i.category===category&&i.quest&&i.equipped))return [];
+        const available=f.wardrobe.filter(i=>i.category===category&&!i.quest);
+        const locked=available.filter(i=>i.favorite),pool=locked.length?locked:available;
+        const choice=pool.find(i=>!i.equipped)??pool[0];return choice?[choice]:[];
+      });
+      if(!selected.some(i=>!i.equipped))return {ok:false,message:"没有可替换的服饰"};
+      for(const choice of selected){
+        for(const i of f.wardrobe)if(i.category===choice.category&&!i.quest)i.equipped=false;
+        choice.equipped=true;
+      }
+      f.request="";break;
     }
     case "wardrobeTake": {
       const keys=new Set(),plan=[];

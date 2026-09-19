@@ -5,20 +5,20 @@ import { useGame } from "./useGame";
 import type { Section as DemoSection } from "./demo";
 import "./game.css";
 import { version } from "../package.json";
-import { plainDescription, teachingBlock } from "./magic";
+import { MagicPanel } from "./MagicPanel";
+import { CompanionPicker } from "./CompanionPicker";
 import { recruitmentCandidates, recruitmentBlock } from "./recruitment";
 import {Management} from "./Management";
 
-type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe";
+type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe" | "magic";
 const sections: [Section, string, string][] = [
   ["party", "我的队伍", "♧"],
   ["registry", "随从名册", "▤"],
   ["behavior", "行为管理", "⚙"],
   ["wardrobe", "伙伴库存", "◇"],
+  ["magic", "魔法管理", "✧"],
   ["settings", "全局设置", "⚙"],
 ];
-type Tab = "概览" | "魔法";
-const tabs: Tab[] = ["概览", "魔法"];
 type Confirmation = {
   title: string;
   description: string;
@@ -62,12 +62,9 @@ function Toggle({
 export function GameApp() {
   const game = useGame(),
     s = game.snapshot;
-  const [section, setSection] = useState<Section>("party"),
-    [tab, setTab] = useState<Tab>("概览");
+  const [section, setSection] = useState<Section>("party");
   const [selected, setSelected] = useState(""),
-    [query, setQuery] = useState(""),
-    [itemQuery, setItemQuery] = useState(""),
-    [school, setSchool] = useState("全部");
+    [query, setQuery] = useState("");
   const [confirm, setConfirm] = useState<Confirmation | null>(null),
     [quantity, setQuantity] = useState(1);
   const [recruitOpen, setRecruitOpen] = useState(false),
@@ -87,7 +84,8 @@ export function GameApp() {
           .toLowerCase()
           .includes(query.toLowerCase()),
     ) ?? [];
-  const f = s?.followers.find((f) => f.id === selected && f.group === section);
+  const magicFollowers = s?.followers.filter(f => f.managed) ?? [];
+  const f = section === "magic" ? (magicFollowers.find(f => f.id === managementActor) ?? magicFollowers[0]) : s?.followers.find((f) => f.id === selected && f.group === section);
   const enabled = !!s?.ready && !!s.managerAvailable && !game.busy;
   const editable = enabled && !!f?.managed && !f.dead && !f.unavailable;
   const prefs = s?.settings ?? {
@@ -103,10 +101,6 @@ export function GameApp() {
     setSelected("");
     setManagementActor("");
   }, [s?.session]);
-  useEffect(() => {
-    setItemQuery("");
-    setSchool("全部");
-  }, [f?.id, tab]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
       if (
@@ -189,7 +183,6 @@ export function GameApp() {
     "--base-size": `${prefs.font}px`,
     "--text-scale": prefs.font / 15,
   } as CSSProperties;
-  const inventory = s?.inventory ?? [];
   return (
     <div className="preview-world cm-runtime">
       <main className="app" style={style}>
@@ -209,7 +202,6 @@ export function GameApp() {
                 onClick={() => {
                   setSection(id);
                   setSelected("");
-                  setTab("概览");
                   setQuery("");
                   setConfirm(null);
                 }}
@@ -286,7 +278,16 @@ export function GameApp() {
               </button>
             </div>
           </header>
-          {section === "behavior" || section === "wardrobe" ? <Management key={section} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "settings" ? (
+          {section === "behavior" || section === "wardrobe" ? <Management key={section} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "magic" ? (
+            <section className="cm-management cm-magic-page">
+              <div className="cm-management-bar"><div><h2>管理伙伴的法术</h2><p>查看已知法术、调整使用权限，或传授背包中的法术书。</p></div>
+                <CompanionPicker key={s?.session} followers={magicFollowers} value={f?.id ?? ""} onChange={setManagementActor} label="选择魔法管理伙伴" />
+              </div>
+              {f ? <MagicPanel snapshot={s} follower={f} busy={game.busy} editable={editable} command={game.command}
+                onTeach={b => ask("传授法术", `消耗一本${b.name}，让${f.name}学会${b.spellName}。`, "teach", {entityId: b.id})} />
+                : <div className="cm-empty">先招募一位伙伴，即可管理法术。</div>}
+            </section>
+          ) : section === "settings" ? (
             <div className="settings-page">
               <h2>按你的习惯同行</h2>
               <p>外观与行为偏好随当前游戏存档保存。</p>
@@ -390,8 +391,7 @@ export function GameApp() {
                         aria-label={`查看${a.name}详情`}
                         onClick={() => {
                           setSelected(a.id);
-                          setTab("概览");
-                        }}
+                                }}
                       >
                         <div className="cm-card-top">
                           <h3>{a.name}</h3>
@@ -471,25 +471,7 @@ export function GameApp() {
                       </div>
                     </div>
                   </div>
-                  <div className="tabs" role="tablist">
-                    {tabs.map((t) => (
-                      <button
-                        key={t}
-                        role="tab"
-                        aria-selected={tab === t}
-                        className={tab === t ? "active" : ""}
-                        onClick={() => setTab(t)}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                  <div
-                    className="detail-scroll"
-                    role="tabpanel"
-                    aria-label={tab}
-                    key={`${f.id}-${tab}`}
-                  >
+                  <div className="detail-scroll" aria-label="概览" key={f.id}>
                     {(f.dead || f.unavailable) && (
                       <div className="info-box">
                         {f.dead
@@ -516,7 +498,7 @@ export function GameApp() {
                         </button>
                       </div>
                     )}
-                    {tab === "概览" && (
+                    {(
                       <>
                         <div className="cm-overview-actions" aria-label="随从快捷操作">
                           <button className="cm-action-wait" disabled={!editable || f.group !== "party"}
@@ -529,6 +511,7 @@ export function GameApp() {
                               f.group === "party" ? `让${f.name}离开队伍，保留名册、收藏和个人设置。已设置居所时会返回居所。` : `让${f.name}重新加入队伍。`,
                               f.group === "party" ? "dismiss" : "recruit",
                             )}>{f.group === "party" ? "解散" : "重新入队"}</button>
+                          <button disabled={!f.managed} onClick={() => { setManagementActor(f.id); setSection("magic"); }}>魔法管理</button>
                           <button className="cm-action-home" disabled={!editable}
                             title="将你当前站立的位置设为这位同伴的居所"
                             onClick={() => ask("设置居所",
@@ -610,195 +593,7 @@ export function GameApp() {
                         </div>
                       </>
                     )}
-                    {tab === "魔法" && (
-                      <>
-                        <div className="cm-magic-tools">
-                          <input
-                            className="cm-search"
-                            aria-label="搜索法术"
-                            placeholder="搜索法术或法术书…"
-                            value={itemQuery}
-                            onChange={(e) => setItemQuery(e.target.value)}
-                          />
-                          <select
-                            aria-label="法术学派"
-                            value={school}
-                            onChange={(e) => setSchool(e.target.value)}
-                          >
-                            {[
-                              "全部",
-                              ...new Set([
-                                ...f.spells.map((x) => x.school),
-                                ...inventory
-                                  .filter((x) => x.spellId && x.school)
-                                  .map((x) => x.school!),
-                              ]),
-                            ].map((x) => (
-                              <option key={x}>{x}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="section-title">
-                          <h3>
-                            已知法术 <small>{f.spells.length}</small>
-                          </h3>
-                          <p>管理这位同伴可以使用的法术</p>
-                        </div>
-                        <div className="cm-magic-grid">
-                          {f.spells
-                            .filter(
-                              (x) =>
-                                (school === "全部" || x.school === school) &&
-                                x.name.includes(itemQuery),
-                            )
-                            .map((spell) => (
-                              <div
-                                className={`cm-magic-card ${spell.enabled ? "" : "disabled"}`}
-                                key={spell.id}
-                              >
-                                <div className="cm-magic-card-head">
-                                  <span className="cm-spell-mark">✧</span>
-                                  <div>
-                                    <h3>{spell.name}</h3>
-                                    <p>
-                                      {spell.school} · {spell.cost} 法力
-                                    </p>
-                                  </div>
-                                </div>
-                                <p className="cm-description">
-                                  {plainDescription(spell.description) ||
-                                    "此法术未提供效果介绍。"}
-                                </p>
-                                <button
-                                  role="switch"
-                                  aria-label={`${spell.name}使用`}
-                                  aria-checked={spell.enabled}
-                                  disabled={!editable}
-                                  onClick={() =>
-                                    act("spell", {
-                                      entityId: spell.id,
-                                      value: !spell.enabled,
-                                    })
-                                  }
-                                >
-                                  {spell.enabled
-                                    ? "已启用 · 点击禁用"
-                                    : "已禁用 · 点击恢复"}
-                                </button>
-                              </div>
-                            ))}
-                        </div>
-                        {!f.spells.length && (
-                          <p className="cm-empty">此角色尚未掌握普通法术。</p>
-                        )}
-                        <div className="cm-tome-heading">
-                          <span className="eyebrow">将知识交给旅伴</span>
-                          <h3>从背包传授法术</h3>
-                          <p>阅读法术介绍后传授；成功学习消耗一本法术书。</p>
-                        </div>
-                        {!s?.managerAvailable && (
-                          <div className="cm-notice failure" role="alert">
-                            教学不可用：请在 MO2 右侧启用
-                            CompanionManager.esp，重新启动游戏。
-                          </div>
-                        )}
-                        {s?.managerAvailable && !f.managed && (
-                          <div className="info-box">
-                            此人物尚未由同行管理，暂不支持修改其法术；不会直接接管其他模组的随从。
-                          </div>
-                        )}
-                        <div className="cm-magic-grid cm-tome-grid">
-                          {inventory
-                            .filter(
-                              (b) =>
-                                b.spellId &&
-                                (school === "全部" ||
-                                  !b.school ||
-                                  b.school === school) &&
-                                `${b.name}${b.spellName}`.includes(itemQuery),
-                            )
-                            .map((b) => {
-                              const block = teachingBlock(s, f, b, game.busy),
-                                known = f.spells.some(
-                                  (x) => x.id === b.spellId,
-                                );
-                              const intro =
-                                plainDescription(b.spellDescription) ||
-                                plainDescription(b.description);
-                              return (
-                                <article
-                                  className="cm-magic-card cm-tome"
-                                  key={b.id}
-                                >
-                                  <div className="cm-magic-card-head">
-                                    <span className="cm-spell-mark">▥</span>
-                                    <div>
-                                      <h3>{b.spellName}</h3>
-                                      <p>
-                                        {b.school ?? "法术书"}
-                                        {b.cost !== undefined
-                                          ? ` · ${b.cost} 法力（玩家）`
-                                          : ""}
-                                      </p>
-                                    </div>
-                                    <span className="cm-book-count">
-                                      ×{b.count}
-                                    </span>
-                                  </div>
-                                  <p className="cm-description">
-                                    {intro || "这本法术书未提供介绍。"}
-                                  </p>
-                                  {plainDescription(b.description) &&
-                                    plainDescription(b.description) !==
-                                      intro && (
-                                      <details>
-                                        <summary>书本正文</summary>
-                                        <p className="cm-description">
-                                          {plainDescription(b.description)}
-                                        </p>
-                                      </details>
-                                    )}
-                                  <div className="cm-tome-foot">
-                                    <small>{b.name}</small>
-                                    <button
-                                      className="primary"
-                                      disabled={!!block}
-                                      aria-describedby={`book-${b.id}`}
-                                      onClick={() =>
-                                        ask(
-                                          "传授法术",
-                                          `消耗一本${b.name}，让${f.name}学会${b.spellName}。`,
-                                          "teach",
-                                          { entityId: b.id },
-                                        )
-                                      }
-                                    >
-                                      {known
-                                        ? "已掌握"
-                                        : b.quest
-                                          ? "任务物品"
-                                          : "传授法术"}
-                                    </button>
-                                  </div>
-                                  {block && (
-                                    <p
-                                      className="cm-block-reason"
-                                      id={`book-${b.id}`}
-                                    >
-                                      {block}
-                                    </p>
-                                  )}
-                                </article>
-                              );
-                            })}
-                        </div>
-                        {!inventory.some((b) => b.spellId) && (
-                          <p className="cm-empty">
-                            背包中没有法术书。获得法术书后，点击右上角刷新。
-                          </p>
-                        )}
-                      </>
-                    )}
+
                   </div>
                 </article>
               )}

@@ -9,6 +9,9 @@ $web = Join-Path $moduleRoot 'web/dist'
 foreach ($required in @($dll, (Join-Path $web 'index.html'), (Join-Path $moduleRoot 'data/CompanionManager.esp'), (Join-Path $moduleRoot 'data/Scripts/CMController.pex'))) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Build output missing: $required" }
 }
+foreach ($script in @('CMDialogue', 'CMRandomOutfitTopic')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $moduleRoot "data/Scripts/$script.pex") -PathType Leaf)) { throw "Dialogue script missing: $script" }
+}
 $release = Join-Path $PSScriptRoot 'release'
 $name = "CompanionManager-$version-fulltest-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
 $stage = Join-Path $release $name

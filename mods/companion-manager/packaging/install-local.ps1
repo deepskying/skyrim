@@ -19,7 +19,7 @@ foreach ($entry in $manifest.files) {
     if (-not $path.StartsWith($source + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid package path' }
     if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $entry.sha256) { throw "Package hash mismatch: $($entry.path)" }
 }
-foreach ($required in @('SKSE/Plugins/CompanionManager.dll', 'MeridianUI/companion-manager/index.html', 'CompanionManager.esp', 'Scripts/CMController.pex')) {
+foreach ($required in @('SKSE/Plugins/CompanionManager.dll', 'MeridianUI/companion-manager/index.html', 'CompanionManager.esp', 'Scripts/CMController.pex', 'Scripts/CMDialogue.pex', 'Scripts/CMRandomOutfitTopic.pex')) {
     if ($required -notin $manifest.files.path) { throw "Required package entry missing: $required" }
 }
 $existing = @(Get-ChildItem -LiteralPath $mods -Directory | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKSE/Plugins/CompanionManager.dll') })

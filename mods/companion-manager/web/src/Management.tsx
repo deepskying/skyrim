@@ -2,6 +2,7 @@ import { useEffect,useState } from "react";
 import type { Snapshot,GameFollower } from "./bridge";
 import { categories,defaultBehavior,selectionTotals,validBehavior,type BehaviorSettings } from "./behavior";
 import { inventoryCategories,itemCategory,inventoryMatches,categoryCounts,type InventoryCategory } from "./inventory";
+import { CompanionPicker } from "./CompanionPicker";
 type Props={snapshot:Snapshot|null;enabled:boolean;wardrobe:boolean;initialActor:string;command:(op:string,data?:Record<string,unknown>)=>boolean};
 const jobNames:Record<string,string>={idle:"自由安排",loot:"搜集战利品",sell:"前往商家交易",carry:"准备交接物品",outfit:"征求穿搭建议"};
 export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Props) {
@@ -25,9 +26,9 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
   const number=(key:keyof BehaviorSettings,label:string,min:number,max:number,unit:string)=><label className="cm-auto-number">{label}<span><input type="number" aria-label={label} min={min} max={max} disabled={!enabled} value={Number(draft[key])} onChange={e=>setDraft({...draft,[key]:Number(e.target.value)})}/>{unit}</span></label>;
   return <section className="cm-management">
     <div className="cm-management-bar"><div><h2>{wardrobe?"每位伙伴的随身库存":"让同伴按自己的习惯行动"}</h2><p>{wardrobe?(taking?"点击物品卡片选择或取消取走，右上角显示选中状态。":"点击卡片切换锁定。★ 锁定物品不会出售，锁定服饰可参与自动穿搭。"):"全队规则统一设置，也可以为伙伴保留个人偏好。"}</p></div>
-      <select aria-label="选择管理伙伴" value={f?.id??""} onChange={e=>setActorId(e.target.value)}>
+      {wardrobe?<CompanionPicker key={s?.session} followers={followers} value={f?.id??""} onChange={setActorId}/>:<select aria-label="选择管理伙伴" value={f?.id??""} onChange={e=>setActorId(e.target.value)}>
         {!wardrobe&&<option value="">全队默认</option>}{followers.map(a=><option key={a.id} value={a.id}>{a.name}{a.group==="registry"?" · 已离队":""}</option>)}
-      </select>
+      </select>}
     </div>
     {f&&<div className="cm-management-summary"><strong>{f.name}</strong><span>负重 {(f.carried??0).toFixed(1)} / {(f.capacity??0).toFixed(0)}</span><span>{jobNames[f.activity??"idle"]}</span><span>{f.behaviorOverride?"个人规则":"沿用全队规则"}</span></div>}
     {wardrobe?<>
@@ -35,7 +36,7 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
       <nav className="cm-inventory-categories" aria-label="库存分类">{inventoryCategories.map(c=><button key={c.id} className={filter===c.id?"active":""} aria-pressed={filter===c.id} onClick={()=>setFilter(c.id)}><span aria-hidden="true">{c.icon}</span><span>{c.label}</span><small aria-label={`${counts[c.id]}组物品`}>{counts[c.id]}</small></button>)}</nav>
       <div className="cm-wardrobe-toolbar"><input aria-label="搜索库存" placeholder="搜索装备或物品…" value={query} onChange={e=>setQuery(e.target.value)}/><button className={lockedOnly?"cm-locked-filter active":"cm-locked-filter"} aria-pressed={lockedOnly} onClick={()=>setLockedOnly(!lockedOnly)}>★ 仅看已锁定</button>
         <button disabled={!usable||f.inCombat} onClick={()=>act("exchangeSupplies")}>交换物资</button><button disabled={!usable} onClick={()=>{setTaking(!taking);setSelected({});}}>{taking?"取消取物":"挑选物品取走"}</button>
-        <button disabled={!usable||f.inCombat||!items.some(i=>i.favorite&&!i.quest&&(i.category===2||i.category===4))} onClick={()=>act("changeOutfit")}>试换一套</button>
+        <button disabled={!usable||f.inCombat||!items.some(i=>!i.quest&&(i.category===2||i.category===4))} title="优先搭配锁定服饰，未覆盖的部位可选未锁定服饰" onClick={()=>act("changeOutfit")}>试换一套</button>
       </div>
       {f.request&&<div className="cm-management-summary">{f.request==="carry"?"伙伴希望你帮忙分担物品。":"伙伴想听听你的穿搭建议。"}<button disabled={!usable} onClick={()=>act("deferRequest")}>稍后再说</button></div>}
       <p className="cm-inventory-result">{inventoryCategories.find(c=>c.id===filter)?.label} · {shown.length} 组物品{taking&&" · 切换分类会保留已选物品"}</p>
@@ -53,9 +54,9 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
             <div className="cm-wardrobe-emblem">{category.icon}
               {taking?(takeable&&<span className={`cm-take-mark ${picked?"checked":""}`} aria-hidden="true">{picked?"✓":""}</span>):<span className="cm-favorite-mark" aria-label={i.favorite?"已锁定":"未锁定"}>{i.favorite?"★":"☆"}</span>}
             </div>
-            <h3>{i.name}</h3><p>{category.label} · ×{i.count}</p>
+            <h3>{i.name}{i.equipped&&<> <span className="cm-equipped-badge">已装备</span></>}</h3><p>{category.label} · ×{i.count}</p>
             <div className="cm-wardrobe-stats"><span>价值 {i.value}</span><span>重量 {i.weight.toFixed(1)}</span></div>
-            <div className="cm-wardrobe-tags">{i.equipped&&<span>正在穿戴</span>}{i.quest&&<span>受保护</span>}{i.favorite&&<span>★ 已锁定 · 不出售</span>}{taking&&!takeable&&<span>不可取走</span>}</div>
+            <div className="cm-wardrobe-tags">{i.quest&&<span>受保护</span>}{i.favorite&&<span>★ 已锁定 · 不出售</span>}{taking&&!takeable&&<span>不可取走</span>}</div>
           </button>
           {taking&&picked&&i.count>1&&<label className="cm-wardrobe-take">取走数量<input type="number" aria-label={`${i.name}取走数量`} min={1} max={i.count} disabled={!usable} value={selected[i.key]} onChange={e=>setSelected({...selected,[i.key]:Number(e.target.value)})}/></label>}
         </article>;
