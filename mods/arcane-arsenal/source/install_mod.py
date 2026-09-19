@@ -23,10 +23,8 @@ version=meta['General']['version']
 backup=ROOT/'build'/('mo2-before-'+version+'-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
 backup.mkdir(parents=True,exist_ok=False)
 assets={p.relative_to(ROOT/'data'):p.read_bytes() for p in runtime_paths()}
-assert len(assets)==227 and all(p.suffix in ('.esp','.nif','.dds','.pex','.seq','.dll') for p in assets)
+assert len(assets)==240 and all(p.suffix in ('.esp','.nif','.dds','.pex','.seq','.dll') for p in assets)
 assets[Path('README.md')]=(ROOT/'README.md').read_bytes()
-assets[Path('docs/staves-prototype.md')]=(ROOT/'docs/staves-prototype.md').read_bytes()
-assets[Path('art/arcane-staves/lineup.png')]=(ROOT/'art/arcane-staves/lineup.png').read_bytes()
 existing_meta=(DEST/'meta.ini').read_text(encoding='utf-8-sig')
 updated_meta,count=re.subn(r'(?m)^version=[^\r\n]*','version='+version,existing_meta)
 assert count==1
@@ -59,7 +57,7 @@ except Exception:
     for rel in added:
         if (DEST/rel).is_file():(DEST/rel).unlink()
     raise
-report={'version':version,'destination':str(DEST),'backup':str(backup),'runtime_files_verified':227,
+report={'version':version,'destination':str(DEST),'backup':str(backup),'runtime_files_verified':240,
         'changed':changed,'added':added,'removed_obsolete':removed,'verified':True,
         'sha256':{str(rel):hashlib.sha256(data).hexdigest() for rel,data in assets.items()}}
 (ROOT/'build/install-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')

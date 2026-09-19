@@ -61,10 +61,12 @@ ch=next(r for r in owned if edid(r)=='AAStavesTestChest')
 assert [struct.unpack('<II',v) for k,v in subrecords(ch['data']) if k==b'CNTO']==[(F(0xB01+3*i),1) for i in range(4)]
 baseline=ROOT/'build'/('staves-before-plugin.esp' if path.parent.name=='data' else 'staves-preview-before-plugin.esp')
 before=list(records(baseline));old={r['form']:r for r in before}
-assert set(old)<=set(byid)
+retired={0x03000000|(int(s['stat_form'],16)+offset) for s in json.loads((ROOT/'source/retired_weapons.json').read_text(encoding='utf-8')) for offset in range(3)}|{0x03000A17}
+assert set(old)-retired<=set(byid)
 for form,r in old.items():
     if r['sig']==b'TES4':continue
-    if edid(r) in ('AAAllBowsTestChest','AAHeteromorphicCrossbowsChest'):
+    if form in retired:continue
+    if edid(r) in ('AAAllBowsTestChest','AAHeteromorphicCrossbowsChest','AAHeteromorphicWaraxesChest'):
         strip=lambda x:[(k,v) for k,v in subrecords(x['data']) if k not in (b'CNTO',b'COCT')]
         assert strip(r)==strip(byid[form])
     else:assert r==byid[form],edid(r)

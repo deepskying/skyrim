@@ -230,5 +230,29 @@
     "builder": "build_crystal.py",
     "stat_form": "000915",
     "series": "crystal"
+  },
+  {
+    "key": "waraxefrostruby",
+    "name": "余烬·错牙·磨砂红宝石",
+    "chinese": "余烬·错牙·磨砂红宝石",
+    "stat_form": "000A11"
+  },
+  {
+    "key": "waraxeobsidian",
+    "name": "余烬·错牙·黑曜石",
+    "chinese": "余烬·错牙·黑曜石",
+    "stat_form": "000A14"
+  },
+  {
+    "key": "waraxeredmetal",
+    "name": "余烬·错牙·赤钢试作",
+    "chinese": "余烬·错牙·赤钢试作",
+    "stat_form": "000B8C"
+  },
+  {
+    "key": "waraxegreenjade",
+    "name": "流萤·回翎·翠晶试作",
+    "chinese": "流萤·回翎·翠晶试作",
+    "stat_form": "000B8F"
   }
 ]

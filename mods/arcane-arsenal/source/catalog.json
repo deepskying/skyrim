@@ -1788,28 +1788,6 @@
     "enchantment": null
   },
   {
-    "key": "waraxefrostruby",
-    "name": "余烬·错牙·磨砂红宝石",
-    "series": "material_trials",
-    "weapon_type": "waraxe",
-    "stat_form": "0xa11",
-    "weight": 12,
-    "damage": 80,
-    "weapon_speed": 1.2,
-    "enchantment": null
-  },
-  {
-    "key": "waraxeobsidian",
-    "name": "余烬·错牙·黑曜石",
-    "series": "material_trials",
-    "weapon_type": "waraxe",
-    "stat_form": "0xa14",
-    "weight": 12,
-    "damage": 80,
-    "weapon_speed": 1.2,
-    "enchantment": null
-  },
-  {
     "key": "crossbowred",
     "name": "余烬·折翼",
     "series": "crossbows",
@@ -1848,6 +1826,50 @@
     "series": "crossbows",
     "weapon_type": "crossbow",
     "stat_form": "0xa21",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbow2red",
+    "name": "余烬·破垒",
+    "series": "crossbows2",
+    "weapon_type": "crossbow",
+    "stat_form": "0xb80",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbow2green",
+    "name": "流萤·回缭",
+    "series": "crossbows2",
+    "weapon_type": "crossbow",
+    "stat_form": "0xb83",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbow2blue",
+    "name": "寒汐·叠汐",
+    "series": "crossbows2",
+    "weapon_type": "crossbow",
+    "stat_form": "0xb86",
+    "weight": 14,
+    "damage": 95,
+    "weapon_speed": 1.4,
+    "enchantment": null
+  },
+  {
+    "key": "crossbow2purple",
+    "name": "梦隙·离枢",
+    "series": "crossbows2",
+    "weapon_type": "crossbow",
+    "stat_form": "0xb89",
     "weight": 14,
     "damage": 95,
     "weapon_speed": 1.4,

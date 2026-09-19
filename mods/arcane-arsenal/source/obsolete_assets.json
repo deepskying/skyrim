@@ -1,4 +1,7 @@
 [
+  "SKSE/Plugins/ArcaneStaves.dll",
+  "art/arcane-staves/lineup.png",
+  "docs/staves-prototype.md",
   "meshes/weapons/arcanearsenal/ariesblack.nif",
   "meshes/weapons/arcanearsenal/ariesgold.nif",
   "meshes/weapons/arcanearsenal/arieswhite.nif",
@@ -11,6 +14,24 @@
   "meshes/weapons/arcanearsenal/frostglass.nif",
   "meshes/weapons/arcanearsenal/frostwyrm.nif",
   "meshes/weapons/arcanearsenal/moonthorn.nif",
+  "meshes/weapons/arcanearsenal/staves/1stpersonstafffold.nif",
+  "meshes/weapons/arcanearsenal/staves/1stpersonstaffshuttle.nif",
+  "meshes/weapons/arcanearsenal/staves/1stpersonstaffsteps.nif",
+  "meshes/weapons/arcanearsenal/staves/1stpersonstafftorch.nif",
+  "meshes/weapons/arcanearsenal/staves/fx0.nif",
+  "meshes/weapons/arcanearsenal/staves/fx1.nif",
+  "meshes/weapons/arcanearsenal/staves/fx2.nif",
+  "meshes/weapons/arcanearsenal/staves/fx3.nif",
+  "meshes/weapons/arcanearsenal/staves/fx4.nif",
+  "meshes/weapons/arcanearsenal/staves/fx5.nif",
+  "meshes/weapons/arcanearsenal/staves/fx6.nif",
+  "meshes/weapons/arcanearsenal/staves/fx7.nif",
+  "meshes/weapons/arcanearsenal/staves/stafffold.nif",
+  "meshes/weapons/arcanearsenal/staves/staffshuttle.nif",
+  "meshes/weapons/arcanearsenal/staves/staffsteps.nif",
+  "meshes/weapons/arcanearsenal/staves/stafftorch.nif",
+  "scripts/AAStaffRedHit.pex",
+  "scripts/AAStaffRuntime.pex",
   "textures/weapons/arcanearsenal/aa_aries_pearl.dds",
   "textures/weapons/arcanearsenal/aa_aries_shadow.dds",
   "textures/weapons/arcanearsenal/aa_aries_streak.dds",
@@ -58,4 +79,20 @@
   "textures/weapons/arcanearsenal/moonthorn_edge.dds",
   "textures/weapons/arcanearsenal/moonthorn_g.dds",
   "textures/weapons/arcanearsenal/moonthorn_light.dds"
+  ,"meshes/weapons/arcanearsenal/waraxefrostruby.nif"
+  ,"meshes/weapons/arcanearsenal/waraxeobsidian.nif"
+  ,"meshes/weapons/arcanearsenal/waraxeredmetal.nif"
+  ,"meshes/weapons/arcanearsenal/waraxegreenjade.nif"
+  ,"textures/weapons/arcanearsenal/waraxefrostruby_d.dds"
+  ,"textures/weapons/arcanearsenal/waraxefrostruby_m.dds"
+  ,"textures/weapons/arcanearsenal/waraxefrostruby_n.dds"
+  ,"textures/weapons/arcanearsenal/waraxeobsidian_d.dds"
+  ,"textures/weapons/arcanearsenal/waraxeobsidian_m.dds"
+  ,"textures/weapons/arcanearsenal/waraxeobsidian_n.dds"
+  ,"textures/weapons/arcanearsenal/waraxeredmetal_d.dds"
+  ,"textures/weapons/arcanearsenal/waraxeredmetal_m.dds"
+  ,"textures/weapons/arcanearsenal/waraxeredmetal_n.dds"
+  ,"textures/weapons/arcanearsenal/waraxegreenjade_d.dds"
+  ,"textures/weapons/arcanearsenal/waraxegreenjade_m.dds"
+  ,"textures/weapons/arcanearsenal/waraxegreenjade_n.dds"
 ]
