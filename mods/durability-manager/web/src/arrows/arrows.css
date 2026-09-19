@@ -45,6 +45,36 @@
 
 .arrows-page .arrow-card-enqueue{width:100%;margin-top:auto;font-size:calc(14px * var(--workshop-font-scale,1));padding:8px 10px}.arrow-grid-card .arrow-queued{display:block;margin-top:auto;padding:8px 0;color:#9ed7bd;font-size:calc(12px * var(--workshop-font-scale,1));text-align:center}
 
-.arrow-inventory>.arrow-inventory-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}.arrow-card-stats{display:flex;align-items:center;justify-content:space-between;gap:12px}.arrow-damage{padding:3px 7px;border:1px solid #d9b78038;border-radius:5px;background:#d9b7800b;color:#e2c28e;font-size:calc(14px * var(--workshop-font-scale,1))}.arrow-card-stats>strong{font-size:calc(14px * var(--workshop-font-scale,1));color:#b5d2ca}.arrow-card-body{display:flex;flex:1;flex-direction:column;gap:6px;min-width:0;min-height:0}.arrow-card-body b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.4}.arrow-card-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:center;gap:6px;margin-top:auto;flex-shrink:0}.arrows-page .arrow-card-actions>button{width:100%;font-size:calc(14px * var(--workshop-font-scale,1));padding:8px 6px}
+.arrow-inventory>.arrow-inventory-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}.arrow-card-stats{display:flex;align-items:center;justify-content:space-between;gap:12px}.arrow-damage{padding:3px 7px;border:1px solid #d9b78038;border-radius:5px;background:#d9b7800b;color:#e2c28e;font-size:calc(14px * var(--workshop-font-scale,1))}.arrow-card-stats>strong{font-size:calc(14px * var(--workshop-font-scale,1));color:#b5d2ca}.arrow-card-body{display:flex;flex:1;flex-direction:column;gap:6px;min-width:0;min-height:0}.arrow-card-body b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.4}.arrow-card-actions{display:grid;grid-template-columns:1fr;align-items:center;gap:6px;margin-top:auto;flex-shrink:0}.arrows-page .arrow-card-actions>button{width:100%;font-size:calc(14px * var(--workshop-font-scale,1));padding:8px 6px}
 
 .craft-station-notice{margin:0 0 14px;padding:12px 16px;border:1px solid #dfa95866;border-left:3px solid #dfa958;border-radius:7px;background:#dfa95812;color:#f0ca8d;font-size:calc(14px * var(--workshop-font-scale,1));line-height:1.6}.craft-station-notice.available{border-color:#7ac8b466;border-left-color:#7ac8b4;background:#7ac8b410;color:#a6decd}
+
+/* Fixed colors follow the twelve arrow model families, independent of spell names. */
+[data-arrow-family="fire"]{--arrow-edge:#ff974d;--arrow-glow:#ff974d1c;--arrow-selected:#ff974d38}
+[data-arrow-family="ice"]{--arrow-edge:#bbe8f7;--arrow-glow:#bbe8f71c;--arrow-selected:#bbe8f738}
+[data-arrow-family="shock"]{--arrow-edge:#628bfa;--arrow-glow:#628bfa1c;--arrow-selected:#628bfa38}
+[data-arrow-family="poison"]{--arrow-edge:#b2db50;--arrow-glow:#b2db501c;--arrow-selected:#b2db5038}
+[data-arrow-family="blood"]{--arrow-edge:#e55555;--arrow-glow:#e555551c;--arrow-selected:#e5555538}
+[data-arrow-family="holy"]{--arrow-edge:#ead875;--arrow-glow:#ead8751c;--arrow-selected:#ead87538}
+[data-arrow-family="wind"]{--arrow-edge:#68d59d;--arrow-glow:#68d59d1c;--arrow-selected:#68d59d38}
+[data-arrow-family="water"]{--arrow-edge:#39bec8;--arrow-glow:#39bec81c;--arrow-selected:#39bec838}
+[data-arrow-family="earth"]{--arrow-edge:#ad895d;--arrow-glow:#ad895d1c;--arrow-selected:#ad895d38}
+[data-arrow-family="dark"]{--arrow-edge:#8b94a8;--arrow-glow:#8b94a81c;--arrow-selected:#8b94a838}
+[data-arrow-family="soul"]{--arrow-edge:#aa79ff;--arrow-glow:#aa79ff1c;--arrow-selected:#aa79ff38}
+[data-arrow-family="arcane"]{--arrow-edge:#f277ce;--arrow-glow:#f277ce1c;--arrow-selected:#f277ce38}
+.arrows-page .arrow-grid-card[data-arrow-family]:not([data-arrow-family="normal"]),
+.arrow-queue-items article[data-arrow-family]:not([data-arrow-family="normal"]){border:2px solid var(--arrow-edge)!important;background:linear-gradient(var(--arrow-glow),var(--arrow-glow)),#10212a!important;box-shadow:inset 0 0 18px var(--arrow-glow)}
+.arrows-page .arrow-grid-card.selected[data-arrow-family]:not([data-arrow-family="normal"]){border-color:var(--arrow-edge)!important;background:linear-gradient(145deg,var(--arrow-selected),var(--arrow-glow)),#182e38!important;box-shadow:inset 0 -3px var(--arrow-edge),inset 0 0 18px var(--arrow-glow)}
+.arrow-grid-card[data-arrow-family]:not([data-arrow-family="normal"]) .arrow-sigil{color:var(--arrow-edge)}
+
+/* A full-card native button and a sibling queue action avoid nested controls. */
+.arrows-page .arrow-grid-card>.arrow-card-equip{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:0;border-radius:inherit;background:transparent;opacity:1}
+.arrows-page .arrow-grid-card>.arrow-card-equip:enabled:hover{background:#ffffff08}
+.arrows-page .arrow-grid-card>.arrow-card-equip:focus-visible{outline:2px solid var(--arrow-edge,#b5ebd9);outline-offset:-5px}
+.arrow-grid-card .arrow-card-actions{position:relative;z-index:2}
+.arrows-page .arrow-grid-card.selected{background:linear-gradient(145deg,#9ddbc32e,#162e38b8)!important}
+
+/* The ring is an overlay: equipping never adds a row or changes icon geometry. */
+.arrow-card-body>.arrow-sigil{position:relative}
+.arrow-card-body>.arrow-sigil::after{content:"";position:absolute;left:50%;top:50%;width:calc(70px * var(--workshop-font-scale,1));height:calc(70px * var(--workshop-font-scale,1));box-sizing:border-box;transform:translate(-50%,-50%);border:2px solid transparent;border-radius:50%;pointer-events:none}
+.arrow-grid-card.selected .arrow-sigil::after{border-color:var(--arrow-edge,#9bdec7)}

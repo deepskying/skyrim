@@ -7,6 +7,7 @@ export const arrowDemo: ArrowState = {
   arrows: [
     { id: 21, name: '火球术 · 封存箭', family: 'fire', count: 24, damage: 12, equipped: true, spellBound: true, adapter: { runtime: true, releaseMode: 'instant', castRoute: 'area' } },
     { id: 22, name: '冰风暴 · 封存箭', family: 'ice', count: 16, damage: 12, spellBound: true, adapter: { runtime: true, releaseMode: 'instant' } },
+    ...[['shock', '雷棱箭'], ['poison', '蛇牙箭'], ['blood', '嗜血箭'], ['holy', '圣辉箭'], ['wind', '旋翼箭'], ['water', '碧波箭'], ['earth', '岩锥箭'], ['dark', '影镰箭'], ['soul', '星魂箭'], ['arcane', '奥术箭']].map(([family, name], i) => ({ id: 30 + i, name, family, count: 12 + i * 3, damage: 8, spellBound: true })),
     ...['铁箭', '钢箭', '精灵箭', '矮人箭'].map((name, i) => ({ id: 10 + i, name, family: 'normal', count: 48 + i * 12, damage: 8 + i * 2, runtimeBase: true, fireballBase: true })),
   ],
   spells: [
