@@ -480,7 +480,7 @@ void Tick()
                !actor->IsInCombat()&&!player->IsInCombat()&&Nearby(actor,player,600)) {
                 try {
                     CancelActivity();
-                    const bool changed=ChangeOutfit(actor,it->second,false,true);
+                    const bool changed=ChangeOutfit(actor,it->second,true);
                     if(changed) it->second["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
                     RE::DebugNotification(changed?"已随机更换穿搭":"没有可替换的服饰，或换装未确认；请检查伙伴库存");
                     RefreshManagerView();

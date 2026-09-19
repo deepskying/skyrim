@@ -70,8 +70,7 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
             rows.push_back({item,extra,key,name?name:item->GetName(),count,
                 (std::max)(0,specific.GetValue()),Category(item),(std::max)(0.0f,specific.GetWeight()),
                 extra?(extra->HasType<RE::ExtraWorn>()||extra->HasType<RE::ExtraWornLeft>()):false,
-                entry.second->IsQuestObject()||!item->GetPlayable()||
-                    (r.value("casual",false)&&r.contains("battleOutfit")&&std::find(r["battleOutfit"].begin(),r["battleOutfit"].end(),key)!=r["battleOutfit"].end()),favorite,
+                entry.second->IsQuestObject()||!item->GetPlayable(),favorite,
                 item->As<RE::TESObjectARMO>()||item->As<RE::TESObjectWEAP>(),
                 !specific.IsOwnedBy(RE::PlayerCharacter::GetSingleton(),true)});
         };
@@ -308,16 +307,8 @@ bool WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selected) {
         return std::any_of(after.begin(),after.end(),[&](const auto& row){return row.key==item.key&&row.equipped;});
     });
 }
-bool ChangeOutfit(RE::Actor* actor,json& r,bool restore=false,bool fallback=false) {
+bool ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {
     auto inventory=Wardrobe(actor,r,true);
-    if(restore) {
-        if(!r.value("casual",false)) return false;
-        std::vector<WardrobeItem> original;
-        for(auto& row:inventory)
-            if(r.contains("battleOutfit")&&std::find(r["battleOutfit"].begin(),r["battleOutfit"].end(),row.key)!=r["battleOutfit"].end()) original.push_back(row);
-        if(WearSet(actor,original)) {r["casual"]=false;return true;}
-        return false;
-    }
     std::vector<outfit::Candidate> candidates;
     for(std::size_t i=0;i<inventory.size();++i) {
         auto& row=inventory[i];
@@ -333,11 +324,6 @@ bool ChangeOutfit(RE::Actor* actor,json& r,bool restore=false,bool fallback=fals
     for(auto index:outfit::Select(candidates,occupied,fallback)) selected.push_back(inventory[index]);
     if(selected.empty()) return false;
     if(std::all_of(selected.begin(),selected.end(),[](const auto& row){return row.equipped;})) return false;
-    if(!r.value("casual",false)) {
-        r["battleOutfit"]=json::array();
-        for(auto& row:inventory) if(row.equipped&&row.item->As<RE::TESObjectARMO>()) r["battleOutfit"].push_back(row.key);
-    }
-    r["casual"]=true;
     if(!WearSet(actor,selected)) return false;
     ActivityLog(std::format("{}更换了穿搭",actor->GetName()),false);
     if(!fallback) activityRequests[actor->GetFormID()]="outfit";
@@ -380,7 +366,6 @@ void TickActivities() {
                 battleEnemies.insert(a->GetFormID());
             return RE::BSContainer::ForEachResult::kContinue;
         });
-        for(auto& [id,r]:members) if(auto* a=Actor(id);a&&a->Is3DLoaded()) ChangeOutfit(a,r,true);
         return;
     }
     if(battleSeen) { quietSince=now;lootUntil=now+180;battleSeen=false; }
@@ -524,7 +509,7 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
            !actor->Is3DLoaded()||actor->GetCurrentScene()||actor->IsInCombat()||RE::PlayerCharacter::GetSingleton()->IsInCombat())
             throw std::runtime_error("请在同伴闲暇且未战斗时换装");
         CancelActivity();
-        if(!ChangeOutfit(actor,r,false,true)) throw std::runtime_error("没有可替换的服饰，或引擎尚未确认换装，请刷新检查");
+        if(!ChangeOutfit(actor,r,true)) throw std::runtime_error("没有可替换的服饰，或引擎尚未确认换装，请刷新检查");
         r["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
         return true;
     }
@@ -567,7 +552,10 @@ void RegisterActivityEvents() {
     }
 }
 void RemapWardrobe(json& r,SKSE::SerializationInterface* s) {
-    for(auto field:{"favorites","battleOutfit"}) if(r.contains(field)) {
+    // Retire legacy battle reservations without resolving or validating their old item IDs.
+    r.erase("battleOutfit");
+    r.erase("casual");
+    for(auto field:{"favorites"}) if(r.contains(field)) {
         if(!r[field].is_array()||r[field].size()>512) throw std::runtime_error("Invalid wardrobe records");
         json mapped=json::array();
         for(const auto& value:r[field]) {
@@ -582,7 +570,6 @@ void RemapWardrobe(json& r,SKSE::SerializationInterface* s) {
         r[field]=std::move(mapped);
     }
     if(r.contains("behavior")&&!activity::Valid(r["behavior"])) throw std::runtime_error("Invalid behavior settings");
-    if(r.contains("casual")&&!r["casual"].is_boolean()) throw std::runtime_error("Invalid outfit state");
     if(r.contains("lastOutfitHours")&&(!r["lastOutfitHours"].is_number()||!std::isfinite(r["lastOutfitHours"].get<double>())||r["lastOutfitHours"]<0))
         throw std::runtime_error("Invalid outfit time");
 }
