@@ -8,9 +8,11 @@
 #include "enchantment_ranking.h"
 #include "enchantment_cache.h"
 #include "forge_access.h"
+#include "../../../magic-arrows/native/src/crafting_access.h"
 #include "wear_rules.h"
 #include "hud_rules.h"
 #include "hud_bridge.h"
+#include "potions.h"
 #ifdef UNIFIED_WORKSHOP
 #include "workshop_bridge.h"
 #include "workshop_ui.h"
@@ -196,7 +198,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.6.10";
+    constexpr std::string_view kPluginVersion = "1.7.3";
 #else
     constexpr std::string_view kPluginVersion = "0.1.43";
 #endif
@@ -685,11 +687,18 @@ namespace
         return result;
     }
 
-    [[nodiscard]] bool CanEnhanceEquipment()
+    [[nodiscard]] bool CanPreviewEnhancement()
     {
         const auto* player = RE::PlayerCharacter::GetSingleton();
         const auto* cell = player ? player->GetParentCell() : nullptr;
         return player && !player->IsDead() && cell && cell->IsAttached();
+    }
+
+    [[nodiscard]] bool CanEnhanceEquipment()
+    {
+        if (!CanPreviewEnhancement()) return false;
+        const auto stations = crafting_access::Nearby(RE::PlayerCharacter::GetSingleton());
+        return stations.magic || stations.normal;
     }
 
     void UpdateViewVisibility()
@@ -2108,7 +2117,7 @@ namespace
 
     void SelectEquipmentForForge(const std::string_view a_equipmentID)
     {
-        if (!CanEnhanceEquipment()) return;
+        if (!CanPreviewEnhancement()) return;
         const auto key = ParseItemKey(a_equipmentID);
         if (!key) {
             SendState("无法为无效的装备实例生成强化卡片。");
@@ -2144,7 +2153,7 @@ namespace
     {
         WorkshopFeedback feedback;
         if (!CanEnhanceEquipment()) {
-            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：角色当前状态不可操作，请载入游戏后重试。");
+            SendRefreshResult(a_equipmentID, a_requestID, false, 0, "刷新失败：需要靠近附魔台或锻造设备，并确保角色可操作。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -2375,7 +2384,7 @@ namespace
     {
         WorkshopFeedback feedback;
         if (!CanEnhanceEquipment()) {
-            SendState("强化失败：角色当前状态不可操作，请载入游戏后重试。");
+            SendState("强化失败：需要靠近附魔台或锻造设备，并确保角色可操作。");
             return;
         }
         const auto key = ParseItemKey(a_equipmentID);
@@ -3231,6 +3240,11 @@ namespace
     }
 
     bool NavigateEquipmentShortcut(std::uint32_t key, bool shift, bool ctrl, bool alt) {
+        if (workshop_potions::active && g_panelVisible && g_prisma && g_view && g_prisma->HasFocus(g_view) && !shift && !ctrl && !alt) {
+            const char* name = key == 0xC8 ? "ArrowUp" : key == 0xD0 ? "ArrowDown" : key == 0xCB ? "ArrowLeft" : key == 0xCD ? "ArrowRight" : key == 0x1C ? "Enter" : key == 0x39 ? " " : nullptr;
+            if (name) { const auto script = "window.WorkshopPotions?.key(" + json(name).dump() + ");"; g_prisma->Invoke(g_view,script.c_str()); return true; }
+        }
+
         if (g_panelVisible && g_prisma && g_view && g_prisma->HasFocus(g_view) && !shift && !ctrl && !alt && (key == 0xC8 || key == 0xD0)) {
             g_prisma->Invoke(g_view, key == 0xC8 ? "window.DurabilityManager?.navigateEquipment(-1);" : "window.DurabilityManager?.navigateEquipment(1);");
             return true;
@@ -3398,9 +3412,9 @@ namespace
                 { "enhancementAvailable", CanEnhanceEquipment() },
                 { "station", forge.station },
                 { "gold", PlayerGoldCount(player) },
-                { "refreshCost", CanEnhanceEquipment() ? CardRefreshCost(refreshes) : 0 },
+                { "refreshCost", CanPreviewEnhancement() ? CardRefreshCost(refreshes) : 0 },
                 { "refreshes", refreshes },
-                { "cards", CanEnhanceEquipment() ? EnhancementCardsJson() : json::array() }
+                { "cards", CanPreviewEnhancement() ? EnhancementCardsJson() : json::array() }
             } },
             { "settings", {
                 { "recyclingHotkey", RecyclingHotkeyState() },
@@ -3433,6 +3447,7 @@ namespace
 
     void ClosePanel()
     {
+        workshop_potions::Reset();
         g_capturingRecyclingHotkey = false; g_recyclingCapture.Reset();
         if (!g_prisma || !g_view) return;
         g_capturingHotkey = false;
@@ -3451,6 +3466,7 @@ namespace
     // notification can leave Prisma's render and focus states out of sync.
     void ResetViewForLoad()
     {
+        workshop_potions::Reset();
         g_capturingRecyclingHotkey = false; ResetRecyclingInput();
         g_recyclingCapture.Reset();
 #ifdef UNIFIED_WORKSHOP
@@ -3569,6 +3585,19 @@ namespace
                 else SendState("回收配置保存失败，原设置保持不变。");
             }
             else if (type == "saveRecyclingHotkey") SaveRecyclingHotkey(request.value("keyCode", 0U), request.value("safetyCode", 0U));
+            else if (type == "potionPage" || type == "potionRefresh" || type == "potionUse") {
+                if (!g_panelVisible || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return;
+                if (type == "potionPage") { workshop_potions::active = request.value("active",false); workshop_potions::foodMode = request.value("food",false); ++workshop_potions::token; }
+                if (!workshop_potions::active) return;
+                std::string message; bool ok = false;
+                if (type == "potionUse") {
+                    auto result = workshop_potions::Drink(request.at("id").get<RE::FormID>(),request.at("token").get<std::uint64_t>());
+                    ok = result.first; message = result.second;
+                }
+                auto payload = workshop_potions::Snapshot(message,request.value("requestID",std::uint64_t{}),ok);
+                const auto script = "window.WorkshopPotions?.receive(" + payload.dump(-1,' ',false,json::error_handler_t::replace) + ");";
+                g_prisma->Invoke(g_view,script.c_str());
+            }
             else if (type == "close") ClosePanel();
 #ifdef UNIFIED_WORKSHOP
             else if (type == "arrows" && g_panelVisible && request.contains("action") && request["action"].is_object()) {

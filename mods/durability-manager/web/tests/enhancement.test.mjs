@@ -52,9 +52,9 @@ test('review has no acknowledgement gate but retains risks, cost and duplicate-s
   assert.doesNotMatch(page, /acknowledged|setAcknowledged|risk-acknowledgement|我已了解|type="checkbox"/);
   assert.match(page, /className="enhancement-risk"/);
   assert.match(page, /failureDescription\(item\)/);
-  assert.match(page, /className="confirm-enhancement" disabled=\{locked \|\| Boolean\(missingCost\(reviewed.materials\)\)\}/);
-  assert.match(page, /if \(reviewed && !locked && !missingCost\(reviewed.materials\)\) dispatch\('applyEnhancement'/);
-  assert.match(page, /if \(submitted.current \|\| transition.isPending\(\)\) return/);
+  assert.match(page, /className="confirm-enhancement" disabled=\{!available \|\| locked \|\| Boolean\(missingCost\(reviewed.materials\)\)\}/);
+  assert.match(page, /if \(available && reviewed && !locked && !missingCost\(reviewed.materials\)\) dispatch\('applyEnhancement'/);
+  assert.match(page, /if \(!available \|\| submitted.current \|\| transition.isPending\(\)\) return/);
   assert.match(page, /confirmationKey\(item, offer\) === review\?\.key/);
   assert.match(page, /取消，返回卡片/);
 });
