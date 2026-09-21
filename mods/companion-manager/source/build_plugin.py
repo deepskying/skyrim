@@ -85,23 +85,35 @@ dialogue_quest=dict(sig=b'QUST',form=DIALOGUE_QUEST,data=sub(b'EDID',Z('CMOutfit
 branch=dict(sig=b'DLBR',form=BRANCH,data=sub(b'EDID',Z('CMRandomOutfitBranch'))+
     sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'TNAM',U32(0))+sub(b'DNAM',U32(1))+sub(b'SNAM',U32(TOPIC)))
 topic=dict(sig=b'DIAL',form=TOPIC,data=sub(b'EDID',Z('CMRandomOutfitTopic'))+
-    sub(b'FULL',Z('随机换装'))+sub(b'PNAM',struct.pack('<f',50))+sub(b'BNAM',U32(BRANCH))+
+    sub(b'FULL',Z('穿搭调整'))+sub(b'PNAM',struct.pack('<f',50))+sub(b'BNAM',U32(BRANCH))+
     sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'DATA',struct.pack('<BBH',0,0,0))+sub(b'SNAM',b'CUST')+sub(b'TIFC',U32(1)))
-# INFO VMAD OnBegin fragment; no properties or persistent script state.
-fragment='CMRandomOutfitTopic'
-info_vmad=struct.pack('<HHH',5,2,1)+wstring(fragment)+b'\0'+struct.pack('<H',0)
-info_vmad+=bytes([2,1])+wstring(fragment)+b'\x01'+wstring(fragment)+wstring('Fragment_0')
-# Goodbye + Force Subtitle + No LIP File. Keep a non-empty response for dialogue selection.
-info=dict(sig=b'INFO',form=INFO,data=sub(b'EDID',Z('CMRandomOutfitResponse'))+sub(b'VMAD',info_vmad)+
-    sub(b'ENAM',struct.pack('<HH',0xA01,0))+sub(b'TPIC',U32(TOPIC))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
+# Parent stays in dialogue; only the linked child responses use Goodbye and a fragment.
+info=dict(sig=b'INFO',form=INFO,data=sub(b'EDID',Z('CMRandomOutfitResponse'))+
+    sub(b'ENAM',struct.pack('<HH',0xA00,0))+sub(b'TPIC',U32(TOPIC))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
+    b''.join(sub(b'TCLT',U32(t)) for t in (0x01000B10,0x01000B12,0x01000B14))+
     sub(b'TRDT',struct.pack('<IIIB3sIB3s',0,0,0,1,b'\0'*3,0,0,b'\0'*3))+
-    sub(b'NAM1',Z('好，我试着换一套。'))+sub(b'NAM2',Z(''))+sub(b'NAM3',Z(''))+
+    sub(b'NAM1',Z('想让我换身什么衣服？'))+sub(b'NAM2',Z(''))+sub(b'NAM3',Z(''))+
     cond(71,FACTION,1)+cond(453,0,1)+cond(46,0,0)+cond(289,0,0))
 info_bytes=encode(info)
 topic_children=struct.pack('<4sI4siHHHH',b'GRUP',24+len(info_bytes),U32(TOPIC),7,0,0,0,0)+info_bytes
 dialogue_bytes=encode(topic)+topic_children
+for i,(title,script,response) in enumerate((('整套随机','CMRandomOutfitTopic','好，我换一套。'),
+        ('指定部位','CMOutfitPartTopic','想调整哪个部位？'),('保存当前套装','CMOutfitSaveTopic','给这套穿搭起个名字吧。'))):
+    tid=0x01000B10+i*2
+    child=dict(sig=b'DIAL',form=tid,data=sub(b'EDID',Z(f'CMOutfitChoice{i}'))+
+        sub(b'FULL',Z(title))+sub(b'PNAM',struct.pack('<f',50-i))+sub(b'BNAM',U32(BRANCH))+
+        sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'DATA',struct.pack('<BBH',0,0,0))+sub(b'SNAM',b'CUST')+sub(b'TIFC',U32(1)))
+    vm=struct.pack('<HHH',5,2,1)+wstring(script)+b'\0'+struct.pack('<H',0)
+    vm+=bytes([2,1])+wstring(script)+b'\x01'+wstring(script)+wstring('Fragment_0')
+    response_record=dict(sig=b'INFO',form=tid+1,data=sub(b'EDID',Z(f'CMOutfitChoiceResponse{i}'))+sub(b'VMAD',vm)+
+        sub(b'ENAM',struct.pack('<HH',0xA01,0))+sub(b'TPIC',U32(tid))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
+        sub(b'TRDT',struct.pack('<IIIB3sIB3s',0,0,0,1,b'\0'*3,0,0,b'\0'*3))+
+        sub(b'NAM1',Z(response))+sub(b'NAM2',Z(''))+sub(b'NAM3',Z(''))+
+        cond(71,FACTION,1)+cond(453,0,1)+cond(46,0,0)+cond(289,0,0))
+    encoded=encode(response_record)
+    dialogue_bytes+=encode(child)+struct.pack('<4sI4siHHHH',b'GRUP',24+len(encoded),U32(tid),7,0,0,0,0)+encoded
 dialogue_group=struct.pack('<4sI4siHHHH',b'GRUP',24+len(dialogue_bytes),b'DIAL',0,0,0,0,0)+dialogue_bytes
-count=len(packages)+6
+count=len(packages)+12
 header=dict(sig=b'TES4',form=0,flags=0x200,data=sub(b'HEDR',struct.pack('<fII',1.7,count,0xE00))+sub(b'CNAM',Z('linos'))+sub(b'MAST',Z('Skyrim.esm'))+sub(b'DATA',b'\0'*8))
 out=ROOT/'data/CompanionManager.esp';out.parent.mkdir(parents=True,exist_ok=True)
 out.write_bytes(encode(header)+group(b'FACT',[faction])+group(b'PACK',packages)+group(b'QUST',[quest,dialogue_quest])+group(b'DLBR',[branch])+dialogue_group)

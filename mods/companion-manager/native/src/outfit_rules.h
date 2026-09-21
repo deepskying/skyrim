@@ -9,10 +9,22 @@ struct Candidate {
     std::uint32_t mask;
     bool locked, worn;
 };
-// Input is shuffled first. Locked clothing wins; unworn copies win within each tier.
+constexpr bool UseSaved(std::size_t count,int chance,int roll) {
+    return count>0&&roll>=0&&roll<100&&roll<chance;
+}
+constexpr bool EligiblePart(unsigned slot,std::uint32_t mask,std::uint32_t protectedSlots,bool protectedItem,bool worn) {
+    return slot>=30&&slot<=61&&slot!=39&&!protectedItem&&!worn&&
+        (mask&(1u<<(slot-30)))&&!(mask&protectedSlots);
+}
+inline bool CanUnlockReplacement(bool manual, bool worn, bool protectedItem,
+                                 std::uint32_t mask, std::uint32_t replacing) {
+    return manual && worn && !protectedItem && (mask & replacing) != 0;
+}
+// Manual changes prefer unworn clothing, then locked clothing. Input is shuffled first.
 // Manual requests may fill uncovered slots with unlocked clothing.
 inline std::vector<std::size_t> Select(std::vector<Candidate> candidates, std::uint32_t protectedSlots, bool fallback) {
-    std::stable_sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
+    std::stable_sort(candidates.begin(), candidates.end(), [fallback](const auto& a, const auto& b) {
+        if (fallback && a.worn != b.worn) return a.worn < b.worn;
         if (a.locked != b.locked) return a.locked > b.locked;
         return a.worn < b.worn;
     });
@@ -23,5 +35,26 @@ inline std::vector<std::size_t> Select(std::vector<Candidate> candidates, std::u
         result.push_back(item.index);
     }
     return result;
+}
+enum class Result { Pending, Changed, Partial, NoCandidates, NoSelection, Unchanged, Unconfirmed };
+inline bool Changed(Result result) { return result == Result::Changed || result == Result::Partial; }
+inline Result Confirmation(std::size_t requested, std::size_t confirmed) {
+    if (!confirmed) return Result::Unconfirmed;
+    return confirmed == requested ? Result::Changed : Result::Partial;
+}
+inline Result PollConfirmation(std::size_t requested, std::size_t confirmed, bool expired) {
+    if (requested && confirmed == requested) return Result::Changed;
+    return expired ? Confirmation(requested,confirmed) : Result::Pending;
+}
+inline const char* Message(Result result) {
+    switch (result) {
+    case Result::Pending: return "正在确认换装，请稍候";
+    case Result::Changed: return "已确认更换穿搭";
+    case Result::Partial: return "已更换部分服饰，其余未确认穿上；请刷新检查";
+    case Result::NoCandidates: return "没有可用服饰：库存为空或服饰受到保护";
+    case Result::NoSelection: return "没有符合条件的服饰：请检查槽位冲突、物品保护及锁定设置";
+    case Result::Unchanged: return "没有选出不同的服饰，当前可用搭配已穿戴";
+    default: return "已尝试穿戴新服饰，但未确认成功；请刷新检查，诊断已记录";
+    }
 }
 }

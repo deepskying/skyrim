@@ -233,11 +233,12 @@ void companion::RefreshManagerView()
 }
 void companion::CloseManagerView(){Close();}
 bool companion::ManagerViewOpen() { return views && views->HasAnyFocus(); }
-void companion::OpenPartnerWardrobe(RE::FormID actor)
+void companion::OpenPartnerWardrobe(RE::FormID actor,std::string mode)
 {
     if(Open()) {
         SendSnapshot();
-        const auto js=std::format("window.dispatchEvent(new CustomEvent('companion:wardrobe',{{detail:'{:08X}'}}));",actor);
+        const auto detail=json{{"actorId",std::format("{:08X}",actor)},{"mode",mode},{"session",SessionToken()}}.dump();
+        const auto js=std::format("window.dispatchEvent(new CustomEvent('companion:wardrobe',{{detail:{}}}));",detail);
         views->ExecuteJavaScript(panel,js.c_str());
     }
 }

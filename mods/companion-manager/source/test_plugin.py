@@ -23,19 +23,23 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(set(r['sig'] for r in self.rows[1:]),{b'FACT',b'PACK',b'QUST',b'DLBR',b'DIAL',b'INFO'})
 
     def test_outfit_dialogue_is_owned_scoped_and_scripted(self):
-        by_type={r['sig']:dict(subrecords(r['data'])) for r in self.rows if r['sig'] in (b'DLBR',b'DIAL',b'INFO')}
+        by_type={r['sig']:dict(subrecords(r['data'])) for r in self.rows if r['form'] in (0x01000B00,0x01000B01,0x01000B02)}
         branch,topic,info=(by_type[k] for k in (b'DLBR',b'DIAL',b'INFO'))
         self.assertEqual(branch[b'QNAM'],struct.pack('<I',0x01000B03))
         self.assertEqual(branch[b'DNAM'],struct.pack('<I',1)) # top-level, not blocking/exclusive
         self.assertEqual(branch[b'SNAM'],struct.pack('<I',0x01000B01))
         self.assertEqual(topic[b'BNAM'],struct.pack('<I',0x01000B00))
         self.assertEqual(topic[b'QNAM'],branch[b'QNAM'])
-        self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),'随机换装')
+        self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),'穿搭调整')
         self.assertEqual(topic[b'TIFC'],struct.pack('<I',1))
         self.assertEqual(info[b'TPIC'],branch[b'SNAM'])
-        self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0xA01,0))
+        self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0xA00,0))
+        self.assertNotIn(b'VMAD',info) # Parent only opens the linked choices; it never equips.
+        parent=next(r for r in self.rows if r['form']==0x01000B02)
+        self.assertEqual([struct.unpack('<I',v)[0] for k,v in subrecords(parent['data']) if k==b'TCLT'],[0x01000B10,0x01000B12,0x01000B14])
         self.assertTrue(info[b'NAM1'].rstrip(b'\0'))
-        row=next(r for r in self.rows if r['sig']==b'INFO')
+        row=next(r for r in self.rows if r['form']==0x01000B11)
+        info=dict(subrecords(row['data']))
         conditions=[v for k,v in subrecords(row['data']) if k==b'CTDA']
         self.assertEqual([(struct.unpack_from('<H',c,8)[0],struct.unpack_from('<I',c,12)[0],struct.unpack_from('<f',c,4)[0]) for c in conditions],
                          [(71,0x01000801,1),(453,0,1),(46,0,0),(289,0,0)])
@@ -53,8 +57,18 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(vmad[offset],1);offset+=1 # fragment version, matching vanilla INFO
         self.assertEqual(string(),'CMRandomOutfitTopic');self.assertEqual(string(),'Fragment_0')
         self.assertEqual(offset,len(vmad))
-        for script in ('CMDialogue','CMRandomOutfitTopic'):
+        for script in ('CMDialogue','CMRandomOutfitTopic','CMOutfitPartTopic','CMOutfitSaveTopic'):
             self.assertEqual((ROOT/f'data/Scripts/{script}.pex').read_bytes()[:4],bytes.fromhex('fa57c0de'))
+
+    def test_outfit_children_close_dialogue_and_dispatch_distinct_actions(self):
+        for tid,title,script in ((0x01000B10,'整套随机','CMRandomOutfitTopic'),(0x01000B12,'指定部位','CMOutfitPartTopic'),(0x01000B14,'保存当前套装','CMOutfitSaveTopic')):
+            topic=dict(subrecords(next(r for r in self.rows if r['form']==tid)['data']))
+            info=dict(subrecords(next(r for r in self.rows if r['form']==tid+1)['data']))
+            self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),title)
+            self.assertEqual(info[b'TPIC'],struct.pack('<I',tid))
+            self.assertEqual(info[b'ENAM'],struct.pack('<HH',0xA01,0))
+            self.assertIn(script.encode(),info[b'VMAD'])
+            self.assertEqual(topic[b'BNAM'],struct.pack('<I',0x01000B00))
 
     def test_dialogue_quest_can_start_independently_on_existing_saves(self):
         dialogue=next(r for r in self.rows if edid(r)=='CMOutfitDialogueQuest')

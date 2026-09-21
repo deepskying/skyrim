@@ -13,6 +13,13 @@ constexpr bool DialogueRecruitmentReady(bool dialogueOpen, bool teammate, bool u
     return !dialogueOpen && teammate && usable && followerCount == 1.0f &&
            (ownedSlot || managedCount < MemberCapacity);
 }
+constexpr bool NeedsDialogueEnrollment(bool owned, bool active, bool teammate, bool occupiesVanilla, float count) {
+    return !owned || (!active && teammate && occupiesVanilla && count == 1.0f);
+}
+// Only standard vanilla counts and a verified owned alias permit reconciliation.
+constexpr bool CanReconcileDialogueSlot(bool bound, bool empty, bool matches, float count) {
+    return bound && (empty || matches) && (count == 0.0f || count == 1.0f);
+}
 // Existing teammates can be enrolled without clearing aliases owned by another quest.
 // Unrelated NPCs with quest packages must still be left to their quest.
 constexpr bool ForeignPackagesBlockRecruitment(bool teammate, bool foreignPackages)
@@ -43,10 +50,14 @@ inline bool ValidSetting(const std::string &key, const json &value)
         return Integer(value, 14, 18);
     if (key == "distance")
         return Integer(value, 0, 2);
+    if (key == "savedOutfitChance")
+        return Integer(value, 0, 100);
     return (key == "notifications" || key == "sandbox") && value.is_boolean();
 }
 inline void ValidateSettings(const json &prefs)
 {
+    if(prefs.contains("savedOutfitChance")&&!ValidSetting("savedOutfitChance",prefs.at("savedOutfitChance")))
+        throw std::runtime_error("Invalid outfit probability");
     for (const auto *key : {"opacity", "font", "distance", "sandbox", "notifications"})
         if (!prefs.contains(key) || !ValidSetting(key, prefs.at(key)))
             throw std::runtime_error("Invalid settings");

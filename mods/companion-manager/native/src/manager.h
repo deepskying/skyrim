@@ -21,6 +21,6 @@ RE::TESQuest *Controller();
 void RefreshManagerView();
 bool ManagerViewOpen();
 void CloseManagerView();
-void OpenPartnerWardrobe(RE::FormID actor);
+void OpenPartnerWardrobe(RE::FormID actor,std::string mode="inventory");
 json ActivityOverview();
 } // namespace companion

@@ -1,4 +1,9 @@
 import { defaultBehavior } from "./behavior.ts";
+function demoOutfits(){
+ const specs=[["00012E49:00000014:0002","皮甲",4,true],["00012E49:00000014:0003","皮甲（火焰抗性）",4,false],["0001BE1A:00000014:0004","弥光连体袍",132,false],["00013920:00000014:0005","白色高跟靴",128,true],["00013921:00000014:0006","黑色短靴",128,false],["0003B97C:00000014:0007","银项链",32,true]];
+ const items=specs.map(([key,name,mask,equipped])=>({key,name,mask,equipped,form:parseInt(key.slice(0,8),16),favorite:equipped,available:true,quest:false,hidden:false}));
+ return {items,pending:false,presets:[{id:1,name:"月下长袍",items:[structuredClone(items[2]),{key:"000877AA:00000014:0008",name:"翡翠戒指",mask:64,equipped:false,favorite:true,available:false,form:0x877aa}]}]};
+}
 export function fixture() {
   const actor = (id, name, group, managed) => ({
     id,
@@ -10,6 +15,7 @@ export function fixture() {
     tint: "mint",
     group,
     managed,
+    outfits:demoOutfits(),
     behavior: {...defaultBehavior},behaviorOverride:false,carried:182,capacity:300,activity:"idle",request:"",
     wardrobe:[
       {key:"00012EB7:00000014:0001",id:"00012EB7",name:"铁剑",inventoryCategory:"weapons",count:1,value:25,weight:9,category:1,equipped:true,quest:false,favorite:false,equipment:true},
@@ -106,6 +112,7 @@ export function fixture() {
     location: "雪漫 · 桥接测试",
     truncated: false,
     settings: {
+      savedOutfitChance:70,
       opacity: 82,
       font: 16,
       distance: 1,
@@ -173,6 +180,36 @@ export function simulate(s, r) {
   if (!f) return { ok: false, message: "人物不存在" };
   if (r.command !== "adopt" && r.command !== "recruit" && !f.managed)
     return { ok: false, message: "请先纳入同行管理" };
+  if(["saveNamedOutfit","applyNamedOutfit","outfitPart","changeOutfit","unequipOutfitPart"].includes(r.command)) {
+    if(f.dead||f.unavailable||f.inCombat||f.group!=="party"||f.outfits.pending)return {ok:false,message:"同伴当前无法换装"};
+    const d=f.outfits;
+    const wear=i=>{for(const old of d.items)if(old.mask&i.mask)old.equipped=false;i.equipped=true;};
+    if(r.command==="unequipOutfitPart") {
+      const i=d.items.find(i=>i.key===r.itemKey);
+      if(!Number.isInteger(r.slot)||r.slot<30||r.slot>61||r.slot===39||!i||!i.equipped||i.quest||!(i.mask&2**(r.slot-30)))return {ok:false,message:"装备受保护或已不在当前槽位穿戴"};
+      i.equipped=false;
+    } else if(r.command==="saveNamedOutfit") {
+      const name=typeof r.name==="string"?r.name.trim():"";
+      if(!name||name.length>30||d.presets.some(p=>p.name===name))return {ok:false,message:"套装名称无效或重复"};
+      if(d.presets.length>=64)return {ok:false,message:"套装数量已达上限"};
+      const worn=d.items.filter(i=>i.equipped);if(!worn.length)return {ok:false,message:"没有服饰"};
+      worn.forEach(i=>i.favorite=true);d.presets.push({id:Math.max(0,...d.presets.map(p=>p.id))+1,name,items:structuredClone(worn)});
+    } else {
+      let keys=[];
+      const protectedMask=d.items.filter(i=>i.quest&&i.equipped).reduce((mask,i)=>mask|i.mask,0);
+      if(r.command==="outfitPart") {
+        if(!Number.isInteger(r.slot)||r.slot<30||r.slot>61||r.slot===39)return {ok:false,message:"槽位无效"};
+        const pool=d.items.filter(i=>i.available&&!i.quest&&!i.equipped&&!(i.mask&protectedMask)&&(i.mask&(2**(r.slot-30)))&&(!r.itemKey||i.key===r.itemKey));
+        if(!pool.length)return {ok:false,message:"没有可替换服饰"};keys=[pool[Math.floor(Math.random()*pool.length)].key];
+      } else if(r.command==="applyNamedOutfit") {
+        const preset=d.presets.find(p=>p.id===r.presetId);if(!preset)return {ok:false,message:"套装不存在"};keys=preset.items.map(i=>i.key);
+      } else if(d.presets.length&&Math.random()*100<(s.settings.savedOutfitChance??70))keys=d.presets[Math.floor(Math.random()*d.presets.length)].items.map(i=>i.key);
+      else {let occupied=protectedMask;for(const i of d.items.filter(i=>i.available&&!i.quest&&!i.equipped).sort(()=>Math.random()-.5)){if(!(occupied&i.mask)){keys.push(i.key);occupied|=i.mask;}}}
+      for(const key of keys){const i=d.items.find(i=>i.key===key);if(i&&i.available&&!i.quest&&!(i.mask&protectedMask))wear(i);}
+    }
+    for(const p of d.presets)for(const saved of p.items){const i=d.items.find(i=>i.key===saved.key);saved.available=!!i?.available;saved.equipped=!!i?.equipped;saved.favorite=!!i?.favorite;}
+    return ok("穿搭操作已完成（模拟）");
+  }
   switch (r.command) {
     case "favorite": {
       const item=f.wardrobe.find(i=>i.key===r.itemKey);

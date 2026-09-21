@@ -9,13 +9,15 @@ import { MagicPanel } from "./MagicPanel";
 import { CompanionPicker } from "./CompanionPicker";
 import { recruitmentCandidates, recruitmentBlock } from "./recruitment";
 import {Management} from "./Management";
+import {OutfitPanel} from "./OutfitPanel";
 
-type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe" | "magic";
+type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe" | "magic" | "outfits";
 const sections: [Section, string, string][] = [
   ["party", "我的队伍", "♧"],
   ["registry", "随从名册", "▤"],
   ["behavior", "行为管理", "⚙"],
   ["wardrobe", "伙伴库存", "◇"],
+  ["outfits", "伙伴穿搭", "♧"],
   ["magic", "魔法管理", "✧"],
   ["settings", "全局设置", "⚙"],
 ];
@@ -70,8 +72,9 @@ export function GameApp() {
   const [recruitOpen, setRecruitOpen] = useState(false),
     [recruitQuery, setRecruitQuery] = useState("");
   const [managementActor,setManagementActor]=useState("");
+  const [wardrobeEntry,setWardrobeEntry]=useState({mode:"inventory",sequence:0,actorId:"",session:""});
   useEffect(()=>{
-    const open=(e:Event)=>{const id=(e as CustomEvent).detail;if(typeof id==="string"){setManagementActor(id);setSection("wardrobe");setConfirm(null);setRecruitOpen(false);}};
+    const open=(e:Event)=>{const detail=(e as CustomEvent).detail;const id=typeof detail==="string"?detail:detail?.actorId;if(typeof id==="string"&&/^[0-9A-F]{8}$/.test(id)){const outfit=["part","save"].includes(detail?.mode);setManagementActor(id);setWardrobeEntry(old=>({mode:outfit?detail.mode:"inventory",sequence:old.sequence+1,actorId:id,session:typeof detail?.session==="string"?detail.session:""}));setSection(outfit?"outfits":"wardrobe");setConfirm(null);setRecruitOpen(false);}};
     window.addEventListener("companion:wardrobe",open);return()=>window.removeEventListener("companion:wardrobe",open);
   },[]);
   const candidates = recruitmentCandidates(s, recruitQuery);
@@ -85,7 +88,8 @@ export function GameApp() {
           .includes(query.toLowerCase()),
     ) ?? [];
   const magicFollowers = s?.followers.filter(f => f.managed) ?? [];
-  const f = section === "magic" ? (magicFollowers.find(f => f.id === managementActor) ?? magicFollowers[0]) : s?.followers.find((f) => f.id === selected && f.group === section);
+  const entryWaiting=["save","part"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
+  const f = section === "outfits" ? (entryWaiting?undefined:managementActor?magicFollowers.find(f=>f.id===managementActor):magicFollowers[0]) : section === "magic" ? (magicFollowers.find(f => f.id === managementActor) ?? magicFollowers[0]) : s?.followers.find((f) => f.id === selected && f.group === section);
   const enabled = !!s?.ready && !!s.managerAvailable && !game.busy;
   const editable = enabled && !!f?.managed && !f.dead && !f.unavailable;
   const prefs = s?.settings ?? {
@@ -95,11 +99,14 @@ export function GameApp() {
     notifications: true,
     sandbox: true,
   };
+  const previousSession=useRef<string|undefined>(undefined);
   useEffect(() => {
+    const previous=previousSession.current;previousSession.current=s?.session;
+    if(!previous||previous===s?.session)return;
     setConfirm(null);
     setRecruitOpen(false);
     setSelected("");
-    setManagementActor("");
+    if(!s?.session||wardrobeEntry.session!==s.session){setManagementActor("");setWardrobeEntry(old=>({...old,mode:"inventory",actorId:"",session:""}));}
   }, [s?.session]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
@@ -201,6 +208,7 @@ export function GameApp() {
                 className={section === id ? "selected" : ""}
                 onClick={() => {
                   setSection(id);
+                  setWardrobeEntry(old=>({...old,mode:"inventory"}));
                   setSelected("");
                   setQuery("");
                   setConfirm(null);
@@ -278,7 +286,7 @@ export function GameApp() {
               </button>
             </div>
           </header>
-          {section === "behavior" || section === "wardrobe" ? <Management key={section} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "magic" ? (
+          {section === "outfits" ? <section className="cm-management"><div className="cm-management-bar"><div><h2>每位伙伴的独立衣橱</h2><p>整套搭配或调整一个部位，保存喜欢的穿搭。</p></div><CompanionPicker followers={magicFollowers} value={f?.id??""} onChange={id=>{setManagementActor(id);setWardrobeEntry(old=>({...old,mode:"inventory",actorId:id}));}} label="选择穿搭伙伴"/></div>{f?<OutfitPanel key={`${s?.session}-${f.id}-${wardrobeEntry.sequence}`} f={f} enabled={enabled} chance={prefs.savedOutfitChance??70} mode={wardrobeEntry.actorId===f.id?wardrobeEntry.mode:"inventory"} onEntryConsumed={()=>setWardrobeEntry(old=>old.actorId===f.id?{...old,mode:"all"}:old)} notice={game.notice} command={game.command}/>:<div className="cm-empty">{managementActor?"等待目标伙伴的数据，请刷新或重新选择伙伴。":"先招募一位伙伴，即可调整穿搭。"}</div>}</section> : section === "behavior" || section === "wardrobe" ? <Management key={`${section}-${wardrobeEntry.sequence}`} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "magic" ? (
             <section className="cm-management cm-magic-page">
               <div className="cm-management-bar"><div><h2>管理伙伴的法术</h2><p>查看已知法术、调整使用权限，或传授背包中的法术书。</p></div>
                 <CompanionPicker key={s?.session} followers={magicFollowers} value={f?.id ?? ""} onChange={setManagementActor} label="选择魔法管理伙伴" />
@@ -292,6 +300,7 @@ export function GameApp() {
               <h2>按你的习惯同行</h2>
               <p>外观与行为偏好随当前游戏存档保存。</p>
               <div className="settings-grid">
+                <div className="panel"><h3>整套随机</h3><PreferenceRange key={`outfit-${prefs.savedOutfitChance??70}`} label="使用已保存套装的概率" value={prefs.savedOutfitChance??70} min={0} max={100} unit="%" disabled={!enabled} onSave={v=>change("savedOutfitChance",v)}/><p>其余 {100-(prefs.savedOutfitChance??70)}% 概率重新组合。没有保存套装时始终重新组合；每名随从独立保存套装。</p></div>
                 <div className="panel">
                   <h3>界面外观</h3>
                   <PreferenceRange
@@ -511,7 +520,6 @@ export function GameApp() {
                               f.group === "party" ? `让${f.name}离开队伍，保留名册、收藏和个人设置。已设置居所时会返回居所。` : `让${f.name}重新加入队伍。`,
                               f.group === "party" ? "dismiss" : "recruit",
                             )}>{f.group === "party" ? "解散" : "重新入队"}</button>
-                          <button disabled={!f.managed} onClick={() => { setManagementActor(f.id); setSection("magic"); }}>魔法管理</button>
                           <button className="cm-action-home" disabled={!editable}
                             title="将你当前站立的位置设为这位同伴的居所"
                             onClick={() => ask("设置居所",

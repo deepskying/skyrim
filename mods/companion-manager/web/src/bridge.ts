@@ -1,4 +1,5 @@
 import type { Follower } from "./demo";
+import {validOutfits,type Outfits} from "./outfits.ts";
 import {validBehavior,validWardrobe,type BehaviorSettings,type WardrobeItem,type Automation} from "./behavior.ts";
 
 export type InventoryItem = {
@@ -15,6 +16,7 @@ export type InventoryItem = {
   spellName: string;
 };
 export type GameFollower = Omit<Follower, "gear"> & {
+  outfits?:Outfits;
   wardrobe?:WardrobeItem[]; behavior?:BehaviorSettings; behaviorOverride?:boolean;
   carried?:number;capacity?:number;activity?:string;request?:string;
   managed: boolean;
@@ -35,6 +37,7 @@ export type GameFollower = Omit<Follower, "gear"> & {
   })[];
 };
 export type Settings = {
+  savedOutfitChance?:number;
   opacity: number;
   font: number;
   distance: number;
@@ -85,6 +88,7 @@ const stats = (v: unknown) =>
 function validSettings(v: unknown) {
   return (
     record(v) &&
+    (v.savedOutfitChance===undefined||(Number.isInteger(v.savedOutfitChance)&&Number(v.savedOutfitChance)>=0&&Number(v.savedOutfitChance)<=100))&&
     [
       ["opacity", 55, 96],
       ["font", 14, 18],
@@ -149,6 +153,7 @@ export function parseSnapshot(value: unknown): Snapshot | null {
     return null;
   const ids = new Set<string>();
   for (const f of value.followers) {
+    if(record(f)&&f.outfits!==undefined&&!validOutfits(f.outfits))return null;
     if(record(f)&&((f.wardrobe!==undefined&&!validWardrobe(f.wardrobe))||(f.behavior!==undefined&&!validBehavior(f.behavior))||
        ["carried","capacity"].some(k=>f[k]!==undefined&&(!number(f[k])||(f[k] as number)<0))||
        (f.behaviorOverride!==undefined&&typeof f.behaviorOverride!=="boolean")||

@@ -9,7 +9,7 @@ $web = Join-Path $moduleRoot 'web/dist'
 foreach ($required in @($dll, (Join-Path $web 'index.html'), (Join-Path $moduleRoot 'data/CompanionManager.esp'), (Join-Path $moduleRoot 'data/Scripts/CMController.pex'))) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Build output missing: $required" }
 }
-foreach ($script in @('CMDialogue', 'CMRandomOutfitTopic')) {
+foreach ($script in @('CMDialogue', 'CMRandomOutfitTopic', 'CMOutfitPartTopic', 'CMOutfitSaveTopic')) {
     if (-not (Test-Path -LiteralPath (Join-Path $moduleRoot "data/Scripts/$script.pex") -PathType Leaf)) { throw "Dialogue script missing: $script" }
 }
 if (-not (Test-Path -LiteralPath (Join-Path $moduleRoot 'data/SEQ/CompanionManager.seq') -PathType Leaf)) { throw 'Dialogue startup index missing' }

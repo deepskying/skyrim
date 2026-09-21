@@ -5,6 +5,7 @@
 #include "activity_rules.h"
 #include "activity_prompt.h"
 #include "outfit_rules.h"
+#include "outfit_state.h"
 #include <deque>
 #include <random>
 #include <limits>
@@ -37,6 +38,7 @@ RE::FormID dialogueCandidate = 0;
 std::uint64_t dialogueSequence = 0;
 std::chrono::steady_clock::time_point dialogueRetry{};
 std::string dialogueNotice;
+std::string dialogueState;
 
 std::string ID(RE::FormID id)
 {
@@ -276,9 +278,9 @@ void Equip(RE::Actor *actor, RE::FormID id, bool equipped)
     if (!manager)
         throw std::runtime_error("装备管理器未就绪");
     if (equipped)
-        manager->EquipObject(actor, item, extra, 1, nullptr, false, true, false, true);
+        manager->EquipObject(actor, item, extra, 1, nullptr, false, false, false, true);
     else
-        manager->UnequipObject(actor, item, extra, 1, nullptr, false, true, false, true);
+        manager->UnequipObject(actor, item, extra, 1, nullptr, false, false, false, true);
     const auto after = actor->GetInventory();
     const auto found = after.find(item);
     const bool worn = found != after.end() && found->second.second && found->second.second->IsWorn();
@@ -367,13 +369,25 @@ void SyncDialogueRecruitment()
 {
     auto *ui = RE::UI::GetSingleton();
     auto *original = DialogueAlias();
-    auto *actor = original ? original->GetActorReference() : nullptr;
+    auto *occupant = original ? original->GetReference() : nullptr;
+    auto *actor = occupant ? occupant->As<RE::Actor>() : nullptr;
     auto *count = RE::TESDataHandler::GetSingleton()->LookupForm<RE::TESGlobal>(0xBCC98, "Skyrim.esm");
-    if (!actor || !count || ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME))
-    {
+    if (!original || !count || ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) {
         dialogueCandidate = 0;
         return;
     }
+    // An empty human alias with count=1 can be reconciled only with an owned binding witness.
+    if(!occupant && count->value==1.0f) {
+        for(const auto& [id,r]:members) {
+            auto* candidate=Actor(id);auto* ownedAlias=Alias(r["slot"].get<int>());
+            if(candidate&&!candidate->IsDead()&&!candidate->IsDisabled()&&ownedAlias&&ownedAlias->GetActorReference()==candidate&&
+               (!actor||id<actor->GetFormID())) actor=candidate;
+        }
+    }
+    const auto state=std::format("occupant={} count={} witness={} managed={}",occupant?ID(occupant->GetFormID()):"none",count->value,
+        actor?ID(actor->GetFormID()):"none",actor&&members.contains(actor->GetFormID()));
+    if(state!=dialogueState) {dialogueCandidate=0;dialogueState=state;logger::info("Recruitment state: {}",state);}
+    if(!actor) {dialogueCandidate=0;return;}
     const auto id = actor->GetFormID();
     // Observe the same finished recruitment on consecutive ticks, outside dialogue.
     if (dialogueCandidate != id)
@@ -387,15 +401,17 @@ void SyncDialogueRecruitment()
         return;
     dialogueRetry = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     const bool owned = members.contains(id);
-    if (!rules::DialogueRecruitmentReady(false, actor->IsPlayerTeammate(),
-                                         RecruitReason(actor).empty(), owned, members.size(), count->value))
-    {
-        if (!owned && members.size() >= slots)
-            DialogueNotice(id, "同行名册已满，当前同伴保留原版管理；请先释放名册位置");
+    const bool enroll=rules::NeedsDialogueEnrollment(owned,owned&&members[id]["active"].get<bool>(),actor->IsPlayerTeammate(),occupant==actor,count->value);
+    const auto reason=RecruitReason(actor);
+    if (enroll && !rules::DialogueRecruitmentReady(false, actor->IsPlayerTeammate(),
+                                         reason.empty(), owned, members.size(), count->value)) {
+        DialogueNotice(id, "原版招募交接暂缓：" + (!reason.empty()?reason:
+            !actor->IsPlayerTeammate()?std::string("槽位人物不是当前队友"):
+            members.size()>=slots?std::string("同行名册已满"):std::string("原版随从计数异常")));
         return;
     }
     const auto thisEpoch = epoch;
-    if (!owned || !members[id]["active"].get<bool>())
+    if (enroll)
     {
         const bool waiting = actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kWaitingForPlayer) > 0;
         const std::string requestID = "dialogue-" + std::to_string(++dialogueSequence);
@@ -424,25 +440,31 @@ void SyncDialogueRecruitment()
         DialogueNotice(id, "同行槽位未确认，保留原版招募名额；请检查完整安装与存档");
         return;
     }
+    if(!rules::CanReconcileDialogueSlot(true,!occupant,occupant==actor,count->value)||actor->IsDead()||actor->IsDisabled()||actor->GetCurrentScene()) {
+        DialogueNotice(id,"原版招募交接暂缓：计数或人物状态不符合安全交接条件");return;
+    }
+    const bool active=members[id]["active"].get<bool>();
+    const bool staleCount=!occupant;
     commandPending = true;
-    Call("DetachDialogueFollower", [id, slot, thisEpoch](bool ok) {
+    Call("DetachDialogueFollower", [id, slot, thisEpoch, active, staleCount](bool ok) {
         std::scoped_lock guard(lock);
         if (epoch != thisEpoch)
             return;
         commandPending = false;
         auto *original = DialogueAlias();
+        auto* count=RE::TESDataHandler::GetSingleton()->LookupForm<RE::TESGlobal>(0xBCC98,"Skyrim.esm");
         ok = ok && members.contains(id) && Alias(slot) && Alias(slot)->GetActorReference() == Actor(id) &&
-             original && original->GetActorReference() != Actor(id);
+             original && !original->GetReference() && count && count->value==0.0f && Actor(id) && Actor(id)->IsPlayerTeammate()==active;
         if (ok)
         {
             Apply(Actor(id), members[id]);
-            DialogueNotice(id, "同伴已自动纳入同行，可继续通过对话招募");
+            DialogueNotice(id, staleCount?"已修复空闲原版槽位的残留计数，可继续对话招募":"原版招募名额已释放，同伴在队状态保持不变");
             dialogueCandidate = 0;
         }
         else
             DialogueNotice(id, "同伴已登记，原版名额交接未完成，将稍后重试");
         RefreshManagerView();
-    }, actor, slot);
+    }, actor, slot, active);
 }
 void Tick()
 {
@@ -453,6 +475,7 @@ void Tick()
     auto *player = RE::PlayerCharacter::GetSingleton();
     if (!ui || ui->GameIsPaused() || !player || !player->GetParentCell())
         return;
+    try { CheckOutfits(); } catch(const std::exception& e) { outfitChecks.clear(); logger::warn("Outfit confirmation: {}",e.what()); }
     if(ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) {
         auto* manager=RE::MenuTopicManager::GetSingleton();
         auto speaker=manager?manager->speaker.get():RE::NiPointer<RE::TESObjectREFR>{};
@@ -480,9 +503,13 @@ void Tick()
                !actor->IsInCombat()&&!player->IsInCombat()&&Nearby(actor,player,600)) {
                 try {
                     CancelActivity();
-                    const bool changed=ChangeOutfit(actor,it->second,true);
-                    if(changed) it->second["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
-                    RE::DebugNotification(changed?"已随机更换穿搭":"没有可替换的服饰，或换装未确认；请检查伙伴库存");
+                    if(dialogueOutfitMode!=0) {
+                        OpenPartnerWardrobe(id,dialogueOutfitMode==1?"part":"save");
+                        return;
+                    }
+                    const auto result=RandomNamedOutfit(actor,it->second,true);
+                    if(outfit::Changed(result)) it->second["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
+                    RE::DebugNotification(outfit::Message(result));
                     RefreshManagerView();
                 } catch(const std::exception& e) { logger::warn("Dialogue outfit: {}",e.what()); RE::DebugNotification("换装未完成，请检查伙伴库存"); }
             } else RE::DebugNotification("同伴当前无法换装，请在非战斗时重试");
@@ -524,7 +551,15 @@ bool RegisterPapyrus(RE::BSScript::IVirtualMachine* vm)
         const auto it=members.find(actor->GetFormID());
         if(it==members.end()||!it->second.value("active",false)) return;
         dialogueOutfitRequest=actor->GetFormID();
+        dialogueOutfitMode=0;
         dialogueOutfitDeadline=ActivityTime()+20;
+    });
+    vm->RegisterFunction("AdjustOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor,std::int32_t mode) {
+        std::scoped_lock guard(lock);
+        if(!ready||!actor||dialogueOutfitRequest||mode<0||mode>2) return;
+        const auto it=members.find(actor->GetFormID());
+        if(it==members.end()||!it->second.value("active",false)) return;
+        dialogueOutfitRequest=actor->GetFormID();dialogueOutfitMode=mode;dialogueOutfitDeadline=ActivityTime()+20;
     });
     return true;
 }
@@ -536,7 +571,7 @@ std::string SessionToken()
 json ManagerSettings()
 {
     std::scoped_lock guard(lock);
-    return settings;
+    auto result=settings;result["savedOutfitChance"]=settings.value("savedOutfitChance",70);return result;
 }
 json ActivityOverview()
 {
@@ -604,6 +639,7 @@ void SetGameReady(bool value)
     requests.clear();
     dialogueCandidate = 0;
     dialogueNotice.clear();
+    dialogueState.clear();
     dialogueRetry = {};
     lastOutfitSpeaker=0;
     ++epoch;
@@ -776,6 +812,7 @@ void DescribeActor(RE::Actor *actor, json &row)
         return;
     const auto &r = it->second;
     row["wardrobe"] = WardrobeSnapshot(actor,r);
+    row["outfits"] = OutfitSnapshot(actor,r);
     row["carried"] = Carried(actor);
     row["capacity"] = Capacity(actor);
     row["behavior"] = Behavior(r);
@@ -993,7 +1030,10 @@ void ExecuteCommand(const json &request, Completion complete)
         const int slot = r["slot"].get<int>();
         if (!Alias(slot) || Alias(slot)->GetActorReference() != actor)
             throw std::runtime_error("人物槽位与存档记录不匹配，请重新载入完整存档");
-        if(ActivityCommand(op,actor,r,request)) { complete(true,"设置或库存操作已完成");return; }
+        if(ActivityCommand(op,actor,r,request)) {
+            complete(true,op=="saveNamedOutfit"?"套装已保存，当前服饰已全部收藏":
+                outfitChecks.contains(id)?"换装请求已发送，正在确认实际穿戴":"设置或库存操作已完成");return;
+        }
         if(activityJob && (activityJob->actor==id)) CancelActivity();
         if (op == "dismiss")
         {

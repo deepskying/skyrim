@@ -6,6 +6,19 @@
 #include <limits>
 using namespace companion::rules;
 int main() {
+    assert(CanReconcileDialogueSlot(true,true,false,1)); // Empty stale human count.
+    assert(CanReconcileDialogueSlot(true,false,true,1)); // Owned active or dismissed actor.
+    assert(CanReconcileDialogueSlot(true,false,true,0)); // Occupied alias with stale zero count.
+    assert(!CanReconcileDialogueSlot(false,true,false,1)); // No ownership proof.
+    assert(!CanReconcileDialogueSlot(true,false,false,1)); // Another actor owns the slot.
+    assert(!CanReconcileDialogueSlot(true,true,false,2));
+    assert(!CanReconcileDialogueSlot(true,true,false,-1));
+    assert(!CanReconcileDialogueSlot(true,true,false,std::numeric_limits<float>::quiet_NaN()));
+    assert(NeedsDialogueEnrollment(false,false,true,true,1));
+    assert(NeedsDialogueEnrollment(true,false,true,true,1)); // Explicit vanilla re-recruitment.
+    assert(!NeedsDialogueEnrollment(true,false,false,true,1)); // Do not resurrect dismissed member.
+    assert(!NeedsDialogueEnrollment(true,false,true,false,1)); // Empty-slot witness is not recruitment.
+    assert(!NeedsDialogueEnrollment(true,true,true,true,1));
     assert(DialogueRecruitmentReady(false, true, true, false, 0, 1));
     assert(DialogueRecruitmentReady(false, true, true, false, 63, 1));
     assert(!DialogueRecruitmentReady(false, true, true, false, 64, 1));

@@ -7,6 +7,13 @@ struct WardrobeItem {
     float weight{};
     bool equipped{}, quest{}, favorite{}, equipment{}, stolen{};
 };
+struct OutfitCheck {
+    std::vector<std::string> keys;
+    double nextCheck{},deadline{};
+    bool manual{};
+    bool removing{};
+};
+std::unordered_map<RE::FormID,OutfitCheck> outfitChecks;
 struct ActivityJob {
     RE::FormID actor{}, target{};
     std::string kind;
@@ -18,8 +25,11 @@ std::unordered_map<RE::FormID,double> activityCooldown, requestCooldown;
 std::unordered_map<RE::FormID,std::string> activityRequests;
 std::unordered_set<RE::FormID> battleEnemies, droppedReferences;
 std::deque<std::string> activityHistory;
+// Block automatic sales until deferred gift identification has completed.
+std::unordered_map<RE::FormID,unsigned> pendingGiftLocks;
 RE::FormID wardrobeOpenRequest=0;
 RE::FormID dialogueOutfitRequest=0;
+int dialogueOutfitMode=0;
 double dialogueOutfitDeadline=0;
 bool battleSeen=false;
 bool activityCleanup=false;
@@ -110,6 +120,33 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
     });
     return rows;
 }
+// Actual worn instances are not bounded by displayed counts or the 512-row wardrobe limit.
+// Never synthesize inventory quantity from a worn marker or a model attachment.
+struct WornArmorInstance {
+    RE::TESObjectARMO* armor{};
+    RE::ExtraDataList* extra{};
+    bool protectedItem{};
+    int countDelta{},inventoryCount{};
+};
+std::vector<WornArmorInstance> RawWornArmor(RE::Actor* actor) {
+    std::vector<WornArmorInstance> result;
+    const auto counts=actor->GetInventoryCounts();
+    auto* changes=actor->GetInventoryChanges();
+    if(!changes||!changes->entryList) return result;
+    std::unordered_set<RE::ExtraDataList*> seen;
+    for(auto* entry:*changes->entryList) {
+        if(!entry||!entry->object||!entry->extraLists) continue;
+        auto* armor=entry->object->As<RE::TESObjectARMO>();
+        if(!armor) continue;
+        const bool protectedItem=entry->IsQuestObject()||!armor->GetPlayable()||armor==actor->GetSkin();
+        const auto count=counts.find(armor);
+        for(auto* extra:*entry->extraLists) {
+            if(!extra||!(extra->HasType<RE::ExtraWorn>()||extra->HasType<RE::ExtraWornLeft>())||!seen.insert(extra).second) continue;
+            result.push_back({armor,extra,protectedItem,entry->countDelta,count==counts.end()?0:count->second});
+        }
+    }
+    return result;
+}
 float Carried(RE::Actor* actor) {
     // Count all inventory weight, including worn items; never exploit perk weight exemptions.
     float total=0;
@@ -163,7 +200,7 @@ void CancelActivity() {
 }
 void ResetActivities() {
     activityJob.reset(); activityRequests.clear(); activityCooldown.clear(); requestCooldown.clear();
-    battleEnemies.clear(); activityHistory.clear();
+    battleEnemies.clear(); activityHistory.clear(); pendingGiftLocks.clear(); outfitChecks.clear();
     battleSeen=false; activityCleanup=false; wardrobeOpenRequest=0; lootUntil=quietSince=0;
     dialogueOutfitRequest=0; dialogueOutfitDeadline=0;
 }
@@ -197,7 +234,7 @@ RE::TESFaction* Merchant(RE::Actor* actor) {
     return faction;
 }
 bool Buys(RE::TESFaction* faction,const WardrobeItem& row) {
-    if(row.favorite||row.quest||row.equipped||row.item->GetFormID()==0xF) return false;
+    if(row.favorite||row.quest||row.equipped||row.item->GetFormID()==0xF||row.item->As<RE::AlchemyItem>()) return false;
     auto& v=faction->vendorData;
     if(row.stolen&&!v.vendorValues.buysStolen) return false;
     if(!v.vendorSellBuyList) return false;
@@ -217,6 +254,7 @@ int SalePrice(RE::Actor* actor,const WardrobeItem& row) {
     return (std::max)(1,static_cast<int>(row.value/(3.3f-1.3f*speech/100.0f)));
 }
 bool HasSale(RE::Actor* actor,RE::TESFaction* faction,const json& r) {
+    if(pendingGiftLocks.contains(actor->GetFormID())) return false;
     auto* gold=RE::TESForm::LookupByID<RE::TESBoundObject>(0xF);
     const int budget=Count(faction->vendorData.merchantContainer,gold);
     for(auto& item:Wardrobe(actor,r,true))
@@ -224,6 +262,7 @@ bool HasSale(RE::Actor* actor,RE::TESFaction* faction,const json& r) {
     return false;
 }
 void Sell(RE::Actor* actor,RE::Actor* merchant,json& r) {
+    if(pendingGiftLocks.contains(actor->GetFormID())) return;
     auto* faction=Merchant(merchant);
     if(!faction||!Nearby(actor,merchant,180)) return;
     auto* chest=faction->vendorData.merchantContainer;
@@ -297,38 +336,125 @@ void Loot(RE::Actor* actor,RE::TESObjectREFR* target,const json& p) {
     }
     if(total>0) ActivityLog(std::format("{}拾取了 {} 件物品",actor->GetName(),total),false);
 }
-bool WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selected) {
-    auto* equip=RE::ActorEquipManager::GetSingleton();
-    if(!equip) return false;
-    for(const auto& item:selected)
-        equip->EquipObject(actor,item.item,item.extra,1,nullptr,false,true,false,true);
-    const auto after=Wardrobe(actor,json::object(),true);
-    return std::all_of(selected.begin(),selected.end(),[&](const auto& item){
-        return std::any_of(after.begin(),after.end(),[&](const auto& row){return row.key==item.key&&row.equipped;});
-    });
+void CheckOutfits() {
+    const auto now=ActivityTime();
+    for(auto it=outfitChecks.begin();it!=outfitChecks.end();) {
+        const auto id=it->first;
+        auto& check=it->second;
+        auto* actor=Actor(id);
+        if(!actor||!members.contains(id)||!members[id].value("active",false)||actor->IsDead()||!actor->Is3DLoaded()) {
+            logger::info("Outfit confirmation cancelled actor={:08X}",id);
+            it=outfitChecks.erase(it);continue;
+        }
+        if(now<check.nextCheck) {++it;continue;}
+        check.nextCheck=now+0.25;
+        const auto rows=Wardrobe(actor,json::object(),false);
+        std::size_t confirmed=0;
+        const auto rawWorn=check.removing?RawWornArmor(actor):std::vector<WornArmorInstance>{};
+        for(const auto& key:check.keys)
+            if(check.removing?std::none_of(rawWorn.begin(),rawWorn.end(),[&](const auto& row){return WardrobeKey(row.armor,row.extra)==key;}):
+               std::any_of(rows.begin(),rows.end(),[&](const auto& row){return row.key==key&&row.equipped;})) ++confirmed;
+        const auto result=outfit::PollConfirmation(check.keys.size(),confirmed,now>=check.deadline);
+        if(result==outfit::Result::Pending) {++it;continue;}
+        for(const auto& key:check.keys) {
+            const auto row=std::find_if(rows.begin(),rows.end(),[&](const auto& row){return row.key==key;});
+            logger::info("Outfit delayed actor={:08X} item={} present={} worn={}",id,key,row!=rows.end(),row!=rows.end()&&row->equipped);
+        }
+        for(const auto& row:rows) if(row.equipped)
+            logger::info("Outfit still worn actor={:08X} item={} name={}",id,row.key,row.name);
+        if(const auto& biped=actor->GetBiped();biped) for(const auto& part:biped->objects) if(part.item)
+            logger::info("Outfit model actor={:08X} item={:08X}",id,part.item->GetFormID());
+        logger::info("Outfit final actor={:08X} confirmed={}/{} result={}",id,confirmed,check.keys.size(),outfit::Message(result));
+        if(outfit::Changed(result)) {
+            members[id]["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
+            ActivityLog(std::format("{}：{}",actor->GetName(),outfit::Message(result)),false);
+            if(!check.manual) activityRequests[id]="outfit";
+        }
+        if(check.manual) RE::DebugNotification(check.removing?
+            (result==outfit::Result::Changed?"已确认卸下装备": "未能完整确认卸下装备，请刷新检查"):outfit::Message(result));
+        it=outfitChecks.erase(it);
+        RefreshManagerView();
+    }
 }
-bool ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {
+outfit::Result WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selected,bool manual) {
+    auto* equip=RE::ActorEquipManager::GetSingleton();
+    if(!equip) return outfit::Result::Unconfirmed;
+    // CommonLib's forceEquip parameter means PreventRemoval in the engine.
+    // Repair conflicting old locks only for an explicit manual outfit request.
+    if(manual) {
+        std::uint32_t replacing=0;
+        for(const auto& item:selected) if(!item.equipped)
+            if(auto* armor=item.item->As<RE::TESObjectARMO>()) replacing|=static_cast<std::uint32_t>(armor->GetSlotMask());
+        for(const auto& old:RawWornArmor(actor)) {
+            auto* armor=old.armor;
+            if(!outfit::CanUnlockReplacement(manual,true,old.protectedItem,
+               static_cast<std::uint32_t>(armor->GetSlotMask()),replacing)) continue;
+            if(old.extra->HasType<RE::ExtraCannotWear>()) {
+                const bool removed=old.extra->RemoveByType(RE::ExtraDataType::kCannotWear);
+                logger::info("Outfit unlock actor={:08X} item={} name={} removed={}",actor->GetFormID(),WardrobeKey(armor,old.extra),armor->GetName(),removed);
+                if(removed) {
+                    if(auto* changes=actor->GetInventoryChanges()) changes->changed=true;
+                    actor->AddChange(RE::TESObjectREFR::ChangeFlags::kInventory);
+                }
+            }
+        }
+    }
+    OutfitCheck check{{},ActivityTime()+0.25,ActivityTime()+2.0,manual};
+    for(const auto& item:selected) if(!item.equipped) check.keys.push_back(item.key);
+    outfitChecks[actor->GetFormID()]=std::move(check);
+    for(const auto& item:selected) if(!item.equipped) {
+        logger::info("Outfit dispatch actor={:08X} item={} name={}",actor->GetFormID(),item.key,item.name);
+        equip->EquipObject(actor,item.item,item.extra,1,nullptr,false,false,false,true);
+    }
+    return outfit::Result::Pending;
+}
+outfit::Result ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {
+    if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
     auto inventory=Wardrobe(actor,r,true);
+    logger::info("Outfit request actor={:08X} name={} manual={} inventoryRows={}",actor->GetFormID(),actor->GetName(),fallback,inventory.size());
     std::vector<outfit::Candidate> candidates;
+    std::uint32_t occupied=0;
     for(std::size_t i=0;i<inventory.size();++i) {
         auto& row=inventory[i];
-        if(auto* armor=row.item->As<RE::TESObjectARMO>();armor&&!row.quest)
-            candidates.push_back({i,static_cast<std::uint32_t>(armor->GetSlotMask()),row.favorite,row.equipped});
+        if(auto* armor=row.item->As<RE::TESObjectARMO>()) {
+            const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());
+            logger::info("Outfit item={} name={} count={} mask={:08X} locked={} worn={} protected={} playable={} removalLocked={}",row.key,row.name,row.count,mask,row.favorite,row.equipped,row.quest,armor->GetPlayable(),row.extra&&row.extra->HasType<RE::ExtraCannotWear>());
+            if(!row.quest&&!armor->IsShield()&&armor!=actor->GetSkin()) candidates.push_back({i,mask,row.favorite,row.equipped});
+            else if(row.equipped) occupied|=mask;
+        }
     }
-    if(candidates.empty()) return false;
+    const auto worn=RawWornArmor(actor);
+    for(const auto& item:worn) {
+        const auto mask=static_cast<std::uint32_t>(item.armor->GetSlotMask());
+        const bool visible=std::any_of(inventory.begin(),inventory.end(),[&](const auto& row){return row.item==item.armor&&row.extra==item.extra;});
+        logger::info("Outfit raw worn actor={:08X} item={} name={} countDelta={} inventoryCount={} visible={} mask={:08X} protected={} removalLocked={}",
+            actor->GetFormID(),WardrobeKey(item.armor,item.extra),item.armor->GetName(),item.countDelta,item.inventoryCount,visible,mask,item.protectedItem,item.extra->HasType<RE::ExtraCannotWear>());
+        if(item.protectedItem) occupied|=mask;
+    }
+    // Model-only records (including ARMA attachments) are not sufficient proof of a removable item.
+    if(const auto& biped=actor->GetBiped();biped) {
+        std::unordered_set<RE::FormID> seen;
+        for(const auto& part:biped->objects) if(part.item) {
+            auto* armor=part.item->As<RE::TESObjectARMO>();
+            if(!armor||armor==actor->GetSkin()||!seen.insert(armor->GetFormID()).second) continue;
+            if(std::none_of(worn.begin(),worn.end(),[&](const auto& item){return item.armor==armor;}))
+                logger::warn("Outfit model without worn inventory actor={:08X} item={:08X} name={} mask={:08X}; no instance to unlock",
+                    actor->GetFormID(),armor->GetFormID(),armor->GetName(),static_cast<std::uint32_t>(armor->GetSlotMask()));
+        }
+    }
+    const auto finish=[&](outfit::Result result) {
+        logger::info("Outfit result actor={:08X} protectedSlots={:08X} result={}",actor->GetFormID(),occupied,outfit::Message(result));
+        return result;
+    };
+    if(candidates.empty()) return finish(outfit::Result::NoCandidates);
     static std::mt19937 rng{std::random_device{}()}; std::shuffle(candidates.begin(),candidates.end(),rng);
-    std::uint32_t occupied=0;
-    for(auto& row:inventory) if(row.quest&&row.equipped)
-        if(auto* armor=row.item->As<RE::TESObjectARMO>()) occupied|=static_cast<std::uint32_t>(armor->GetSlotMask());
     std::vector<WardrobeItem> selected;
     for(auto index:outfit::Select(candidates,occupied,fallback)) selected.push_back(inventory[index]);
-    if(selected.empty()) return false;
-    if(std::all_of(selected.begin(),selected.end(),[](const auto& row){return row.equipped;})) return false;
-    if(!WearSet(actor,selected)) return false;
-    ActivityLog(std::format("{}更换了穿搭",actor->GetName()),false);
-    if(!fallback) activityRequests[actor->GetFormID()]="outfit";
-    return true;
+    if(selected.empty()) return finish(outfit::Result::NoSelection);
+    if(std::all_of(selected.begin(),selected.end(),[](const auto& row){return row.equipped;})) return finish(outfit::Result::Unchanged);
+    return finish(WearSet(actor,selected,fallback));
 }
+#include "outfit_presets.inc"
 class ActivityAnswer final:public RE::IMessageBoxCallback {
     RE::FormID actor; std::uint64_t session;
 public:
@@ -419,7 +545,7 @@ void TickActivities() {
         const double hours=RE::Calendar::GetSingleton()->GetHoursPassed();
         if(!r.contains("lastOutfitHours")||hours<r["lastOutfitHours"].get<double>()) r["lastOutfitHours"]=hours;
         if(p["outfits"].get<bool>()&&hours-r["lastOutfitHours"].get<double>()>=p["outfitHours"].get<int>()) {
-            ChangeOutfit(actor,r); r["lastOutfitHours"]=hours; RefreshManagerView();
+            RandomNamedOutfit(actor,r,false); r["lastOutfitHours"]=hours; RefreshManagerView();
         }
         if(!activityRequests.contains(id)&&Capacity(actor)-Carried(actor)<5&&Capacity(player)-Carried(player)>1) activityRequests[id]="carry";
         if(p["requests"].get<bool>()&&activityRequests.contains(id)&&requestCooldown[id]<=now)
@@ -504,17 +630,55 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         activityRequests.erase(actor->GetFormID());requestCooldown[actor->GetFormID()]=ActivityTime()+300;
         return true;
     }
-    if(op=="changeOutfit") {
+    if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart") {
         if(!actor||!r.value("active",false)||!actor->IsPlayerTeammate()||actor->IsDead()||actor->IsDisabled()||
            !actor->Is3DLoaded()||actor->GetCurrentScene()||actor->IsInCombat()||RE::PlayerCharacter::GetSingleton()->IsInCombat())
             throw std::runtime_error("请在同伴闲暇且未战斗时换装");
+        if(!Nearby(actor,RE::PlayerCharacter::GetSingleton(),600)) throw std::runtime_error("请先靠近同伴再调整穿搭");
         CancelActivity();
-        if(!ChangeOutfit(actor,r,true)) throw std::runtime_error("没有可替换的服饰，或引擎尚未确认换装，请刷新检查");
-        r["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
+        if(op=="saveNamedOutfit") {SaveNamedOutfit(actor,r,request.at("name").get<std::string>());return true;}
+        auto result=outfit::Result::NoSelection;
+        if(op=="unequipOutfitPart") result=RemoveOutfitPart(actor,request);
+        else if(op=="outfitPart") result=ChangeOutfitPart(actor,r,request);
+        else if(op=="applyNamedOutfit") {
+            const auto presets=r.value("outfitPresets",json::array());
+            const auto p=std::find_if(presets.begin(),presets.end(),[&](const auto& x){return x["id"]==request.at("presetId");});
+            if(p==presets.end()) throw std::runtime_error("套装不存在，请刷新后重试");
+            result=ApplyNamedOutfit(actor,r,*p,true);
+        } else result=RandomNamedOutfit(actor,r,true);
+        if(result!=outfit::Result::Pending&&result!=outfit::Result::Unchanged&&!outfit::Changed(result)) throw std::runtime_error(outfit::Message(result));
+        RE::DebugNotification(outfit::Message(result));
         return true;
     }
     if(op=="deferRequest") { activityRequests.erase(actor->GetFormID());requestCooldown[actor->GetFormID()]=ActivityTime()+300;return true; }
     return false;
+}
+void LockPlayerGift(RE::FormID recipient,RE::FormID base,std::uint16_t uniqueID) {
+    auto* actor=Actor(recipient);
+    if(!actor||!members.contains(recipient)) return;
+    auto& r=members[recipient];
+    auto rows=Wardrobe(actor,r,true);
+    // Some transfers have no instance ID. Protect all same-base copies rather than guess.
+    const auto exact=[&](const WardrobeItem& row){
+        auto* uid=row.extra?row.extra->GetByType<RE::ExtraUniqueID>():nullptr;
+        return row.item->GetFormID()==base&&uid&&uniqueID&&uid->uniqueID==uniqueID;
+    };
+    const bool hasExact=std::count_if(rows.begin(),rows.end(),exact)==1;
+    if(!hasExact) {
+        int represented=0;for(const auto& row:rows) if(row.item->GetFormID()==base) represented+=row.count;
+        auto* item=RE::TESForm::LookupByID<RE::TESBoundObject>(base);
+        if(item&&represented<Count(actor,item)) throw std::runtime_error("同伴库存过大，交付装备未能完整识别");
+    }
+    if(!r.contains("favorites")) r["favorites"]=json::array();
+    auto& favorites=r["favorites"];
+    unsigned added=0;
+    for(const auto& row:rows) {
+        if(!row.equipment||row.item->GetFormID()!=base||(hasExact&&!exact(row))) continue;
+        if(std::find(favorites.begin(),favorites.end(),row.key)!=favorites.end()) continue;
+        if(favorites.size()>=512) throw std::runtime_error("锁定数量已达上限，请整理同伴锁定物品后重试");
+        favorites.push_back(row.key);++added;
+    }
+    if(added) ActivityLog(std::format("{}：已自动锁定玩家交付的装备（{} 项）",actor->GetName(),added),false);
 }
 class ActivityEvents final:public RE::BSTEventSink<RE::TESContainerChangedEvent>,public RE::BSTEventSink<RE::TESCombatEvent> {
 public:
@@ -536,6 +700,28 @@ public:
         return RE::BSEventNotifyControl::kContinue;
     }
     RE::BSEventNotifyControl ProcessEvent(const RE::TESContainerChangedEvent* e,RE::BSTEventSource<RE::TESContainerChangedEvent>*) override {
+        if(e&&e->oldContainer==0x14&&e->newContainer&&e->itemCount>0) {
+            std::scoped_lock guard(lock);
+            auto* item=RE::TESForm::LookupByID<RE::TESBoundObject>(e->baseObj);
+            if(ready&&members.contains(e->newContainer)&&item&&(item->As<RE::TESObjectWEAP>()||item->As<RE::TESObjectARMO>())) {
+                const auto recipient=e->newContainer,base=e->baseObj;
+                const auto uid=e->uniqueID;const auto stamp=epoch;
+                ++pendingGiftLocks[recipient];
+                if(auto* tasks=SKSE::GetTaskInterface()) tasks->AddTask([recipient,base,uid,stamp]{
+                    std::scoped_lock guard(lock);
+                    if(stamp!=epoch||!ready) return;
+                    try {
+                        LockPlayerGift(recipient,base,uid);
+                        auto it=pendingGiftLocks.find(recipient);
+                        if(it!=pendingGiftLocks.end()&&!--it->second) pendingGiftLocks.erase(it);
+                    } catch(const std::exception& error) {
+                        // Fail closed: don't sell this actor's inventory after an incomplete lock.
+                        logger::error("Gift auto-lock failed actor={:08X}: {}",recipient,error.what());
+                        RE::DebugNotification("交付装备自动锁定未完成，该同伴自动出售已暂停");
+                    }
+                });
+            }
+        }
         if(e&&e->oldContainer==0x14&&e->newContainer==0)
             if(auto ref=e->reference.get()) {
                 std::scoped_lock guard(lock);
@@ -555,17 +741,15 @@ void RemapWardrobe(json& r,SKSE::SerializationInterface* s) {
     // Retire legacy battle reservations without resolving or validating their old item IDs.
     r.erase("battleOutfit");
     r.erase("casual");
+    if(r.contains("outfitPresets")) {
+        outfit::RemapPresets(r["outfitPresets"],[s](std::uint32_t old,std::uint32_t& mapped){return s->ResolveFormID(old,mapped);});
+    }
     for(auto field:{"favorites"}) if(r.contains(field)) {
         if(!r[field].is_array()||r[field].size()>512) throw std::runtime_error("Invalid wardrobe records");
         json mapped=json::array();
         for(const auto& value:r[field]) {
-            if(!value.is_string()) throw std::runtime_error("Invalid wardrobe key");
-            const auto key=value.get<std::string>();
-            if(key.size()!=22||key[8]!=':'||key[17]!=':') throw std::runtime_error("Invalid wardrobe key");
-            auto parse=[](std::string_view v){unsigned n=0;auto p=std::from_chars(v.data(),v.data()+v.size(),n,16);if(p.ec!=std::errc{}||p.ptr!=v.data()+v.size())throw std::runtime_error("Invalid wardrobe ID");return n;};
-            const auto base=parse(std::string_view(key).substr(0,8)), owner=parse(std::string_view(key).substr(9,8)), uid=parse(std::string_view(key).substr(18,4));
-            RE::FormID b=0,o=0;
-            if(s->ResolveFormID(base,b)&&(!owner||s->ResolveFormID(owner,o))) mapped.push_back(std::format("{:08X}:{:08X}:{:04X}",b,o,uid));
+            const auto key=outfit::RemapKey(value,[s](std::uint32_t old,std::uint32_t& mapped){return s->ResolveFormID(old,mapped);});
+            if(key) mapped.push_back(*key);
         }
         r[field]=std::move(mapped);
     }

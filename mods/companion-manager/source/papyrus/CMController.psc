@@ -92,13 +92,13 @@ EndFunction
 
 ; Release only the vanilla human recruitment slot after our own binding succeeds.
 ; Never call DismissFollower: it would stop the teammate and run dismissal side effects.
-Bool Function DetachDialogueFollower(Actor who, Int slot)
+Bool Function DetachDialogueFollower(Actor who, Int slot, Bool active)
     ReferenceAlias member = MemberAlias(slot)
     DialogueFollowerScript dialogue = Game.GetFormFromFile(0x000750BA, "Skyrim.esm") as DialogueFollowerScript
     If who == None || member == None || dialogue == None
         Return False
     EndIf
-    If member.GetActorReference() != who || !who.IsPlayerTeammate() || who.IsDead()
+    If member.GetActorReference() != who || who.IsDead()
         Return False
     EndIf
     If UI.IsMenuOpen("Dialogue Menu") || dialogue.iFollowerDismiss != 0
@@ -107,25 +107,36 @@ Bool Function DetachDialogueFollower(Actor who, Int slot)
     ReferenceAlias original = dialogue.pFollowerAlias
     ReferenceAlias expected = dialogue.GetAlias(0) as ReferenceAlias
     GlobalVariable expectedCount = Game.GetFormFromFile(0x000BCC98, "Skyrim.esm") as GlobalVariable
-    If original == None || dialogue.pPlayerFollowerCount == None
+    If original == None || expectedCount == None || dialogue.pPlayerFollowerCount == None
         Return False
     EndIf
     If original != expected || dialogue.pPlayerFollowerCount != expectedCount
+        Debug.Trace("[CompanionManager] recruitment blocked: vanilla script properties differ")
         Return False
     EndIf
-    If original.GetActorReference() != who || dialogue.pPlayerFollowerCount.GetValue() != 1
+    Float count = expectedCount.GetValue()
+    If count != 0 && count != 1
+        Debug.Trace("[CompanionManager] recruitment blocked: unexpected count " + count)
         Return False
     EndIf
-    original.UnregisterForUpdateGameTime()
-    original.Clear()
+    ; GetReference also protects a non-actor alias occupant. Never clear someone else.
+    ObjectReference occupant = original.GetReference()
+    If occupant != None && occupant != who
+        Return False
+    EndIf
+    ; Native code observes the same state across ticks. Recheck immediately before writing.
+    If occupant == who
+        original.UnregisterForUpdateGameTime()
+        original.Clear()
+    EndIf
     If original.GetReference() != None
         Return False
     EndIf
-    dialogue.pPlayerFollowerCount.SetValue(0)
+    expectedCount.SetValue(0)
     dialogue.SetObjectiveDisplayed(10, False)
-    who.SetPlayerTeammate(True, True)
+    who.SetPlayerTeammate(active, active)
     who.EvaluatePackage()
-    Return member.GetActorReference() == who && who.IsPlayerTeammate()
+    Return member.GetActorReference() == who && who.IsPlayerTeammate() == active && expectedCount.GetValue() == 0
 EndFunction
 
 ReferenceAlias Function HomeAlias(Int slot)
@@ -150,6 +161,17 @@ Bool Function BindSlot(Actor who, Int slot, Bool active)
     member.ForceRefTo(who)
     If member.GetReference() != who
         Return False
+    EndIf
+    If !active
+        Quest dialogueQuest = Game.GetFormFromFile(0x000750BA, "Skyrim.esm") as Quest
+        If dialogueQuest != None
+            ReferenceAlias original = dialogueQuest.GetAlias(0) as ReferenceAlias
+            If original != None && original.GetReference() == who
+                If !DetachDialogueFollower(who, slot, False)
+                    Return False
+                EndIf
+            EndIf
+        EndIf
     EndIf
     who.SetPlayerTeammate(active, active)
     who.EvaluatePackage()
