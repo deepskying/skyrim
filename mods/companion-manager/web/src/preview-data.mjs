@@ -180,7 +180,7 @@ export function simulate(s, r) {
   if (!f) return { ok: false, message: "人物不存在" };
   if (r.command !== "adopt" && r.command !== "recruit" && !f.managed)
     return { ok: false, message: "请先纳入同行管理" };
-  if(["saveNamedOutfit","applyNamedOutfit","outfitPart","changeOutfit","unequipOutfitPart"].includes(r.command)) {
+  if(["saveNamedOutfit","removeNamedOutfit","applyNamedOutfit","outfitPart","changeOutfit","unequipOutfitPart"].includes(r.command)) {
     if(f.dead||f.unavailable||f.inCombat||f.group!=="party"||f.outfits.pending)return {ok:false,message:"同伴当前无法换装"};
     const d=f.outfits;
     const wear=i=>{for(const old of d.items)if(old.mask&i.mask)old.equipped=false;i.equipped=true;};
@@ -188,6 +188,10 @@ export function simulate(s, r) {
       const i=d.items.find(i=>i.key===r.itemKey);
       if(!Number.isInteger(r.slot)||r.slot<30||r.slot>61||r.slot===39||!i||!i.equipped||i.quest||!(i.mask&2**(r.slot-30)))return {ok:false,message:"装备受保护或已不在当前槽位穿戴"};
       i.equipped=false;
+    } else if(r.command==="removeNamedOutfit") {
+      const index=d.presets.findIndex(p=>p.id===r.presetId);
+      if(!Number.isInteger(r.presetId)||index<0)return {ok:false,message:"套装不存在"};
+      d.presets.splice(index,1);
     } else if(r.command==="saveNamedOutfit") {
       const name=typeof r.name==="string"?r.name.trim():"";
       if(!name||name.length>30||d.presets.some(p=>p.name===name))return {ok:false,message:"套装名称无效或重复"};

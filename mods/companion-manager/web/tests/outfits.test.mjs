@@ -19,6 +19,20 @@ test('named save captures current instances, favorites them and isolates the com
  assert.ok(saved.items.every(i=>i.favorite));assert.deepEqual(s.followers[1],other);
  assert.equal(run(s,'saveNamedOutfit',{name:'旅行装'}).ok,false);assert.ok(parseSnapshot(s));
 });
+test('removing a saved outfit leaves worn items and favorites unchanged',()=>{
+ const s=fixture(),f=s.followers[0],other=structuredClone(s.followers[1].outfits);
+ assert.ok(run(s,'saveNamedOutfit',{name:'旅行装'}).ok);
+ const preset=f.outfits.presets.find(p=>p.name==='旅行装');
+ const items=structuredClone(f.outfits.items);
+ assert.equal(run(s,'removeNamedOutfit',{presetId:999999}).ok,false);
+ assert.equal(run(s,'removeNamedOutfit',{presetId:'1'}).ok,false);
+ assert.ok(run(s,'removeNamedOutfit',{presetId:preset.id}).ok);
+ assert.equal(f.outfits.presets.some(p=>p.id===preset.id),false);
+ assert.deepEqual(f.outfits.items,items);
+ assert.deepEqual(s.followers[1].outfits,other);
+ assert.equal(run(s,'removeNamedOutfit',{presetId:preset.id}).ok,false);
+ assert.ok(parseSnapshot(s));
+});
 test('saved outfit skips missing instance without equipping another enchanted copy or clearing that slot',()=>{
  const s=fixture(),f=s.followers[0];run(s,'saveNamedOutfit',{name:'原装'});
  const p=f.outfits.presets.find(p=>p.name==='原装');

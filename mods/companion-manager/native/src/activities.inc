@@ -630,13 +630,14 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         activityRequests.erase(actor->GetFormID());requestCooldown[actor->GetFormID()]=ActivityTime()+300;
         return true;
     }
-    if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart") {
+    if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="removeNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart") {
         if(!actor||!r.value("active",false)||!actor->IsPlayerTeammate()||actor->IsDead()||actor->IsDisabled()||
            !actor->Is3DLoaded()||actor->GetCurrentScene()||actor->IsInCombat()||RE::PlayerCharacter::GetSingleton()->IsInCombat())
             throw std::runtime_error("请在同伴闲暇且未战斗时换装");
         if(!Nearby(actor,RE::PlayerCharacter::GetSingleton(),600)) throw std::runtime_error("请先靠近同伴再调整穿搭");
         CancelActivity();
         if(op=="saveNamedOutfit") {SaveNamedOutfit(actor,r,request.at("name").get<std::string>());return true;}
+        if(op=="removeNamedOutfit") {RemoveNamedOutfit(r,request.at("presetId"));return true;}
         auto result=outfit::Result::NoSelection;
         if(op=="unequipOutfitPart") result=RemoveOutfitPart(actor,request);
         else if(op=="outfitPart") result=ChangeOutfitPart(actor,r,request);

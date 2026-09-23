@@ -71,6 +71,14 @@ void SaveNamedOutfit(RE::Actor* actor,json& r,const std::string& name) {
     if(bytes>3*1024*1024) throw std::runtime_error("当前存档的穿搭记录已达容量上限，未保存新套装");
     r["outfitPresets"]=std::move(presets);r["favorites"]=std::move(favorites);
 }
+void RemoveNamedOutfit(json& r,const json& presetID) {
+    if(!rules::Integer(presetID,1,1000000)) throw std::runtime_error("套装编号无效");
+    auto presets=r.value("outfitPresets",json::array());
+    const auto found=std::find_if(presets.begin(),presets.end(),[&](const auto& p){return p["id"]==presetID;});
+    if(found==presets.end()) throw std::runtime_error("套装不存在，请刷新后重试");
+    presets.erase(found);
+    r["outfitPresets"]=std::move(presets);
+}
 outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool manual) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
     const auto rows=Wardrobe(actor,r,true);std::vector<WardrobeItem> selected;

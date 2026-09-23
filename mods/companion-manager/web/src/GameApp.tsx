@@ -292,7 +292,7 @@ export function GameApp() {
                 <CompanionPicker key={s?.session} followers={magicFollowers} value={f?.id ?? ""} onChange={setManagementActor} label="选择魔法管理伙伴" />
               </div>
               {f ? <MagicPanel snapshot={s} follower={f} busy={game.busy} editable={editable} command={game.command}
-                onTeach={b => ask("传授法术", `消耗一本${b.name}，让${f.name}学会${b.spellName}。`, "teach", {entityId: b.id})} />
+                onTeach={b => game.command("teach", {actorId: f.id, entityId: b.id})} />
                 : <div className="cm-empty">先招募一位伙伴，即可管理法术。</div>}
             </section>
           ) : section === "settings" ? (

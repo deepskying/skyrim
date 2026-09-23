@@ -1032,6 +1032,7 @@ void ExecuteCommand(const json &request, Completion complete)
             throw std::runtime_error("人物槽位与存档记录不匹配，请重新载入完整存档");
         if(ActivityCommand(op,actor,r,request)) {
             complete(true,op=="saveNamedOutfit"?"套装已保存，当前服饰已全部收藏":
+                op=="removeNamedOutfit"?"已移除保存的套装，当前穿戴和收藏未改变":
                 outfitChecks.contains(id)?"换装请求已发送，正在确认实际穿戴":"设置或库存操作已完成");return;
         }
         if(activityJob && (activityJob->actor==id)) CancelActivity();
