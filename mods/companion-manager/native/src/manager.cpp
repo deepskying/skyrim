@@ -7,6 +7,7 @@
 #include "outfit_rules.h"
 #include "outfit_state.h"
 #include "wardrobe_identity.h"
+#include "combat_rules.h"
 #include <deque>
 #include <random>
 #include <limits>
@@ -119,7 +120,7 @@ std::string RecruitReason(RE::Actor *actor)
         return "人物正在参与剧情场景";
     if (actor->IsChild() || !actor->GetActorBase()->IsUnique())
         return "仅支持非儿童的独立 NPC，避免修改共享角色模板";
-    if (actor->IsHostileToActor(RE::PlayerCharacter::GetSingleton()) || actor->IsInCombat())
+    if (actor->IsHostileToActor(RE::PlayerCharacter::GetSingleton()) || Fighting(actor))
         return "无法招募敌对或交战中的人物";
     if (auto *extra = actor->extraList.GetByType<RE::ExtraAliasInstanceArray>())
     {
@@ -476,6 +477,7 @@ void Tick()
     auto *player = RE::PlayerCharacter::GetSingleton();
     if (!ui || ui->GameIsPaused() || !player || !player->GetParentCell())
         return;
+    const auto now = ActivityTime();
     try { CheckOutfits(); } catch(const std::exception& e) { outfitChecks.clear(); logger::warn("Outfit confirmation: {}",e.what()); }
     if(ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) {
         auto* manager=RE::MenuTopicManager::GetSingleton();
@@ -501,7 +503,7 @@ void Tick()
             const auto it=members.find(id);
             if(it!=members.end()&&actor&&it->second.value("active",false)&&actor->IsPlayerTeammate()&&
                !actor->IsDead()&&!actor->IsDisabled()&&actor->Is3DLoaded()&&!actor->GetCurrentScene()&&
-               !actor->IsInCombat()&&!player->IsInCombat()&&Nearby(actor,player,600)) {
+               !Fighting(actor)&&!Fighting(player)&&Nearby(actor,player,600)) {
                 try {
                     CancelActivity();
                     if(dialogueOutfitMode!=0) {
@@ -526,10 +528,11 @@ void Tick()
                 if (auto *spell = RE::TESForm::LookupByID<RE::SpellItem>(value.get<RE::FormID>()))
                     if (Knows(actor, spell))
                         actor->RemoveSpell(spell);
+            GuardCombat(actor, player, now);
             if (r["passive"].get<bool>() && actor->IsInCombat())
                 actor->StopCombat();
             if ((!activityJob || activityJob->actor != id) && r["active"].get<bool>() && !r["waiting"].get<bool>() && r["leash"].get<bool>() &&
-                !actor->IsInCombat() && !player->IsInCombat())
+                !Fighting(actor) && !Fighting(player))
             {
                 const bool same = actor->GetParentCell() == player->GetParentCell() ||
                                   (actor->GetWorldspace() && actor->GetWorldspace() == player->GetWorldspace());
@@ -537,8 +540,27 @@ void Tick()
                     actor->MoveTo(player);
             }
         }
+    GuardAllies(now);
 }
 } // namespace
+
+bool Fighting(RE::Actor *actor)
+{
+    if (!actor || !actor->IsInCombat())
+        return false;
+    const RE::NiPointer<RE::Actor> handle = actor->GetActorRuntimeData().currentCombatTarget.get();
+    auto *target = handle.get();
+    if (!target || target == actor)
+        return false;
+    if (target == RE::PlayerCharacter::GetSingleton() || target->IsPlayerTeammate() ||
+        members.contains(target->GetFormID()))
+        return false;
+    const auto sameCell = actor->GetParentCell() && actor->GetParentCell() == target->GetParentCell();
+    const auto distance =
+        sameCell ? static_cast<float>((actor->GetPosition() - target->GetPosition()).Length()) : -1.0f;
+    return rules::LiveEnemy(target->IsDead(), target->IsDisabled(), target->Is3DLoaded(),
+                            actor->IsHostileToActor(target), distance, rules::CombatGuardRadius);
+}
 
 RE::TESQuest *Controller()
 {
@@ -636,6 +658,10 @@ void SetGameReady(bool value)
     std::scoped_lock guard(lock);
     ready = value;
     ResetActivities();
+    staleCombatSince.clear();
+    guardCooldown.clear();
+    alliedPairs.clear();
+    allyPassAt = 0;
     commandPending = false;
     requests.clear();
     dialogueCandidate = 0;

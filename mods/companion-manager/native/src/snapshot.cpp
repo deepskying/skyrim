@@ -169,7 +169,7 @@ json ReadActor(RE::Actor *actor, RE::Actor *player)
                 {"spells", spells.items},
                 {"gear", gear},
                 {"raised", false},
-                {"inCombat", actor->IsInCombat()},
+                {"inCombat", Fighting(actor)},
                 {"levelCap", base && base->HasPCLevelMult() ? json(base->actorData.calcLevelMax) : json(nullptr)},
                 {"detailsTruncated", gearTruncated || spells.truncated}};
     DescribeActor(actor, row);

@@ -1,7 +1,7 @@
 set_xmakever("2.8.2")
 includes("../../../reference/example-skse-plugin/lib/commonlibsse-ng")
 set_project("CompanionManager")
-set_version("1.8.5")
+set_version("1.8.6")
 set_languages("c++23")
 set_warnings("allextra")
 set_policy("package.requires_lock", true)
@@ -48,6 +48,14 @@ target("activity-rules-test")
     add_files("tests/activity_rules.cpp")
     add_cxxflags("/utf-8")
     add_undefines("NDEBUG")
+
+target("combat-guard-test")
+    set_kind("binary")
+    set_default(false)
+    add_files("tests/combat_guard.cpp")
+    add_cxxflags("/utf-8")
+    add_undefines("NDEBUG")
+
 
 target("retired-needs-test")
     set_kind("binary")

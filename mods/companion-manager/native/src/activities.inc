@@ -239,7 +239,75 @@ bool Nearby(RE::TESObjectREFR* a,RE::TESObjectREFR* b,float distance) {
 }
 bool ActorAvailable(RE::Actor* actor,const json& r) {
     return actor&&!actor->IsDead()&&!actor->IsDisabled()&&
-        activity::CanRun(r["active"],r["waiting"],actor->IsInCombat(),actor->GetCurrentScene()!=nullptr,actor->Is3DLoaded());
+        activity::CanRun(r["active"],r["waiting"],Fighting(actor),actor->GetCurrentScene()!=nullptr,actor->Is3DLoaded());
+}
+// ---------------------------------------------------------------- combat guards
+std::unordered_map<RE::FormID,double> staleCombatSince,guardCooldown;
+std::unordered_set<std::uint64_t> alliedPairs;
+double allyPassAt=0;
+// A companion must never fight the player or another companion, and a combat flag without a live
+// enemy is cleared once the grace period passes instead of locking the panel out forever.
+void GuardCombat(RE::Actor* actor,RE::Actor* player,double now) {
+    const auto id=actor->GetFormID();
+    if(!actor->IsInCombat()) { staleCombatSince.erase(id); return; }
+    const RE::NiPointer<RE::Actor> handle=actor->GetActorRuntimeData().currentCombatTarget.get();
+    auto* other=handle.get();
+    bool liveEnemy=false,friendly=false;
+    if(other&&other!=actor) {
+        const auto sameCell=actor->GetParentCell()&&actor->GetParentCell()==other->GetParentCell();
+        const auto distance=sameCell?static_cast<float>((actor->GetPosition()-other->GetPosition()).Length()):-1.0f;
+        liveEnemy=rules::LiveEnemy(other->IsDead(),other->IsDisabled(),other->Is3DLoaded(),
+                                   actor->IsHostileToActor(other),distance,rules::CombatGuardRadius);
+        friendly=rules::FriendlyCombatTarget(other==player,other->IsPlayerTeammate(),
+                                            members.contains(other->GetFormID()));
+    }
+    auto& since=staleCombatSince[id];
+    if(!since) since=now;
+    if(liveEnemy&&!friendly) { staleCombatSince.erase(id); return; }
+    const auto action=rules::GuardFor(true,liveEnemy,friendly,now-since>=rules::StaleCombatSeconds);
+    if(action==rules::CombatGuard::None) return;
+    if(auto& cooldown=guardCooldown[id];cooldown>now) return;
+    guardCooldown[id]=now+rules::GuardActionCooldown;
+    const auto seconds=now-since;
+    staleCombatSince.erase(id);
+    const auto name=actor->GetName()?actor->GetName():"";
+    const auto target=other?std::format("{:08X}",other->GetFormID()):std::string("none");
+    if(action==rules::CombatGuard::StopFriendlyFire) {
+        logger::info("Combat guard friendly fire actor={:08X} name={} target={} reaction={} teammate={} aggression={:.0f}",
+            id,name,target,other?static_cast<int>(actor->GetFactionReaction(other)):-1,
+            other?other->IsPlayerTeammate():false,
+            actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kAggression));
+        actor->StopCombat();
+        if(other&&other!=player) other->StopCombat();
+    } else {
+        logger::info("Combat guard cleared stale combat actor={:08X} name={} seconds={:.1f} target={}",
+            id,name,seconds,target);
+        actor->StopCombat();
+        actor->EvaluatePackage(false,false);
+    }
+    RefreshManagerView();
+}
+// Hostility between companions comes from faction reactions and relationship ranks, which the
+// engine does not clear for teammates on its own. Raise every pair of active companions to Ally.
+void GuardAllies(double now) {
+    if(now<allyPassAt) return;
+    allyPassAt=now+15.0;
+    std::vector<RE::FormID> active;
+    for(auto& [id,r]:members) if(r["active"].get<bool>())
+        if(auto* a=Actor(id);a&&!a->IsDead()&&a->Is3DLoaded()) active.push_back(id);
+    int budget=4;
+    for(std::size_t i=0;i<active.size()&&budget>0;++i)
+        for(std::size_t j=i+1;j<active.size()&&budget>0;++j) {
+            const auto low=(std::min)(active[i],active[j]),high=(std::max)(active[i],active[j]);
+            const auto key=(static_cast<std::uint64_t>(low)<<32)|static_cast<std::uint64_t>(high);
+            if(!alliedPairs.insert(key).second) continue;
+            --budget;
+            const auto slotA=members[active[i]]["slot"].get<int>(),slotB=members[active[j]]["slot"].get<int>();
+            Call("AllyMembers",[key,low,high](bool ok){
+                if(!ok) { alliedPairs.erase(key); return; }
+                logger::info("Companion allies set {:08X} {:08X}",low,high);
+            },slotA,slotB);
+        }
 }
 void CancelActivity() {
     if(!activityJob) return;
@@ -538,9 +606,9 @@ void TickActivities() {
     auto* player=RE::PlayerCharacter::GetSingleton(); auto* ui=RE::UI::GetSingleton();
     const double now=ActivityTime();
     std::erase_if(activityCooldown,[now](const auto& entry){return entry.second<=now;});
-    bool combat=player->IsInCombat();
+    bool combat=Fighting(player);
     for(auto& [id,r]:members) if(r["active"].get<bool>())
-        if(auto* a=Actor(id);a&&a->IsInCombat()) combat=true;
+        if(auto* a=Actor(id);a&&Fighting(a)) combat=true;
     if(combat) {
         if(!battleSeen) battleEnemies.clear();
         CancelActivity(); quietSince=now; lootUntil=0; battleSeen=true;
@@ -689,7 +757,7 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
     }
     if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="removeNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart") {
         if(!actor||!r.value("active",false)||!actor->IsPlayerTeammate()||actor->IsDead()||actor->IsDisabled()||
-           !actor->Is3DLoaded()||actor->GetCurrentScene()||actor->IsInCombat()||RE::PlayerCharacter::GetSingleton()->IsInCombat())
+           !actor->Is3DLoaded()||actor->GetCurrentScene()||Fighting(actor)||Fighting(RE::PlayerCharacter::GetSingleton()))
             throw std::runtime_error("请在同伴闲暇且未战斗时换装");
         if(!Nearby(actor,RE::PlayerCharacter::GetSingleton(),600)) throw std::runtime_error("请先靠近同伴再调整穿搭");
         CancelActivity();

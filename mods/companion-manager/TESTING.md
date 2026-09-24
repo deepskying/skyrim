@@ -1,3 +1,12 @@
+## 1.8.6（2026-09-24）战斗状态与队友停战
+
+- 现场问题：随从战斗结束后仍保持交战状态、无法交互；随从之间偶发互殴（目前只见瑟拉娜）。
+- 判定改为"真实战斗"：只有存在存活、已加载、敌对且在同区域近距离内的战斗目标才算交战（原生侧新增 `Fighting`）。快照 inCombat、自动行为调度、换装 / 取物 / 对话换装 / 自动跟上 / 招募原因全部改用同一判定，残留标志不再锁死界面。
+- 原生守卫：Tick 每秒检查一次成员的战斗目标。目标是玩家或其他同伴 → 立即 `StopCombat()`（玩家本身不停战）并记录 `Combat guard friendly fire`（含双方 FormID、`GetFactionReaction`、`IsPlayerTeammate`、aggression）；没有存活敌对目标并持续 6 秒 → 记录 `Combat guard cleared stale combat` 并停战 + `EvaluatePackage()`。同一成员两次动作间隔至少 5 秒。
+- 关系修复：入队与读档后，每 15 秒最多提交 4 对，经 Papyrus `CMController.AllyMembers` 把同时在队同伴两两设为关系等级 3（盟友），只升不降（4 为 Lover，会影响对话，故不使用）；成功写 `Companion allies set`，失败则稍后重试。
+- 验证：原生 Release 编译通过；原生测试目标 8 个（新增 combat-guard-test，覆盖真实战斗、友军停战、宽限期清理、目标有效性、关系等级）全部 exit=0；Papyrus 编译 0 错误 0 警告；网页 41 项测试与构建通过。
+- 游戏内待复测：打一场架结束后数秒内面板应恢复可交互，日志出现 `Combat guard cleared stale combat`；瑟拉娜与另一名同伴同队站立时日志应出现 `Companion allies set` 且不再互殴；若仍出现 friendly fire 记录，按日志中的 reaction / aggression 判断是否需要更强限制（例如把该成员的「避免交战」打开）。
+
 ## 1.8.5（2026-09-24）实例编号冲突
 
 - 现场数据：娜拉 FE1A8813 的 77265226「古老的诺德护手」同时以 count=1（穿戴中）与 count=5（背包备用）出现，两条共用 ExtraUniqueID FE1A8813:0020；前端 validWardrobe 因键重复丢弃整份 255KB 快照，面板显示"等待游戏数据"。通过 Meridian CEF 调试端口读取面板内 window.__companionSnapshot 复核，14 名人物中仅此一处不合格。

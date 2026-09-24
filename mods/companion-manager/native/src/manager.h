@@ -10,6 +10,9 @@ void InitializeManager();
 void RegisterSerialization();
 bool RegisterPapyrus(RE::BSScript::IVirtualMachine* vm);
 void SetGameReady(bool ready);
+// True only while the actor is in a fight the panel should respect: a live hostile target, and
+// neither the player nor another companion. Lingering engine combat flags report false.
+bool Fighting(RE::Actor *actor);
 void ExecuteCommand(const json &command, Completion complete);
 void DescribeActor(RE::Actor *actor, json &row);
 std::vector<RE::FormID> RegisteredActors();

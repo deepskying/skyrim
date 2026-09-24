@@ -238,6 +238,29 @@ Bool Function SetProtection(Int slot, Bool enabled)
 EndFunction
 
 
+; Companions must not treat each other as enemies. Faction reactions stay hostile for some
+; combinations (a vampire companion against Dawnguard-aligned followers, for example) and
+; teammates do not override them, so raise both directions to Ally. Ranks are only raised.
+Bool Function AllyMembers(Int slotA, Int slotB)
+    ReferenceAlias memberA = MemberAlias(slotA)
+    ReferenceAlias memberB = MemberAlias(slotB)
+    If memberA == None || memberB == None
+        Return False
+    EndIf
+    Actor a = memberA.GetActorReference()
+    Actor b = memberB.GetActorReference()
+    If a == None || b == None || a == b
+        Return False
+    EndIf
+    If a.GetRelationshipRank(b) < 3
+        a.SetRelationshipRank(b, 3)
+    EndIf
+    If b.GetRelationshipRank(a) < 3
+        b.SetRelationshipRank(a, 3)
+    EndIf
+    Return a.GetRelationshipRank(b) >= 3 && b.GetRelationshipRank(a) >= 3
+EndFunction
+
 Bool Function CleanupRetiredNeeds()
     UnregisterForSleep()
     Int slot = 0
