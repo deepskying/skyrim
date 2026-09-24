@@ -4,7 +4,6 @@ import { GeneralSettings } from './GeneralSettings';
 import { EquipmentSettings } from './EquipmentSettings';
 import { WorkshopNavigation, type Tab } from './WorkshopNavigation';
 import { useArrowBridge } from './arrows/useArrowBridge';
-import { PotionsPanel } from './potions/PotionsPanel';
 import { ArrowWorkshop } from './arrows/ArrowWorkshop';
 import { ArrowSettings } from './arrows/ArrowSettings';
 import { adjacentEquipment } from './equipment-selection';
@@ -365,13 +364,12 @@ export function App() {
       </>}
       {hud.detail && <span className="hud-detail">{hud.detail}</span>}
     </div>
-  </aside>}<EquippedHud items={equippedHud} /></div>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : (tab === 'potions' || tab === 'food') ? ' potions-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
+  </aside>}<EquippedHud items={equippedHud} /></div>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
-    <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'food' ? 'FOOD & DRINK' : tab === 'potions' ? 'POTIONS' : tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'enhancement' ? 'ENHANCEMENT WORKSHOP' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'food' ? '食物' : tab === 'potions' ? '药水' : tab === 'arrows' ? '魔法箭工坊' : tab === 'enhancement' ? '装备强化' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'food' ? '整理随身食物与饮料，为冒险补充状态。' : tab === 'potions' ? '查看每一瓶的功效，为接下来的冒险补充状态。' : tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : tab === 'enhancement' ? '选择一件装备，查看属于它的强化方案。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${(tab === 'enhancement' || enhancing ? canEnhance : state.forge.active) ? 'active' : ''}`}>{tab === 'enhancement' || enhancing ? (canEnhance ? '附魔台／锻造设备可用' : '需靠近附魔台或锻造设备') : state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
+    <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'enhancement' ? 'ENHANCEMENT WORKSHOP' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'arrows' ? '魔法箭工坊' : tab === 'enhancement' ? '装备强化' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : tab === 'enhancement' ? '选择一件装备，查看属于它的强化方案。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${(tab === 'enhancement' || enhancing ? canEnhance : state.forge.active) ? 'active' : ''}`}>{tab === 'enhancement' || enhancing ? (canEnhance ? '附魔台／锻造设备可用' : '需靠近附魔台或锻造设备') : state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 
-    {(tab === 'potions' || tab === 'food') && <PotionsPanel key={tab} food={tab === 'food'} pageKeyboard={!!state.pageKeyboard} />}
     <ArrowWorkshop state={arrows.state} action={arrows.action} active={panelVisible && tab === 'arrows'} />
-    <div className="equipment-pane" hidden={tab === 'arrows' || tab === 'settings' || tab === 'potions' || tab === 'food'}>
+    <div className="equipment-pane" hidden={tab === 'arrows' || tab === 'settings'}>
     {enhancing ? <EnhancementPage key={enhancing.id} item={enhancing} forge={state.forge} revision={revision} refreshResult={state.refreshResult} backLabel={tab === 'enhancement' ? '返回装备列表' : '返回装备详情'} onBack={() => setEnhancingId(undefined)} onAction={send} /> : tab === 'enhancement' ? <EquipmentEnhancementGrid items={filteredEquipment} total={visibleEquipment.length} search={search} filter={filter} setSearch={setSearch} setFilter={setFilter} available={canEnhance} onSelect={id => { setSelectedId(id); setEnhancingId(id); send('selectEquipment', { id }); send('playWorkshopClick'); }} /> : <section className="workshop-layout">
       <aside className="equipment-list"><div className="list-heading"><div><p>INVENTORY EQUIPMENT</p><h2>背包装备</h2></div><span>{visibleEquipment.length} 件</span></div>
         <div className="equipment-tools"><input aria-label="搜索装备" placeholder="搜索装备名称…" value={search} onChange={(e) => setSearch(e.target.value)} /><div>{[['all','全部'],['weapon','武器'],['armor','护甲'],['clothing','衣物'],['worn','已装备']].map(([id,label]) => <button key={id} className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div></div>
@@ -394,6 +392,6 @@ export function App() {
       <div hidden={settingsTab !== 'equipment'}><EquipmentSettings state={state} draft={draft} setDraft={setDraft} send={send} /></div>
       <ArrowSettings state={arrows.state} action={arrows.action} active={panelVisible && tab === 'settings' && settingsTab === 'arrows'} />
     </section>
-    <footer className="panel-footer"><span>{tab === 'food' || tab === 'potions' || tab === 'arrows' || tab === 'settings' && settingsTab === 'arrows' ? `按 ${hotkeyLabel(state.settings)} 打开或关闭工坊。` : state.message || `按 ${hotkeyLabel(state.settings)} 可随时打开工坊。`}</span><small>{state.unified ? 'Equipment Workshop' : 'Durability Manager'} · v{state.version}</small></footer>
+    <footer className="panel-footer"><span>{tab === 'arrows' || tab === 'settings' && settingsTab === 'arrows' ? `按 ${hotkeyLabel(state.settings)} 打开或关闭工坊。` : state.message || `按 ${hotkeyLabel(state.settings)} 可随时打开工坊。`}</span><small>{state.unified ? 'Equipment Workshop' : 'Durability Manager'} · v{state.version}</small></footer>
   </div></main>}</>;
 }
