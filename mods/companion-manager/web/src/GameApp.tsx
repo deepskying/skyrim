@@ -522,10 +522,7 @@ export function GameApp() {
                             )}>{f.group === "party" ? "解散" : "重新入队"}</button>
                           <button className="cm-action-home" disabled={!editable}
                             title="将你当前站立的位置设为这位同伴的居所"
-                            onClick={() => ask("设置居所",
-                              `将你当前站立的位置（${s?.location ?? "当前位置"}）设为${f.name}的居所。离队后，同伴会前往这里休息。`,
-                              "home", {clear: false},
-                            )}>设置居所</button>
+                            onClick={() => act("home", {clear: false})}>设置居所</button>
                         </div>
                         <div className="cm-attribute-top">
                           <div className="cm-level-tile">
