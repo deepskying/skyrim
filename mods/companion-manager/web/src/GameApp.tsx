@@ -434,11 +434,18 @@ export function GameApp() {
                   </div>
                   {!rows.length && (
                     <div className="cm-welcome">
-                      <h2>{s?.ready ? "这里暂时没有同伴" : "等待游戏数据"}</h2>
+                      <h2>
+                        {s?.ready
+                          ? "这里暂时没有同伴"
+                          : game.blocked
+                            ? "游戏数据无法读取"
+                            : "等待游戏数据"}
+                      </h2>
                       <p>
-                        {query
-                          ? "没有找到匹配的人物。"
-                          : "当前没有可显示的同伴，可以刷新游戏数据。"}
+                        {game.blocked ??
+                          (query
+                            ? "没有找到匹配的人物。"
+                            : "当前没有可显示的同伴，可以刷新游戏数据。")}
                       </p>
                       <button disabled={game.busy} onClick={game.refresh}>
                         刷新
@@ -616,6 +623,11 @@ export function GameApp() {
           {s?.truncated && (
             <div className="cm-notice">
               人物较多，当前最多显示 128 位；已登记同伴优先。
+            </div>
+          )}
+          {!!game.issues.length && (
+            <div className="cm-notice">
+              数据异常已自动处理：{game.issues.slice(0, 3).join("；")}
             </div>
           )}
             <div className="cm-status-row">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   isGameLocation,
-  parseSnapshot,
+  readSnapshot,
   request,
   send,
   type Snapshot,
@@ -22,6 +22,8 @@ export function useGame() {
   const [notice, setNotice] = useState<{ ok: boolean; message: string } | null>(
     null,
   );
+  const [issues, setIssues] = useState<string[]>([]);
+  const [blocked, setBlocked] = useState<string | null>(null);
   const pending = useRef("");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sequence = useRef(0);
@@ -47,14 +49,17 @@ export function useGame() {
   useEffect(() => {
     if (!gameMode) return;
     const receive = () => {
-      const next = parseSnapshot(window.__companionSnapshot);
+      const { snapshot: next, issues: found } = readSnapshot(window.__companionSnapshot);
+      setIssues(found);
       if (!next) {
         clear();
         current.current = null;
         setSnapshot(null);
-        setStatus("游戏数据格式不匹配，请更新完整安装包。");
+        setBlocked(found[0] ?? null);
+        if (found.length) setStatus(found[0]);
         return;
       }
+      setBlocked(null);
       if (current.current?.session !== next.session) {
         clear();
         setNotice(null);
@@ -62,13 +67,13 @@ export function useGame() {
       if (pending.current === "refresh") clear();
       current.current = next;
       setSnapshot(next);
-      setStatus(
+      const base =
         !next.ready
           ? "请先载入存档进入游戏"
           : !next.managerAvailable
             ? "CompanionManager.esp 未加载，请在 MO2 右侧启用"
-            : window.__companionPreview ? "设计预览 · 演示数据" : "已连接游戏 · 实时管理",
-      );
+            : window.__companionPreview ? "设计预览 · 演示数据" : "已连接游戏 · 实时管理";
+      setStatus(found.length ? `${base} · 已处理 ${found.length} 处异常数据` : base);
       setUpdated(new Date().toLocaleTimeString("zh-CN", { hour12: false }));
     };
     const reset = () => {
@@ -76,6 +81,8 @@ export function useGame() {
       current.current = null;
       setSnapshot(null);
       setNotice(null);
+      setIssues([]);
+      setBlocked(null);
       setUpdated("");
       setStatus("存档已切换，等待重新读取");
     };
@@ -83,6 +90,8 @@ export function useGame() {
       clear();
       current.current = null;
       setSnapshot(null);
+      setIssues([]);
+      setBlocked("读取失败，请重试或查看 CompanionManager.log");
       setStatus("读取失败，请重试或查看 CompanionManager.log");
     };
     const result = (event: Event) => {
@@ -142,5 +151,5 @@ export function useGame() {
     }
     return true;
   };
-  return { snapshot, status, busy, updated, refresh, command, notice };
+  return { snapshot, status, busy, updated, refresh, command, notice, issues, blocked };
 }

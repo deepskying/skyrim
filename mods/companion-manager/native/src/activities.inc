@@ -59,6 +59,34 @@ std::string WardrobeKey(RE::TESBoundObject* item,RE::ExtraDataList* extra) {
 }
 std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool identify=false) {
     std::vector<WardrobeItem> rows;
+    std::unordered_map<RE::FormID,std::unordered_set<std::uint16_t>> usedIDs;
+    std::unordered_map<std::string,std::size_t> rowByKey;
+    const auto favoriteOf=[&](const std::string& key) {
+        if (r.contains("favorites"))
+            for (const auto& f:r["favorites"]) if (f==key) return true;
+        return false;
+    };
+    // Two rows that share one key cannot be told apart by any command, so a duplicated instance
+    // takes a fresh identity instead of being emitted twice under the same key.
+    const auto reidentify=[&](RE::TESBoundObject* base,RE::ExtraDataList* extra)->std::string {
+        auto* unique=extra?extra->GetByType<RE::ExtraUniqueID>():nullptr;
+        auto* changes=unique?owner->GetInventoryChanges():nullptr;
+        if(!changes) return {};
+        auto& taken=usedIDs[base->GetFormID()];
+        std::uint16_t fresh=0;
+        for(int attempt=0;attempt<64&&!fresh;++attempt) {
+            const auto next=changes->GetNextUniqueID();
+            if(next&&!taken.contains(next)) fresh=next;
+        }
+        if(!fresh) fresh=rules::FirstFreeUniqueID(taken);
+        if(!fresh) return {};
+        extra->RemoveByType(RE::ExtraDataType::kUniqueID);
+        extra->Add(new RE::ExtraUniqueID(owner->GetFormID(),fresh));
+        changes->changed=true;
+        owner->AddChange(RE::TESObjectREFR::ChangeFlags::kInventory);
+        taken.insert(fresh);
+        return WardrobeKey(base,extra);
+    };
     for (auto& [item,entry]:owner->GetInventory()) {
         if (!item||entry.first<=0||!entry.second||!Category(item)) continue;
         auto add=[&](RE::ExtraDataList* extra,int count) {
@@ -70,19 +98,48 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
                 }
             }
             auto key=WardrobeKey(item,extra);
+            if(auto* unique=extra?extra->GetByType<RE::ExtraUniqueID>():nullptr)
+                usedIDs[item->GetFormID()].insert(unique->uniqueID);
+            if(const auto known=rowByKey.find(key);known!=rowByKey.end()) {
+                auto& existing=rows[known->second];
+                const auto wornCopy=extra&&(extra->HasType<RE::ExtraWorn>()||extra->HasType<RE::ExtraWornLeft>());
+                if(rules::KeepsExistingIdentity(existing.equipped)) {
+                    const auto replacement=reidentify(item,extra);
+                    if(replacement.empty()) {
+                        logger::warn("Wardrobe identity duplicate dropped base={:08X} name={}",item->GetFormID(),
+                                     item->GetName()?item->GetName():"");
+                        return;
+                    }
+                    logger::info("Wardrobe identity reassigned base={:08X} name={} worn={} key={} new={}",
+                                 item->GetFormID(),item->GetName()?item->GetName():"",wornCopy,key,replacement);
+                    key=replacement;
+                } else {
+                    const auto replacement=reidentify(item,existing.extra);
+                    if(replacement.empty()) {
+                        logger::warn("Wardrobe identity duplicate dropped base={:08X} name={}",item->GetFormID(),
+                                     item->GetName()?item->GetName():"");
+                        return;
+                    }
+                    logger::info("Wardrobe identity reassigned base={:08X} name={} worn={} key={} new={}",
+                                 item->GetFormID(),item->GetName()?item->GetName():"",existing.equipped,key,replacement);
+                    rowByKey.erase(known);
+                    existing.key=replacement;
+                    existing.favorite=favoriteOf(replacement);
+                    rowByKey.emplace(replacement,known->second);
+                }
+            }
             // Unidentified decorated stacks are protected until they can be addressed safely.
-            bool favorite=extra&&!extra->GetByType<RE::ExtraUniqueID>();
-            if (r.contains("favorites"))
-                for (const auto& f:r["favorites"]) if (f==key) favorite=true;
+            bool favorite=(extra&&!extra->GetByType<RE::ExtraUniqueID>())||favoriteOf(key);
             RE::InventoryEntryData specific(item,count);
             if (extra) specific.AddExtraList(extra);
             const auto* name=specific.GetDisplayName();
-            rows.push_back({item,extra,key,name?name:item->GetName(),count,
+            rows.push_back({item,extra,key,name?name:(item->GetName()?item->GetName():"未命名物品"),count,
                 (std::max)(0,specific.GetValue()),Category(item),(std::max)(0.0f,specific.GetWeight()),
                 extra?(extra->HasType<RE::ExtraWorn>()||extra->HasType<RE::ExtraWornLeft>()):false,
                 entry.second->IsQuestObject()||!item->GetPlayable(),favorite,
                 item->As<RE::TESObjectARMO>()||item->As<RE::TESObjectWEAP>(),
                 !specific.IsOwnedBy(RE::PlayerCharacter::GetSingleton(),true)});
+            rowByKey.emplace(rows.back().key,rows.size()-1);
         };
         int remaining=entry.first;
         if (entry.second->extraLists)

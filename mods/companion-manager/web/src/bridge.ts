@@ -248,6 +248,312 @@ export function parseSnapshot(value: unknown): Snapshot | null {
   return value as unknown as Snapshot;
 }
 
+export type SnapshotRead = { snapshot: Snapshot | null; issues: string[] };
+
+const MAX_ISSUES = 6;
+
+const finiteNumber = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+const nonNegative = (v: unknown): number => {
+  const n = finiteNumber(v);
+  return n === null ? 0 : Math.max(0, n);
+};
+const wholeNumber = (v: unknown): number => {
+  const n = nonNegative(v);
+  return Number.isInteger(n) ? n : Math.round(n);
+};
+const numberPair = (v: unknown): [number, number] =>
+  Array.isArray(v) && v.length === 2 ? [wholeNumber(v[0]), wholeNumber(v[1])] : [0, 0];
+const text = (v: unknown, fallback = "") => (typeof v === "string" ? v : fallback);
+const instanceKey = (v: unknown): string =>
+  typeof v === "string" && /^[0-9A-F]{8}:[0-9A-F]{8}:[0-9A-F]{4}$/.test(v) ? v : "";
+const field = (v: unknown, key: string) =>
+  record(v) ? v[key] : undefined;
+
+function uniqueByKey(items: unknown[], keyOf: (item: unknown) => string) {
+  const seen = new Set<string>();
+  const kept: unknown[] = [];
+  for (const item of items) {
+    const id = keyOf(item);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    kept.push(item);
+  }
+  return kept;
+}
+
+function repairStats(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (s) =>
+        record(s) && typeof s.name === "string" && finiteNumber(s.value) !== null,
+    )
+    .slice(0, 32);
+}
+
+function repairSpells(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const spells: unknown[] = [];
+  for (const s of value) {
+    const id = field(s, "id");
+    if (!record(s) || !formID(id) || seen.has(id)) continue;
+    seen.add(id);
+    spells.push({
+      id,
+      name: text(field(s, "name")),
+      school: text(field(s, "school")),
+      description: text(field(s, "description")),
+      cost: nonNegative(field(s, "cost")),
+      enabled:
+        typeof field(s, "enabled") === "boolean" ? field(s, "enabled") : true,
+    });
+    if (spells.length >= 512) break;
+  }
+  return spells;
+}
+
+function repairGear(value: unknown): unknown[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const gear: unknown[] = [];
+  for (const g of value) {
+    const id = field(g, "id");
+    if (!record(g) || !formID(id) || seen.has(id)) continue;
+    seen.add(id);
+    gear.push({
+      id,
+      name: text(field(g, "name")),
+      slot: text(field(g, "slot")),
+      count: wholeNumber(field(g, "count")),
+      equipped: field(g, "equipped") === true,
+      quest: field(g, "quest") === true,
+    });
+    if (gear.length >= 512) break;
+  }
+  return gear;
+}
+
+function repairWardrobe(value: unknown, note: (text: string) => void): unknown[] {
+  if (!Array.isArray(value)) return [];
+  const rows = uniqueByKey(
+    value.filter((row) => record(row) && validWardrobe([row])),
+    (row) => instanceKey(field(row, "key")),
+  );
+  const dropped = value.length - rows.length;
+  if (dropped > 0)
+    note(`伙伴库存里有 ${dropped} 条重复或异常的记录已跳过。`);
+  return rows.slice(0, 512);
+}
+
+function repairOutfits(
+  value: unknown,
+  note: (text: string) => void,
+): unknown | undefined {
+  if (!record(value)) return undefined;
+  const rawItems = Array.isArray(value.items) ? value.items : [];
+  const items = uniqueByKey(rawItems, (i) => instanceKey(field(i, "key")));
+  const rawPresets = Array.isArray(value.presets) ? value.presets : [];
+  const presets = rawPresets.slice(0, 64).map((preset) => {
+    if (!record(preset)) return preset;
+    const saved = Array.isArray(preset.items) ? preset.items : [];
+    return {
+      ...preset,
+      items: uniqueByKey(saved, (i) => instanceKey(field(i, "key"))).slice(0, 64),
+    };
+  });
+  const repaired = {
+    ...value,
+    items: items.slice(0, 576),
+    presets,
+    pending: typeof value.pending === "boolean" ? value.pending : false,
+  };
+  if (rawItems.length !== items.length)
+    note("伙伴穿搭里有重复或异常的服饰记录，已跳过。");
+  if (!validOutfits(repaired)) {
+    note("伙伴穿搭数据无法读取，已暂时隐藏该页签。");
+    return undefined;
+  }
+  return repaired;
+}
+
+function repairFollower(
+  row: unknown,
+  note: (text: string) => void,
+): unknown | null {
+  if (!record(row)) return null;
+  const id = row.id;
+  if (typeof id !== "string" || !/^[0-9A-F]{8}$/.test(id)) return null;
+  const group = row.group;
+  if (!["party", "registry", "nearby"].includes(text(group))) return null;
+  const managed =
+    typeof row.managed === "boolean" ? row.managed : group === "registry";
+  const out: Record<string, unknown> = {
+    ...row,
+    id,
+    name: text(row.name, "未命名人物"),
+    en: text(row.en, id),
+    role: text(row.role, "未分类"),
+    race: text(row.race, "未知种族"),
+    mark: text(row.mark, "人"),
+    tint: text(row.tint, "blue"),
+    home: text(row.home, "未设置"),
+    location: text(row.location, "未知位置"),
+    managed,
+    limited: !managed,
+    canRecruit: row.canRecruit === true,
+    canRaise: row.canRaise === true,
+    dead: row.dead === true,
+    unavailable: row.unavailable === true,
+    reason: text(row.reason),
+    originalMax: wholeNumber(row.originalMax),
+    presetCount: wholeNumber(row.presetCount),
+    level: wholeNumber(row.level),
+    distance: row.distance === null ? null : nonNegative(row.distance),
+    levelCap: row.levelCap === null ? null : nonNegative(row.levelCap),
+    waiting: row.waiting === true,
+    passive: row.passive === true,
+    sandbox: row.sandbox === true,
+    leash: row.leash === true,
+    essential: row.essential === true,
+    raised: row.raised === true,
+    inCombat: row.inCombat === true,
+    detailsTruncated: row.detailsTruncated === true,
+    health: numberPair(row.health),
+    magicka: numberPair(row.magicka),
+    stamina: numberPair(row.stamina),
+    skills: repairStats(row.skills),
+    resistances: repairStats(row.resistances),
+    attributes: repairStats(row.attributes),
+    spells: repairSpells(row.spells),
+    gear: repairGear(row.gear),
+  };
+  if (row.wardrobe !== undefined)
+    out.wardrobe = repairWardrobe(row.wardrobe, note);
+  if (row.outfits !== undefined) {
+    const outfits = repairOutfits(row.outfits, note);
+    if (outfits === undefined) delete out.outfits;
+    else out.outfits = outfits;
+  }
+  if (row.behavior !== undefined) {
+    if (validBehavior(row.behavior)) out.behavior = row.behavior;
+    else {
+      delete out.behavior;
+      note("有伙伴的个人行为规则异常，已改回全队默认值。");
+    }
+  }
+  if (row.behaviorOverride !== undefined && typeof row.behaviorOverride !== "boolean")
+    delete out.behaviorOverride;
+  for (const key of ["carried", "capacity"])
+    if (out[key] !== undefined) out[key] = nonNegative(out[key]);
+  for (const key of ["activity", "request"])
+    if (out[key] !== undefined) out[key] = text(out[key]);
+  return out;
+}
+
+// Native output is repaired before validation: one odd value, duplicate identity or oversized
+// list must never blank the panel. Everything dropped is reported so the cause stays visible.
+function repairSnapshot(value: unknown, note: (text: string) => void): unknown {
+  if (!record(value)) return value;
+  const out: Record<string, unknown> = { ...value };
+  if (Array.isArray(out.inventory)) {
+    const items = out.inventory.filter(
+      (item) => record(item) && validInventory([item]),
+    );
+    if (items.length !== out.inventory.length)
+      note(
+        `背包里有 ${out.inventory.length - items.length} 条重复或异常的记录已跳过。`,
+      );
+    out.inventory = items.slice(0, 512);
+  }
+  if (record(out.settings)) {
+    const raw = out.settings;
+    const bounded = (key: string, lo: number, hi: number, fallback: number) => {
+      const current = raw[key];
+      if (
+        typeof current === "number" &&
+        Number.isInteger(current) &&
+        current >= lo &&
+        current <= hi
+      )
+        return current;
+      const fixed = Math.min(hi, Math.max(lo, Math.round(nonNegative(current))));
+      note(`界面设置 ${key} 数值异常，已按安全值显示。`);
+      return current === undefined ? fallback : fixed;
+    };
+    const chance = raw.savedOutfitChance;
+    const savedOutfitChance =
+      chance === undefined
+        ? undefined
+        : typeof chance === "number" &&
+            Number.isInteger(chance) &&
+            chance >= 0 &&
+            chance <= 100
+          ? chance
+          : (note("整套随机概率异常，已恢复默认值。"), 70);
+    out.settings = {
+      savedOutfitChance,
+      opacity: bounded("opacity", 55, 96, 82),
+      font: bounded("font", 14, 18, 16),
+      distance: bounded("distance", 0, 2, 1),
+      notifications: raw.notifications === true,
+      sandbox: raw.sandbox !== false,
+    };
+  }
+  if (Array.isArray(out.followers)) {
+    const before = out.followers;
+    const seen = new Set<string>();
+    const rows: unknown[] = [];
+    let dropped = 0;
+    for (const row of before) {
+      const fixed = repairFollower(row, note);
+      const id = field(fixed, "id");
+      if (!fixed || typeof id !== "string" || seen.has(id)) {
+        dropped++;
+        continue;
+      }
+      seen.add(id);
+      rows.push(fixed);
+    }
+    out.followers = rows.slice(0, 128);
+    if (dropped > 0) note(`已跳过 ${dropped} 名数据异常或重复的人物。`);
+    else if (before.length > 128) note("人物较多，只显示前 128 位。");
+  }
+  if (record(out.automation)) {
+    const automation = out.automation;
+    if (!validBehavior(automation.defaults)) {
+      delete out.automation;
+      note("全队行为默认值异常，已暂停自动行为显示。");
+    } else {
+      const history = Array.isArray(automation.history)
+        ? automation.history.filter((entry) => typeof entry === "string")
+        : [];
+      out.automation = {
+        ...automation,
+        history: history.slice(0, 40),
+        playerCarried: nonNegative(automation.playerCarried),
+        playerCapacity: nonNegative(automation.playerCapacity),
+      };
+    }
+  }
+  return out;
+}
+
+// Reads a native snapshot for display: repair, validate, and report what was skipped.
+export function readSnapshot(value: unknown): SnapshotRead {
+  const issues: string[] = [];
+  const note = (message: string) => {
+    if (issues.length < MAX_ISSUES && !issues.includes(message)) issues.push(message);
+  };
+  const snapshot = parseSnapshot(repairSnapshot(value, note));
+  if (!snapshot && record(value)) {
+    issues.unshift("游戏数据无法解析，请更新完整安装包后重试。");
+    issues.length = Math.min(issues.length, MAX_ISSUES);
+  }
+  return { snapshot, issues };
+}
+
 export function isGameLocation(protocol: string, search: string) {
   return (
     protocol === "mod:" || new URLSearchParams(search).get("runtime") === "game"

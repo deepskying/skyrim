@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   parseSnapshot,
+  readSnapshot,
   isGameLocation,
   percent,
   closeKey,
@@ -41,6 +42,75 @@ test("empty and unloaded saves are valid, old rows are not retained", () => {
   s.followers = [];
   s.ready = false;
   assert.equal(parseSnapshot(s).followers.length, 0);
+});
+
+test("a clean snapshot needs no repair and reports nothing", () => {
+  const { snapshot: read, issues } = readSnapshot(snapshot());
+  assert.ok(read);
+  assert.deepEqual(issues, []);
+});
+
+// Regression: equipping an item makes the engine copy the pack stack's ExtraUniqueID onto the
+// worn copy, so one key described two instances and the whole panel went blank. The repair
+// layer keeps one row per key and the strict validator still rejects the raw payload.
+test("duplicated instance keys are collapsed instead of blanking the panel", () => {
+  const s = snapshot();
+  const row = s.followers[0].wardrobe[0];
+  s.followers[0].wardrobe.splice(1, 0, { ...row, count: 5, equipped: false });
+  assert.equal(parseSnapshot(s), null);
+  const { snapshot: read, issues } = readSnapshot(s);
+  assert.ok(read);
+  const keys = read.followers[0].wardrobe.map((i) => i.key);
+  assert.equal(new Set(keys).size, keys.length);
+  assert.equal(keys.filter((k) => k === row.key).length, 1);
+  assert.match(issues.join(" "), /伙伴库存/);
+});
+
+test("one unusable follower row no longer hides the others", () => {
+  const s = snapshot();
+  s.followers[1].id = "lydia";
+  const { snapshot: read, issues } = readSnapshot(s);
+  assert.ok(read);
+  assert.equal(read.followers.length, s.followers.length - 1);
+  assert.match(issues.join(" "), /已跳过 1 名/);
+});
+
+test("inconsistent values are repaired, not rejected", () => {
+  const s = snapshot();
+  const skills = s.followers[0].skills.length;
+  s.followers[0].health = [NaN, 100];
+  s.followers[0].skills[0].value = NaN;
+  s.followers[0].limited = true;
+  s.followers[0].levelCap = null;
+  s.settings.opacity = 100;
+  const { snapshot: read, issues } = readSnapshot(s);
+  assert.ok(read);
+  assert.deepEqual(read.followers[0].health, [0, 100]);
+  assert.equal(read.followers[0].skills.length, skills - 1);
+  assert.equal(read.followers[0].limited, false);
+  assert.equal(read.settings.opacity, 96);
+  assert.ok(issues.length);
+});
+
+test("oversized lists are trimmed with a notice", () => {
+  const s = snapshot();
+  s.inventory = Array.from({ length: 513 }, (_, i) => ({
+    ...s.inventory[0],
+    id: i.toString(16).toUpperCase().padStart(8, "0"),
+  }));
+  const { snapshot: read, issues } = readSnapshot(s);
+  assert.ok(read);
+  assert.equal(read.inventory.length, 512);
+  assert.ok(issues.length);
+});
+
+test("a payload that cannot be repaired is still reported with a reason", () => {
+  const s = snapshot();
+  s.version = 1;
+  const { snapshot: read, issues } = readSnapshot(s);
+  assert.equal(read, null);
+  assert.match(issues[0], /无法解析/);
+  assert.deepEqual(readSnapshot(undefined).issues, []);
 });
 test("game origin never defaults to the demo when the native bridge is late", () => {
   assert.equal(isGameLocation("mod:", ""), true);

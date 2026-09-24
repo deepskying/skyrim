@@ -6,6 +6,7 @@
 #include "activity_prompt.h"
 #include "outfit_rules.h"
 #include "outfit_state.h"
+#include "wardrobe_identity.h"
 #include <deque>
 #include <random>
 #include <limits>

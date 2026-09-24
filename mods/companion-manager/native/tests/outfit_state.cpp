@@ -1,4 +1,5 @@
 #include "../src/outfit_state.h"
+#include "../src/wardrobe_identity.h"
 #include <cassert>
 using namespace companion;
 int main(){
@@ -25,4 +26,17 @@ int main(){
     assert(rules::ValidSetting("savedOutfitChance",0));assert(rules::ValidSetting("savedOutfitChance",100));
     assert(!rules::ValidSetting("savedOutfitChance",101));assert(!rules::ValidSetting("savedOutfitChance",-1));
     assert(!rules::ValidSetting("savedOutfitChance",70.5));
+
+    // Wardrobe identities: a key must describe exactly one instance. Two rows that collide
+    // (an equipped copy inheriting the pack stack's ExtraUniqueID) are repaired instead of
+    // being emitted twice, so the stack keeps its identity and only the equipped copy yields.
+    assert(rules::KeepsExistingIdentity(false));   // stack keeps the id, worn copy takes a new one
+    assert(!rules::KeepsExistingIdentity(true));   // worn copy already holds it, so it yields
+    std::unordered_set<std::uint16_t> used{1,2,3,0xFFFF};
+    assert(rules::FirstFreeUniqueID(used)==4);
+    used.insert(4);
+    assert(rules::FirstFreeUniqueID(used)==5);
+    std::unordered_set<std::uint16_t> full;
+    for(std::uint32_t id=1;id<=0xFFFF;++id) full.insert(static_cast<std::uint16_t>(id));
+    assert(rules::FirstFreeUniqueID(full)==0);     // exhausted space drops the duplicate row
 }
