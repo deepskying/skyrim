@@ -1,3 +1,9 @@
+## 1.9.10（2026-09-25）换装不再被面板的行数上限截断
+
+- 原生：`Wardrobe()` 增加 `limit` 参数（默认 `rules::WardrobeRowLimit` = 512，面板行为不变）；`ApplyNamedOutfit` 与 `CheckOutfits` 改用 `rules::WardrobeResolveLimit` = 8192 并按整份库存解析，且换装路径不再 materialize 实例身份（只读已有列表）。日志证据：`Outfit preset ... wardrobeRows=512` 且缺失件 `sameBaseRows=0`。
+- 验证：原生 Release DLL 构建通过，8 个测试目标直接运行 exit=0；网页 58 项测试与 `pnpm build`（含 `tsc --noEmit`）通过（本次改动只在原生侧，浏览器预览没有行数上限这一概念）。
+- 游戏内仍需人工复核：衣柜超过 512 行的角色换上含强化装备的套装后不再提示缺失、不再漏穿。
+
 ## 1.9.9（2026-09-25）套装漏穿强化装备的最后一环
 
 - 原生：`ApplyNamedOutfit` 的候选行改成 `Wardrobe()` **加上** `RawWornArmor()` 补入的穿戴实例（与保存侧 `OutfitItems()` 同一批行）；`outfit_rules.h` 把退化判定拆成 `FallbackMatch`（同 base + 同附魔签名即算同一件）与 `FallbackPreferred`（优先未穿戴），`FallbackRow` 先找备件、没有才退回已穿戴件；新增 `Outfit unresolved` 诊断日志与 `wardrobeRows=/extraWorn=` 计数，用于下次从日志直接定位。

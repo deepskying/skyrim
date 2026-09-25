@@ -1,9 +1,17 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <unordered_set>
 
 namespace companion::rules
 {
+// The panel payload carries one row per addressable instance and is capped, because it is shipped
+// to the UI on every refresh. Resolving a saved outfit is a one-shot action instead, and a heavily
+// modded wardrobe routinely exceeds the cap: a set that named a truncated instance would read as
+// missing and then have its worn copy stripped, so that path resolves against the whole inventory.
+inline constexpr std::size_t WardrobeRowLimit = 512;
+inline constexpr std::size_t WardrobeResolveLimit = 8192;
+
 // One snapshot row per addressable inventory instance means one unique key per instance.
 // Equipping an item makes the engine copy the pack stack's ExtraUniqueID onto the worn copy,
 // so the same identity can describe two different instances. Whichever row yields takes a fresh

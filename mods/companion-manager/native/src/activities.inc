@@ -84,7 +84,8 @@ std::unordered_set<std::string> ReferencedOutfitKeys() {
     for(const auto& [id,r]:members) { static_cast<void>(id); collect(r); }
     return keys;
 }
-std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool identify=false) {
+std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool identify=false,
+                                   std::size_t limit=rules::WardrobeRowLimit) {
     std::vector<WardrobeItem> rows;
     std::unordered_map<RE::FormID,std::unordered_set<std::uint16_t>> usedIDs;
     std::unordered_map<std::string,std::size_t> rowByKey;
@@ -125,7 +126,7 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
     for (auto& [item,entry]:owner->GetInventory()) {
         if (!item||entry.first<=0||!entry.second||!Category(item)) continue;
         auto add=[&](RE::ExtraDataList* extra,int count) {
-            if (count<=0||rows.size()>=512) return;
+            if (count<=0||rows.size()>=limit) return;
             if (extra && !extra->GetByType<RE::ExtraUniqueID>() && identify) {
                 if (auto* changes=owner->GetInventoryChanges()) {
                     extra->Add(new RE::ExtraUniqueID(owner->GetFormID(),changes->GetNextUniqueID()));
@@ -190,7 +191,7 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
                 RE::InventoryEntryData* actual=nullptr;
                 if(changes->entryList) for(auto* e:*changes->entryList) if(e&&e->object==item) {actual=e;break;}
                 if(!actual) {actual=new RE::InventoryEntryData(item,0);changes->AddEntryData(actual);}
-                while(remaining>0&&rows.size()<512) {
+                while(remaining>0&&rows.size()<limit) {
                     // This build targets SE 1.5.97: two null pointers + a zero-initialized RW lock.
                     // CommonLib declares but does not implement the ExtraDataList constructor.
                     if(REL::Module::get().version()!=SKSE::RUNTIME_SSE_1_5_97)
@@ -515,7 +516,9 @@ void CheckOutfits() {
         }
         if(now<check.nextCheck) {++it;continue;}
         check.nextCheck=now+0.25;
-        const auto rows=Wardrobe(actor,json::object(),false);
+        // Confirmation checks the same whole inventory the applier resolved against, so a piece
+        // the panel's capped list would hide is still confirmed instead of reporting a partial.
+        const auto rows=Wardrobe(actor,json::object(),false,rules::WardrobeResolveLimit);
         const auto rawWorn=RawWornArmor(actor);
         const auto worn=[&](const std::string& key) {
             return std::any_of(rawWorn.begin(),rawWorn.end(),[&](const auto& row){return WardrobeKey(row.armor,row.extra)==key;});

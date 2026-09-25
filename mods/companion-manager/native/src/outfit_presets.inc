@@ -178,7 +178,11 @@ const WardrobeItem* FallbackRow(const std::vector<WardrobeItem>& rows,const json
 }
 outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool manual) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
-    auto rows=Wardrobe(actor,r,true);
+    // The saved key is resolved against the whole inventory rather than the panel's capped row
+    // list: this wardrobe is large enough to hit that cap every time, and a set naming a truncated
+    // instance would read as missing and then have its worn copy stripped by the whole-set request.
+    // Identities are not materialized here - resolving a key only needs the lists that exist.
+    auto rows=Wardrobe(actor,r,false,rules::WardrobeResolveLimit);
     const auto wardrobeRows=rows.size();
     // The set was saved from the wardrobe page, which lists worn instances the inventory walk above
     // can drop: its 512-row cap and its per-entry count accounting both cut rows. Resolving against
