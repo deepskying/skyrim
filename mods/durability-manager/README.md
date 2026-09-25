@@ -4,6 +4,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- Version 0.1.52 / Equipment Workshop 2.3.3 hides the bottom-left HUD whenever *any* Meridian panel has focus, not just this workshop's own panel, so another mod's dashboard no longer leaves the attribute and durability HUD on screen.
+
 - Version 0.1.51 / Equipment Workshop 2.3.2 names the prepared filler 补足药水 again: the player's term for the button means every finished product (potions and poisons) and only excludes alchemy ingredients, which is what 2.3.1 already did. Button label, tooltip and the footer wording now say so explicitly; behaviour is unchanged.
 
 - Version 0.1.50 / Equipment Workshop 2.3.1 fixes the potion-only filler: it is now 补足药剂 and spends finished potions *and* poisons, excluding only raw ingredients (matching materials in the player's pack are mostly poisons, so the old kind=potion gate left the button greyed out). Material cards show the kind in the first badge again (药水 2 / 毒药 3 / 原材料 8) and the card footer explains a disabled filler (no base count, no matching material, ingredients only, or the basket is already full).

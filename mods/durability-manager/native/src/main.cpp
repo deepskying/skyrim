@@ -200,9 +200,9 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.3.2";
+    constexpr std::string_view kPluginVersion = "2.3.3";
 #else
-    constexpr std::string_view kPluginVersion = "0.1.51";
+    constexpr std::string_view kPluginVersion = "0.1.52";
 #endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -2850,9 +2850,12 @@ namespace
         }
         auto* player = RE::PlayerCharacter::GetSingleton();
         auto* ui = RE::UI::GetSingleton();
+        // Another mod's Meridian panel (the companion manager, for example) must hide the HUD too:
+        // g_panelVisible only tracks this mod's own view.
+        const bool otherPanelFocused = g_prisma->HasAnyActiveFocus() && !g_prisma->HasFocus(g_view);
         const bool allowed = g_environmentWearReady && player && player->GetParentCell() &&
             player->Is3DLoaded() && !player->IsDead() && ui && ui->IsShowingMenus() &&
-            !ui->GameIsPaused() && !g_panelVisible && !ui->IsMenuOpen("Main Menu") &&
+            !ui->GameIsPaused() && !g_panelVisible && !otherPanelFocused && !ui->IsMenuOpen("Main Menu") &&
             !ui->IsMenuOpen("Loading Menu") && !ui->IsMenuOpen("InventoryMenu") &&
             !ui->IsMenuOpen("MagicMenu") && !ui->IsMenuOpen("ContainerMenu") &&
             !ui->IsMenuOpen("BarterMenu") && !ui->IsMenuOpen("Dialogue Menu");

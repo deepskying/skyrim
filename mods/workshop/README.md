@@ -1,4 +1,8 @@
-# 装备工坊 · Equipment Workshop 2.3.2
+# 装备工坊 · Equipment Workshop 2.3.3
+
+## 2.3.3 别人家的面板也会隐藏左下角 HUD
+
+左下角属性 / 耐久 HUD 原本只在自己工坊面板打开时隐藏(`g_panelVisible`),别的模组面板(例如同行 Companion Manager)打开时仍然常显。现在改为只要**任一 Meridian 面板获得焦点**就隐藏 HUD(native: `HasAnyActiveFocus()`),关闭后自动恢复;工坊自己的可见性规则不变。
 
 ## 2.3.2 按钮更名回「补足药水」
 

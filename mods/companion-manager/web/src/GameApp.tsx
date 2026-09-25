@@ -94,7 +94,9 @@ export function GameApp() {
     ) ?? [];
   const magicFollowers = s?.followers.filter(f => f.managed) ?? [];
   const entryWaiting=["save","part","wear","compact"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
-  const pinned = section==="outfits"||section==="magic" ? pinnedCompanionId(managementActor,magicFollowers) : managementActor;
+  // The wardrobe page browses cards: an empty selection has to stay empty so the grid shows (and
+  // the 全部伙伴 link can return to it). The magic page keeps seeding from the roster.
+  const pinned = section==="outfits" ? managementActor : section==="magic" ? pinnedCompanionId(managementActor,magicFollowers) : managementActor;
   const f = section === "outfits" ? (entryWaiting?undefined:magicFollowers.find(x => x.id === pinned)) : section === "magic" ? magicFollowers.find(x => x.id === pinned) : s?.followers.find((x) => x.id === selected && x.group === section);
   // The snapshot arrives ordered by live distance, so the target must be pinned: re-deriving it
   // from the list would move the panel whenever another companion walks closer.
