@@ -20,10 +20,10 @@ export function fixture() {
     behavior: {...defaultBehavior},behaviorOverride:false,carried:182,capacity:300,activity:"idle",request:"",
     wardrobe:[
       {key:"00012EB7:00000014:0001",id:"00012EB7",name:"铁剑",inventoryCategory:"weapons",count:1,value:25,weight:9,category:1,equipped:true,quest:false,favorite:false,equipment:true},
-      {key:"00012E49:00000014:0002",id:"00012E49",name:"皮甲",inventoryCategory:"apparel",count:1,value:125,weight:6,category:2,equipped:true,quest:false,favorite:true,equipment:true},
-      {key:"00012E49:00000014:0003",id:"00012E49",name:"皮甲（火焰抗性）",inventoryCategory:"apparel",count:1,value:420,weight:6,category:2,equipped:false,quest:false,favorite:false,equipment:true},
-      {key:"0001BE1A:00000000:0000",id:"0001BE1A",name:"精致服装",inventoryCategory:"apparel",count:2,value:55,weight:1,category:2,equipped:false,quest:false,favorite:true,equipment:true},
-      {key:"0003B97C:00000000:0000",id:"0003B97C",name:"银项链",inventoryCategory:"apparel",count:1,value:120,weight:.5,category:4,equipped:false,quest:false,favorite:false,equipment:true},
+      {key:"00012E49:00000014:0002",id:"00012E49",name:"皮甲",inventoryCategory:"apparel",count:1,value:125,weight:6,category:2,equipped:true,quest:false,favorite:true,equipment:true,mask:4,armorRating:26,armorType:"light"},
+      {key:"00012E49:00000014:0003",id:"00012E49",name:"皮甲（火焰抗性）",inventoryCategory:"apparel",count:1,value:420,weight:6,category:2,equipped:false,quest:false,favorite:false,equipment:true,mask:4,armorRating:26,armorType:"light",enchantment:"火焰抗性"},
+      {key:"0001BE1A:00000000:0000",id:"0001BE1A",name:"精致服装",inventoryCategory:"apparel",count:2,value:55,weight:1,category:2,equipped:false,quest:false,favorite:true,equipment:true,mask:132,armorRating:2,armorType:"clothing"},
+      {key:"0003B97C:00000000:0000",id:"0003B97C",name:"银项链",inventoryCategory:"apparel",count:1,value:120,weight:.5,category:4,equipped:false,quest:false,favorite:false,equipment:true,mask:32,armorRating:0,armorType:"jewelry"},
       {key:"0005ACE4:00000000:0000",id:"0005ACE4",name:"铁锭",inventoryCategory:"misc",count:12,value:7,weight:1,category:128,equipped:false,quest:false,favorite:false,equipment:false},
       {key:"0003EADD:00000000:0000",id:"0003EADD",name:"治疗药剂",inventoryCategory:"potions",count:5,value:36,weight:.5,category:16,equipped:false,quest:false,favorite:false,equipment:false},
       {key:"00064B2F:00000000:0000",id:"00064B2F",name:"苹果派",inventoryCategory:"food",count:3,value:5,weight:.5,category:16,equipped:false,quest:false,favorite:false,equipment:false},
@@ -33,6 +33,9 @@ export function fixture() {
       {key:"0001AFC4:00000000:0000",id:"0001AFC4",name:"法术书：治疗术",inventoryCategory:"books",count:1,value:50,weight:1,category:64,equipped:false,quest:false,favorite:true,equipment:false},
       {key:"000A7B33:00000000:0000",id:"000A7B33",name:"住宅钥匙",inventoryCategory:"keys",count:1,value:0,weight:0,category:0,equipped:false,quest:false,favorite:false,equipment:false},
       {key:"0001397D:00000000:0000",id:"0001397D",name:"铁箭",inventoryCategory:"weapons",count:30,value:1,weight:0,category:128,equipped:false,quest:false,favorite:false,equipment:false},
+      // Two more worn/held pieces the wear page lists on top of the outfit payload above.
+      {key:"0001396B:00000014:0004",id:"0001396B",name:"铁质护腕",inventoryCategory:"apparel",count:1,value:20,weight:2,category:2,equipped:true,quest:false,favorite:false,equipment:true,mask:8,armorRating:10,armorType:"heavy"},
+      {key:"00012EB6:00000000:0000",id:"00012EB6",name:"铁盾",inventoryCategory:"apparel",count:1,value:60,weight:12,category:2,equipped:false,quest:false,favorite:false,equipment:true,mask:512,armorRating:20.4,armorType:"heavy"},
     ],
     limited: !managed,
     canRecruit: !managed,
@@ -104,7 +107,7 @@ export function fixture() {
     ],
   });
   return {
-    version: 2,
+    version: 3,
     automation:{defaults:{...defaultBehavior},history:[],playerCarried:220,playerCapacity:300},
     mode: "game",
     session: "fixture-save-1",
@@ -181,8 +184,26 @@ export function simulate(s, r) {
   if (!f) return { ok: false, message: "人物不存在" };
   if (r.command !== "adopt" && r.command !== "recruit" && !f.managed)
     return { ok: false, message: "请先纳入同行管理" };
-  if(["saveNamedOutfit","removeNamedOutfit","applyNamedOutfit","outfitPart","changeOutfit","unequipOutfitPart"].includes(r.command)) {
+  if(["saveNamedOutfit","removeNamedOutfit","applyNamedOutfit","outfitPart","changeOutfit","unequipOutfitPart","toggleWear"].includes(r.command)) {
     if(f.dead||f.unavailable||f.inCombat||f.group!=="party"||f.outfits.pending)return {ok:false,message:"同伴当前无法换装"};
+    // The wear page works on the inventory rows, not on the outfit payload: one click is one
+    // equip or unequip, armor replaces whatever occupies its slots, and quest gear stays on.
+    if(r.command==="toggleWear") {
+      const i=f.wardrobe.find(x=>x.key===r.itemKey);
+      if(!i||i.inventoryCategory!=="apparel"||!Number.isInteger(i.mask)||i.mask<=0)return {ok:false,message:"物品已变化"};
+      if(i.equipped) {
+        if(i.quest)return {ok:false,message:"任务装备不能卸下"};
+        i.equipped=false;
+      } else {
+        for(const old of f.wardrobe) {
+          if(!old.equipped||!Number.isInteger(old.mask)||!(old.mask&i.mask))continue;
+          if(old.quest)return {ok:false,message:"该部位被任务装备占用，无法更换"};
+          old.equipped=false;
+        }
+        i.equipped=true;
+      }
+      return ok("穿脱操作已完成（模拟）");
+    }
     const d=f.outfits;
     const wear=i=>{for(const old of d.items)if(old.mask&i.mask)old.equipped=false;i.equipped=true;};
     if(r.command==="unequipOutfitPart") {

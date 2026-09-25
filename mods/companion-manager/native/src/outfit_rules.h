@@ -33,6 +33,17 @@ inline bool CanUnlockReplacement(bool manual, bool worn, bool protectedItem,
 constexpr bool StripBeforeWear(bool outfitPiece,bool protectedItem,bool namedBySet) {
     return outfitPiece&&!protectedItem&&!namedBySet;
 }
+// The wear page toggles one named instance. It covers every playable armor record that occupies a
+// slot - jewelry and shields included - while the outfit generator deliberately leaves both alone.
+constexpr bool Toggleable(std::uint32_t mask,bool playable) { return playable&&mask!=0; }
+// A swap takes off exactly the worn pieces it replaces. Gear the game protects (quest items, the
+// actor's skin) blocks the swap instead of being removed behind the player's back.
+constexpr bool ReplacedBySwap(std::uint32_t wornMask,std::uint32_t targetMask,bool protectedItem) {
+    return !protectedItem&&(wornMask&targetMask)!=0;
+}
+constexpr bool SwapProtected(std::uint32_t wornMask,std::uint32_t targetMask,bool protectedItem) {
+    return protectedItem&&(wornMask&targetMask)!=0;
+}
 // Manual changes prefer unworn clothing, then locked clothing. Input is shuffled first.
 // Manual requests may fill uncovered slots with unlocked clothing.
 inline std::vector<std::size_t> Select(std::vector<Candidate> candidates, std::uint32_t protectedSlots, bool fallback) {

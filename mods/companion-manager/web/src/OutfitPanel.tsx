@@ -1,13 +1,17 @@
 import {useEffect,useRef,useState} from "react";
 import type {GameFollower} from "./bridge";
 import {outfitSlots,slotDescription,slotName,type OutfitItem} from "./outfits";
+import {WearPanel} from "./WearPanel";
 import "./outfits.css";
 type Props={f:GameFollower;enabled:boolean;chance:number;mode:string;onEntryConsumed?:()=>void;notice?:{ok:boolean;message:string}|null;command:(op:string,data?:Record<string,unknown>)=>boolean};
 export function OutfitPanel({f,enabled,chance,mode,onEntryConsumed,notice,command}:Props){
- const [tab,setTab]=useState(mode==="part"?"part":"all"),[slot,setSlot]=useState(32),[preset,setPreset]=useState(0),[name,setName]=useState(""),[error,setError]=useState("");
+ const [tab,setTab]=useState(mode==="wear"?"wear":mode==="part"?"part":"all"),[slot,setSlot]=useState(32),[preset,setPreset]=useState(0),[name,setName]=useState(""),[error,setError]=useState("");
  const dialog=useRef<HTMLDialogElement>(null),removeDialog=useRef<HTMLDialogElement>(null),input=useRef<HTMLInputElement>(null),submitted=useRef<string|null>(null);
  const data=f.outfits,items=data?.items??[],presets=data?.presets??[],worn=items.filter(i=>i.equipped);
  const usable=enabled&&!f.dead&&!f.unavailable&&!f.inCombat&&f.group==="party"&&!data?.pending&&!!data;
+ // The wear page reads the inventory rows instead of the outfit payload, so a broken saved set
+ // never hides it; the pending flag still comes from the shared confirmation map.
+ const wearPending=!!data?.pending;
  const act=(op:string,payload:Record<string,unknown>={})=>command(op,{actorId:f.id,...payload});
  const openSave=()=>{let n=presets.length+1;while(presets.some(p=>p.name===`${f.name} · 套装 ${n}`))n++;setName(`${f.name} · 套装 ${n}`);setError("");submitted.current=null;dialog.current?.showModal();requestAnimationFrame(()=>input.current?.select());};
  // Clicking a saved set wears it right away; the selection only drives the preview list below.
@@ -24,8 +28,8 @@ export function OutfitPanel({f,enabled,chance,mode,onEntryConsumed,notice,comman
  const slotItems=[...worn.filter(inSlot),...candidates];
  const details=(i:OutfitItem)=><small>{outfitSlots(i.mask).length>1&&<span className="cm-outfit-tag">多槽位</span>}{slotDescription(i.mask)}</small>;
  return <div className="cm-outfits">
-  <div className="cm-outfit-toolbar"><div className="tabs"><button className={tab==="all"?"active":""} onClick={()=>setTab("all")}>整套随机</button><button className={tab==="part"?"active":""} onClick={()=>setTab("part")}>手动调整</button></div><button disabled={!usable||!worn.length||presets.length>=64} onClick={openSave}>保存当前套装</button></div>
-  {tab==="all"?<><p>随机规则：{chance}% 已保存套装 · {100-chance}% 从收藏重新组合；可在全局设置修改。</p>
+  <div className="cm-outfit-toolbar"><div className="tabs"><button className={tab==="all"?"active":""} onClick={()=>setTab("all")}>整套随机</button><button className={tab==="part"?"active":""} onClick={()=>setTab("part")}>手动调整</button><button className={tab==="wear"?"active":""} onClick={()=>setTab("wear")}>随从装备</button></div><button disabled={!usable||!worn.length||presets.length>=64} onClick={openSave}>保存当前套装</button></div>
+  {tab==="wear"?<WearPanel f={f} enabled={enabled} pending={wearPending} command={command}/>:tab==="all"?<><p>随机规则：{chance}% 已保存套装 · {100-chance}% 从收藏重新组合；可在全局设置修改。</p>
    <div className="cm-outfit-presets"><button className={!picked?"active":""} aria-pressed={!picked} onClick={()=>setPreset(0)}><small>正在穿戴</small><strong>当前套装</strong><small>{worn.length} 件服饰</small></button>{presets.map(p=><button key={p.id} className={preset===p.id?"active":""} aria-pressed={preset===p.id} onClick={()=>applyPreset(p.id)}><small>已保存 · {f.name}</small><strong>{p.name}</strong><small>{p.items.length} 件服饰 · 点击换上</small></button>)}</div>
    <h3>{picked?.name??"当前套装"}</h3><div className="cm-outfit-list">{listing.map((i,index)=><div className="cm-outfit-row" key={`${i.key}-${index}`}><span>{slotName(outfitSlots(i.mask)[0])}</span><div><strong>{i.name}</strong>{details(i)}</div><small>{i.equipped?"穿戴中":!i.available?"库存缺失 · 跳过":i.favorite?"★ 已收藏":"库存中"}{i.hidden&&" · 普通库存未显示"}</small></div>)}</div>
    {!listing.length&&<div className="cm-empty">{data?"当前没有可保存的服饰。":"正在获取穿搭数据。"}</div>}

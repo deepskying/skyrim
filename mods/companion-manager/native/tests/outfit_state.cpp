@@ -61,6 +61,19 @@ int main(){
     CHECK(!outfit::StripBeforeWear(true,true,false));    // quest gear or the skin stays
     CHECK(!outfit::StripBeforeWear(false,false,false));  // weapons, shields and ammo are untouched
 
+    // The wear page toggles every playable piece that occupies a slot - jewelry and shields
+    // included, which the outfit generator leaves alone - and a swap only takes off what it
+    // replaces. Protected gear blocks the swap instead of being replaced.
+    CHECK(outfit::Toggleable(body,true));
+    CHECK(outfit::Toggleable(1u<<9,true));              // slot 39: a shield is wearable on this page
+    CHECK(!outfit::Toggleable(body,false));             // unplayable records stay unlisted
+    CHECK(!outfit::Toggleable(0,true));                 // occupies no slot
+    CHECK(outfit::ReplacedBySwap(body,body|hands,false));
+    CHECK(!outfit::ReplacedBySwap(body,hands,false));   // different slots do not conflict
+    CHECK(!outfit::ReplacedBySwap(body,body,true));     // quest gear is never replaced
+    CHECK(outfit::SwapProtected(body,body,true));
+    CHECK(!outfit::SwapProtected(body,body,false));
+
     // The dialogue's 随机套装 line only ever uses a saved set: with none it reports back instead of
     // recombining the collection, and a pick always lands inside the saved range.
     CHECK(!outfit::HasSavedSet(0)&&outfit::HasSavedSet(1)&&outfit::HasSavedSet(64));

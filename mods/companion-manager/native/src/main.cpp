@@ -1,7 +1,9 @@
 #include "MeridianUIAPI/ViewDllLoader.h"
 #include "input_rules.h"
 #include "manager.h"
+#include "model_preview.h"
 #include "snapshot.h"
+#include "state_rules.h"
 #include <atomic>
 #include <spdlog/sinks/basic_file_sink.h>
 
@@ -11,11 +13,14 @@ namespace View = Meridian::UI::View;
 View::IViewAPI *views = nullptr;
 View::ViewHandle panel = View::INVALID_VIEW_HANDLE;
 std::atomic_bool refreshQueued = false;
+Meridian::UI::Settings meridianSettings{};
+ModelPreview preview;
 
 void Close()
 {
     if (!views || !panel)
         return;
+    preview.Clear();
     views->Unfocus(panel);
     views->Hide(panel);
     views->ExecuteJavaScript(
@@ -99,6 +104,42 @@ void OnRequest(const char *payload)
                     });
                 });
         }
+        else if (action.starts_with("preview"))
+        {
+            if (!views || !panel)
+                return;
+            const auto requestCopy = request;
+            if (const auto tasks = SKSE::GetTaskInterface())
+                tasks->AddTask([requestCopy] {
+                    if (!views || !panel)
+                        return;
+                    // The model is only ever shown over a focused panel; anything else clears it
+                    // so a preview can never outlive the page that owns it.
+                    if (requestCopy.value("type", "") == "previewClear" || !views->HasFocus(panel))
+                    {
+                        preview.Clear();
+                        return;
+                    }
+                    const auto item = companion::rules::FormIDFromHex(requestCopy.value("id", std::string{}));
+                    const auto type = requestCopy.value("type", "");
+                    if (type == "previewSelect")
+                        preview.Select(companion::rules::FormIDFromHex(requestCopy.value("actorId", std::string{})), item);
+                    else if (type == "previewLayout")
+                        preview.Layout(requestCopy);
+                    else if (type == "previewCamera")
+                        preview.Camera(requestCopy);
+                    else if (type == "previewStatus")
+                    {
+                        const auto response = nlohmann::json{{"id", requestCopy.value("id", std::string{})},
+                                                             {"token", requestCopy.value("token", 0)},
+                                                             {"status", preview.Status(item, true)}};
+                        const auto script =
+                            "window.dispatchEvent(new CustomEvent('companion:preview-status',{detail:" +
+                            response.dump(-1, ' ', true) + "}));";
+                        views->ExecuteJavaScript(panel, script.c_str());
+                    }
+                });
+        }
         else
             logger::warn("Rejected unsupported UI command: {}", action);
     }
@@ -177,10 +218,16 @@ void OnMessage(SKSE::MessagingInterface::Message *message)
     switch (message->type)
     {
     case SKSE::MessagingInterface::kInputLoaded: {
-        Meridian::UI::Settings settings{};
-        views = View::Query(&settings, "CompanionManager");
+        // One settings object answers every extension query and stays alive for the session, so the
+        // View, RenderLayer and NifView handles all describe the same renderer configuration.
+        meridianSettings = Meridian::UI::Settings{};
+        views = View::Query(&meridianSettings, "CompanionManager");
         if (!views)
+        {
             logger::error("Meridian.View/1 unavailable. Install and enable Meridian UI; plugin remains inactive.");
+            break;
+        }
+        preview.Initialize(meridianSettings);
         break;
     }
     case SKSE::MessagingInterface::kDataLoaded: {

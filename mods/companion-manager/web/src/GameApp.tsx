@@ -76,7 +76,7 @@ export function GameApp() {
   const [managementActor,setManagementActor]=useState("");
   const [wardrobeEntry,setWardrobeEntry]=useState({mode:"inventory",sequence:0,actorId:"",session:""});
   useEffect(()=>{
-    const open=(e:Event)=>{const detail=(e as CustomEvent).detail;const id=typeof detail==="string"?detail:detail?.actorId;if(typeof id==="string"&&/^[0-9A-F]{8}$/.test(id)){const outfit=["part","save"].includes(detail?.mode);setManagementActor(id);setWardrobeEntry(old=>({mode:outfit?detail.mode:"inventory",sequence:old.sequence+1,actorId:id,session:typeof detail?.session==="string"?detail.session:""}));setSection(outfit?"outfits":"wardrobe");setConfirm(null);setRecruitOpen(false);}};
+    const open=(e:Event)=>{const detail=(e as CustomEvent).detail;const id=typeof detail==="string"?detail:detail?.actorId;if(typeof id==="string"&&/^[0-9A-F]{8}$/.test(id)){const outfit=["part","save","wear"].includes(detail?.mode);setManagementActor(id);setWardrobeEntry(old=>({mode:outfit?detail.mode:"inventory",sequence:old.sequence+1,actorId:id,session:typeof detail?.session==="string"?detail.session:""}));setSection(outfit?"outfits":"wardrobe");setConfirm(null);setRecruitOpen(false);}};
     window.addEventListener("companion:wardrobe",open);return()=>window.removeEventListener("companion:wardrobe",open);
   },[]);
   const candidates = recruitmentCandidates(s, recruitQuery);
@@ -90,7 +90,7 @@ export function GameApp() {
           .includes(query.toLowerCase()),
     ) ?? [];
   const magicFollowers = s?.followers.filter(f => f.managed) ?? [];
-  const entryWaiting=["save","part"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
+  const entryWaiting=["save","part","wear"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
   const pinned = section==="outfits"||section==="magic" ? pinnedCompanionId(managementActor,magicFollowers) : managementActor;
   const f = section === "outfits" ? (entryWaiting?undefined:magicFollowers.find(x => x.id === pinned)) : section === "magic" ? magicFollowers.find(x => x.id === pinned) : s?.followers.find((x) => x.id === selected && x.group === section);
   // The snapshot arrives ordered by live distance, so the target must be pinned: re-deriving it

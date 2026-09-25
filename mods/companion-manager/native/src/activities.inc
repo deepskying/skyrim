@@ -734,12 +734,34 @@ const char* InventoryCategory(RE::TESBoundObject* item) {
     if(item->As<RE::TESKey>()) return "keys";
     return "misc";
 }
+// Armor material keyword, so the wear page can label a piece without guessing from its name.
+const char* ArmorType(RE::TESObjectARMO* armor) {
+    if(!armor) return "";
+    if(armor->HasKeywordString("ArmorLight")) return "light";
+    if(armor->HasKeywordString("ArmorHeavy")) return "heavy";
+    if(armor->HasKeywordString("ArmorJewelry")) return "jewelry";
+    if(armor->HasKeywordString("ArmorClothing")) return "clothing";
+    return "other";
+}
 json WardrobeSnapshot(RE::Actor* actor,const json& r) {
     json rows=json::array();
-    for(auto& item:Wardrobe(actor,r,true)) rows.push_back({{"key",item.key},{"id",ID(item.item->GetFormID())},
-        {"name",item.name},{"count",item.count},{"value",item.value},{"weight",item.weight},{"category",item.category},
-        {"inventoryCategory",InventoryCategory(item.item)},
-        {"equipped",item.equipped},{"quest",item.quest},{"favorite",item.favorite},{"equipment",item.equipment}});
+    for(auto& item:Wardrobe(actor,r,true)) {
+        json row={{"key",item.key},{"id",ID(item.item->GetFormID())},
+            {"name",item.name},{"count",item.count},{"value",item.value},{"weight",item.weight},{"category",item.category},
+            {"inventoryCategory",InventoryCategory(item.item)},
+            {"equipped",item.equipped},{"quest",item.quest},{"favorite",item.favorite},{"equipment",item.equipment}};
+        // The wear page compares gear slot by slot, so the snapshot carries what that comparison
+        // needs instead of making the panel re-derive it from names or the outfit payload.
+        if(auto* armor=item.item->As<RE::TESObjectARMO>()) {
+            row["mask"]=static_cast<std::uint32_t>(armor->GetSlotMask());
+            row["armorRating"]=armor->GetArmorRating();
+            row["armorType"]=ArmorType(armor);
+            if(auto* enchantable=item.item->As<RE::TESEnchantableForm>())
+                if(auto* enchant=enchantable->formEnchanting;enchant&&enchant->GetName()&&*enchant->GetName())
+                    row["enchantment"]=enchant->GetName();
+        }
+        rows.push_back(std::move(row));
+    }
     return rows;
 }
 bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& request) {
@@ -782,7 +804,7 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         activityRequests.erase(actor->GetFormID());requestCooldown[actor->GetFormID()]=ActivityTime()+300;
         return true;
     }
-    if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="removeNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart") {
+    if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="removeNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart"||op=="toggleWear") {
         if(!actor||!r.value("active",false)||!actor->IsPlayerTeammate()||actor->IsDead()||actor->IsDisabled()||
            !actor->Is3DLoaded()||actor->GetCurrentScene()||Fighting(actor)||Fighting(RE::PlayerCharacter::GetSingleton()))
             throw std::runtime_error("请在同伴闲暇且未战斗时换装");
@@ -792,6 +814,7 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         if(op=="removeNamedOutfit") {RemoveNamedOutfit(r,request.at("presetId"));return true;}
         auto result=outfit::Result::NoSelection;
         if(op=="unequipOutfitPart") result=RemoveOutfitPart(actor,request);
+        else if(op=="toggleWear") result=ToggleWear(actor,r,request);
         else if(op=="outfitPart") result=ChangeOutfitPart(actor,r,request);
         else if(op=="applyNamedOutfit") {
             const auto presets=r.value("outfitPresets",json::array());

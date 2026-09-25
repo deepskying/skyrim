@@ -6,7 +6,13 @@ export type BehaviorSettings = {
 export const defaultBehavior:BehaviorSettings={loot:true,corpses:true,ground:true,containers:false,radius:40,minValue:20,minRatio:5,categories:255,sell:true,outfits:true,outfitHours:12,requests:true};
 export const categories:[number,string,string][]=[[1,"武器","⚔"],[2,"护甲 / 服装","♜"],[4,"首饰","◇"],[8,"金币 / 宝石 / 灵魂石","◈"],[16,"药剂 / 食物","◉"],[32,"材料","❧"],[64,"书籍","▤"],[128,"杂物 / 箭矢","▧"]];
 import { inventoryCategories, type ItemCategory } from "./inventory.ts";
-export type WardrobeItem={key:string;id:string;name:string;count:number;value:number;weight:number;category:number;inventoryCategory?:ItemCategory;equipped:boolean;quest:boolean;favorite:boolean;equipment:boolean};
+export type ArmorType="light"|"heavy"|"jewelry"|"clothing"|"other";
+// mask/armorRating/armorType/enchantment come from the native armor record and drive the wear page;
+// rows for anything that is not armor simply leave them out.
+export type WardrobeItem={key:string;id:string;name:string;count:number;value:number;weight:number;category:number;inventoryCategory?:ItemCategory;equipped:boolean;quest:boolean;favorite:boolean;equipment:boolean;
+  mask?:number;armorRating?:number;armorType?:ArmorType;enchantment?:string};
+export const armorTypes:ArmorType[]=["light","heavy","jewelry","clothing","other"];
+export const armorTypeNames:Record<ArmorType,string>={light:"轻甲",heavy:"重甲",jewelry:"首饰",clothing:"服装",other:"其他"};
 export type Automation={defaults:BehaviorSettings;history:string[];playerCarried:number;playerCapacity:number};
 export function validBehavior(v:unknown):v is BehaviorSettings {
   if(!v||typeof v!=="object")return false;
@@ -23,6 +29,10 @@ export function validWardrobe(v:unknown):v is WardrobeItem[] {
        !["equipped","quest","favorite","equipment"].every(k=>typeof x[k]==="boolean")||
        !["weight","value","count","category"].every(k=>typeof x[k]==="number"&&Number.isFinite(x[k])&&x[k]>=0)||!Number.isInteger(x.count))return false;
     if(x.inventoryCategory!==undefined&&!inventoryCategories.some(c=>c.id!=="all"&&c.id===x.inventoryCategory))return false;
+    if(x.mask!==undefined&&(!Number.isInteger(x.mask)||x.mask<=0||x.mask>0xffffffff))return false;
+    if(x.armorRating!==undefined&&(typeof x.armorRating!=="number"||!Number.isFinite(x.armorRating)||x.armorRating<0||x.armorRating>100000))return false;
+    if(x.armorType!==undefined&&!armorTypes.includes(x.armorType))return false;
+    if(x.enchantment!==undefined&&(typeof x.enchantment!=="string"||x.enchantment.length>4096))return false;
     seen.add(x.key);return true;
   });
 }

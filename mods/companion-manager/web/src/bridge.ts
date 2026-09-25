@@ -1,6 +1,6 @@
 import type { Follower } from "./demo";
 import {validOutfits,type Outfits} from "./outfits.ts";
-import {validBehavior,validWardrobe,type BehaviorSettings,type WardrobeItem,type Automation} from "./behavior.ts";
+import {armorTypes,validBehavior,validWardrobe,type BehaviorSettings,type WardrobeItem,type Automation,type ArmorType} from "./behavior.ts";
 
 export type InventoryItem = {
   description?: string;
@@ -46,7 +46,7 @@ export type Settings = {
 };
 export type Snapshot = {
   automation?:Automation;
-  version: 2;
+  version: 3;
   session: string;
   managerAvailable: boolean;
   settings: Settings;
@@ -61,6 +61,9 @@ export type Snapshot = {
 declare global {
   interface Window {
     __companionPreview?: boolean;
+    // Design-preview only: lets the HTTP page stand in for a Meridian renderer when the wear page
+    // asks what state the 3D viewport is in. The game never reads it.
+    __companionPreviewStatus?: string;
     companionRequest?: (payload: string) => void;
     __companionSnapshot?: unknown;
   }
@@ -134,7 +137,7 @@ function validInventory(items: unknown[]) {
 export function parseSnapshot(value: unknown): Snapshot | null {
   if (
     !record(value) ||
-    value.version !== 2 ||
+    value.version !== 3 ||
     typeof value.session !== "string" ||
     !value.session ||
     value.session.length > 128 ||
@@ -335,10 +338,42 @@ function repairGear(value: unknown): unknown[] {
   return gear;
 }
 
+// The wear page reads native armor fields that older or partly broken payloads may miss. A bad
+// value is dropped rather than blanking the whole row, so the item stays usable.
+function repairWearFields(row: unknown, note: (text: string) => void): unknown {
+  if (!record(row)) return row;
+  const out: Record<string, unknown> = { ...row };
+  let dropped = 0;
+  const drop = (key: string) => {
+    if (out[key] === undefined) return;
+    delete out[key];
+    dropped++;
+  };
+  if (out.mask !== undefined) {
+    const mask = finiteNumber(out.mask);
+    if (mask === null || !Number.isInteger(mask) || mask <= 0 || mask > 0xffffffff) drop("mask");
+  }
+  if (out.armorRating !== undefined) {
+    const rating = finiteNumber(out.armorRating);
+    if (rating === null || rating < 0) drop("armorRating");
+    else out.armorRating = Math.min(100000, rating);
+  }
+  if (out.armorType !== undefined && !armorTypes.includes(out.armorType as ArmorType))
+    drop("armorType");
+  if (
+    out.enchantment !== undefined &&
+    (typeof out.enchantment !== "string" || out.enchantment.length > 4096)
+  )
+    drop("enchantment");
+  if (dropped > 0) note("伙伴装备的部分数值无法读取，已按安全值显示。");
+  return out;
+}
+
 function repairWardrobe(value: unknown, note: (text: string) => void): unknown[] {
   if (!Array.isArray(value)) return [];
+  const repaired = value.map((row) => repairWearFields(row, note));
   const rows = uniqueByKey(
-    value.filter((row) => record(row) && validWardrobe([row])),
+    repaired.filter((row) => record(row) && validWardrobe([row])),
     (row) => instanceKey(field(row, "key")),
   );
   const dropped = value.length - rows.length;

@@ -46,7 +46,63 @@ const assert=require('node:assert/strict');
   await page.getByText('卸下将同时腾出：身体、脚部',{exact:true}).waitFor();
   assert.match(await body.getAttribute('class'),/is-worn/);assert.match(await feet.getAttribute('class'),/is-worn/);
   assert.equal(await page.locator('.cm-slot-equipment-card.is-worn').count(),1);
+  // The dialogue's 调整穿搭 line now opens the wear page: one flat apparel list, hover preview,
+  // arrow-key selection and a click that equips or unequips the exact instance.
+  await entry('000A2C94','wear');
+  await page.locator('.cm-wear-list').waitFor();
+  const wearRows=page.locator('.cm-wear-row');
+  assert.equal(await wearRows.count(),6);
+  assert.equal(await page.locator('.cm-wear').getByText('铁剑',{exact:true}).count(),0);
+  assert.equal(await page.locator('.cm-wear').getByText('治疗药剂',{exact:true}).count(),0);
+  assert.equal(await page.locator('.cm-wear-row.is-worn').count(),2);
+  const armorStat=page.locator('.cm-wear-stats > div').first();
+  await wearRows.nth(1).hover();
+  assert.equal(await page.locator('.cm-wear-detail h3').innerText(),'皮甲（火焰抗性）');
+  assert.equal((await armorStat.innerText()).includes('36'),true);
+  assert.equal(await page.locator('.cm-wear-facts div').last().locator('dd').innerText(),'皮甲');
+  await wearRows.nth(5).hover(); // shield: +20 armor, nothing replaced
+  assert.equal((await armorStat.innerText()).includes('+20'),true);
+  // Live ratings are floats; the page must never show the raw value.
+  assert.equal(/\d\.\d/.test(await armorStat.innerText()),false);
+  assert.equal(await page.locator('.cm-wear-facts').getByText('将换下',{exact:true}).count(),0);
+  await page.locator('.cm-wear-list').focus();
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await wearRows.nth(1).getAttribute('aria-selected'),'true');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>{const r=document.querySelectorAll('.cm-wear-row');return !r[0].className.includes('is-worn')&&r[1].className.includes('is-worn');});
+  await wearRows.nth(3).click(); // necklace: an unworn piece in a free slot goes on
+  await page.waitForFunction(()=>document.querySelectorAll('.cm-wear-row.is-worn').length===3);
+  await page.getByLabel('搜索随从装备').fill('皮甲');
+  assert.equal(await wearRows.count(),2);
+  await page.getByLabel('搜索随从装备').fill('不存在');
+  assert.equal(await wearRows.count(),0);
+  await page.getByLabel('搜索随从装备').fill('');
+  assert.equal(await wearRows.count(),6);
+  // The 3D area reports its viewport and follows the previewed item; the HTTP preview stands in for
+  // the game renderer, so each native status can be checked without a GPU.
+  await page.evaluate(()=>{window.__previewCalls=[];const original=window.companionRequest;window.companionRequest=payload=>{const r=JSON.parse(payload);if(typeof r.type==='string'&&r.type.startsWith('preview'))window.__previewCalls.push(r);return original(payload);};});
+  await page.evaluate(()=>{window.__companionPreviewStatus='ready';});
+  await wearRows.nth(5).hover(); // shield, so the requested base form is unambiguous
+  await page.getByText('拖动旋转 · 滚轮缩放',{exact:true}).waitFor();
+  const calls=await page.evaluate(()=>window.__previewCalls);
+  const select=calls.find(call=>call.type==='previewSelect');
+  assert.equal(select.id,'00012EB6');assert.equal(select.actorId,'000A2C94');
+  const layout=calls.filter(call=>call.type==='previewLayout').pop();
+  assert.ok(layout.width>0&&layout.height>0&&layout.x>=0&&layout.y>=0);
+  assert.equal(await page.getByRole('button',{name:'重置视角',exact:true}).isEnabled(),true);
+  const box=await page.locator('.cm-preview-viewport').boundingBox();
+  await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+  await page.mouse.down();await page.mouse.move(box.x+box.width/2+40,box.y+box.height/2+12);await page.mouse.up();
+  assert.equal((await page.evaluate(()=>window.__previewCalls)).some(call=>call.type==='previewCamera'),true);
+  await page.evaluate(()=>{window.__companionPreviewStatus='unsupported';});
+  await page.getByText('此物品暂不支持模型预览',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'重置视角',exact:true}).isDisabled(),true);
+  await page.evaluate(()=>{window.__companionPreviewStatus='unavailable';});
+  await page.getByText('模型预览未连接',{exact:true}).waitFor();
+  // Leaving the page drops the model instead of leaving a surface over the other tabs.
+  await page.getByRole('button',{name:'整套随机',exact:true}).click();
+  await page.waitForFunction(()=>window.__previewCalls.some(call=>call.type==='previewClear'));
   assert.deepEqual(errors,[]);
-  console.log('PASS save once, companion switch, delayed actor, dialogue ownership and worn slot highlights');
+  console.log('PASS save once, companion switch, delayed actor, dialogue ownership, worn slot highlights, the wear page and its model viewport');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

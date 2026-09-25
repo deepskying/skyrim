@@ -190,6 +190,56 @@ outfit::Result RemoveOutfitPart(RE::Actor* actor,const json& request) {
     equip->UnequipObject(actor,found->armor,found->extra,1,nullptr,false,false,false,true);
     return outfit::Result::Pending;
 }
+// The wear page toggles the exact instance the player picked: armor, clothing, jewelry and shields.
+// Putting a piece on takes off whatever occupies its slots, a protected slot blocks the swap
+// instead, quest gear never comes off, and the outcome is confirmed like every other outfit change.
+outfit::Result ToggleWear(RE::Actor* actor,json& r,const json& request) {
+    if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
+    const auto key=request.at("itemKey").get<std::string>();
+    const auto rows=Wardrobe(actor,r,true);
+    const auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& row){return row.key==key;});
+    if(found==rows.end()||found->count<=0) throw std::runtime_error("物品已变化，请刷新伙伴库存");
+    auto* armor=found->item->As<RE::TESObjectARMO>();
+    const auto mask=armor?static_cast<std::uint32_t>(armor->GetSlotMask()):0u;
+    if(!outfit::Toggleable(mask,armor&&armor->GetPlayable())||armor==actor->GetSkin())
+        throw std::runtime_error("这件物品不能穿脱");
+    auto* equip=RE::ActorEquipManager::GetSingleton();
+    if(!equip) return outfit::Result::Unconfirmed;
+    const auto unlock=[&](RE::ExtraDataList* extra) {
+        if(!extra||!extra->HasType<RE::ExtraCannotWear>()) return;
+        const bool removed=extra->RemoveByType(RE::ExtraDataType::kCannotWear);
+        if(!removed) return;
+        if(auto* changes=actor->GetInventoryChanges()) changes->changed=true;
+        actor->AddChange(RE::TESObjectREFR::ChangeFlags::kInventory);
+    };
+    if(found->equipped) {
+        if(found->quest) throw std::runtime_error("任务装备不能卸下");
+        unlock(found->extra);
+        outfitChecks[actor->GetFormID()]={{key},ActivityTime()+0.25,ActivityTime()+2.0,true,true};
+        logger::info("Wear off actor={:08X} key={} mask={:08X}",actor->GetFormID(),key,mask);
+        equip->UnequipObject(actor,armor,found->extra,1,nullptr,false,false,false,true);
+        return outfit::Result::Pending;
+    }
+    std::vector<WornArmorInstance> strip;
+    for(const auto& old:RawWornArmor(actor)) {
+        if(old.armor==actor->GetSkin()) continue;
+        const auto wornMask=static_cast<std::uint32_t>(old.armor->GetSlotMask());
+        if(outfit::SwapProtected(wornMask,mask,old.protectedItem))
+            throw std::runtime_error("该部位被任务装备占用，无法更换");
+        if(outfit::ReplacedBySwap(wornMask,mask,old.protectedItem)) strip.push_back(old);
+    }
+    OutfitCheck check{{key},ActivityTime()+0.25,ActivityTime()+2.0,true,false};
+    for(const auto& old:strip) check.removed.push_back(WardrobeKey(old.armor,old.extra));
+    outfitChecks[actor->GetFormID()]=std::move(check);
+    for(const auto& old:strip) {
+        unlock(old.extra);
+        logger::info("Wear replace actor={:08X} item={} name={}",actor->GetFormID(),WardrobeKey(old.armor,old.extra),old.armor->GetName());
+        equip->UnequipObject(actor,old.armor,old.extra,1,nullptr,false,false,false,true);
+    }
+    logger::info("Wear on actor={:08X} key={} mask={:08X} replaced={}",actor->GetFormID(),key,mask,strip.size());
+    equip->EquipObject(actor,armor,found->extra,1,nullptr,false,false,false,true);
+    return outfit::Result::Pending;
+}
 outfit::Result ChangeOutfitPart(RE::Actor* actor,json& r,const json& request) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
     if(!rules::Integer(request.at("slot"),30,61)||request["slot"]==39) throw std::runtime_error("此槽位不参与穿搭");

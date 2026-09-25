@@ -61,6 +61,17 @@ if (
   window.companionRequest = (payload) => {
     const r = JSON.parse(payload);
     if (r.type === "refresh") snapshot();
+    // The HTTP preview has no renderer, so it answers the wear page's status poll with whatever the
+    // page is being reviewed against; without the override it reports an unconnected renderer.
+    if (typeof r.type === "string" && r.type.startsWith("preview")) {
+      if (r.type === "previewStatus")
+        window.dispatchEvent(
+          new CustomEvent("companion:preview-status", {
+            detail: { id: r.id, token: r.token, status: window.__companionPreviewStatus ?? "unavailable" },
+          }),
+        );
+      return;
+    }
     if (r.type === "command")
       setTimeout(() => {
         const result = simulate(state, r);

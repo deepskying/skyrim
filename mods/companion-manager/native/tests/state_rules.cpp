@@ -38,6 +38,13 @@ int main() {
     CHECK(Mode(false,false,true,false,1)==0);CHECK(Mode(false,true,true,true,1)==5);
     CHECK(Mode(true,true,false,true,2)==3);CHECK(Mode(true,true,true,false,0)==4);
     for(int d=0;d<3;++d){CHECK(Mode(true,false,false,false,d)==1+d*10);CHECK(Mode(true,false,true,false,d)==2+d*10);}
+    // Object identities arrive as eight hex digits; anything else must not resolve to a FormID.
+    CHECK(FormIDFromHex("000A2C94")==0xA2C94);
+    CHECK(FormIDFromHex("FFFFFFFF")==0xFFFFFFFF);
+    CHECK(FormIDFromHex("00000001")==1);
+    for(const char* bad:{"","000A2C9","000A2C944","000A2C9Z","000 2C94","A2C94","0x0A2C94","--------"})
+        CHECK(FormIDFromHex(bad)==0);
+    CHECK(FormIDFromHex(std::string("00012E49"))==0x12E49);
     json member={{"slot",0},{"actor",0xA2C94},{"base",0xA2C8E},{"active",true},{"waiting",false},{"sandbox",true},{"leash",true},{"passive",false},{"raised",false},{"protection",true},{"originalEssential",false},{"originalWaiting",0},{"aggression",1},{"confidence",3},{"originalMax",50},{"home",""},{"learned",json::array()},{"disabled",json::array({0x12FCC})},{"outfit",json::array()}};
     for (int slot = 0; slot < 64; ++slot) {
         member["slot"] = slot;

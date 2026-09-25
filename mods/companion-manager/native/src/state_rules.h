@@ -1,8 +1,10 @@
 #pragma once
 #include "capacity.h"
+#include <charconv>
 #include <cmath>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+#include <string_view>
 namespace companion::rules
 {
 using json = nlohmann::json;
@@ -29,6 +31,18 @@ constexpr bool ForeignPackagesBlockRecruitment(bool teammate, bool foreignPackag
 inline bool Integer(const json &v, std::int64_t lo, std::int64_t hi)
 {
     return v.is_number_integer() && v >= lo && v <= hi;
+}
+// The bridge carries object identities as exactly eight hex digits, not numbers, so one parser
+// decides what a usable FormID is for every command that names an object.
+inline std::uint32_t FormIDFromHex(std::string_view value)
+{
+    if (value.size() != 8)
+        return 0;
+    std::uint32_t result = 0;
+    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result, 16);
+    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size())
+        return 0;
+    return result;
 }
 inline void ApplyGrowthDefault(json &member, bool scalesWithPlayer, bool joining = false)
 {

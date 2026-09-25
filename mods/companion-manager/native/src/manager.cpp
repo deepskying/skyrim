@@ -48,12 +48,8 @@ std::string ID(RE::FormID id)
 }
 RE::FormID ParseID(const json &request, const char *key)
 {
-    const auto value = request.at(key).get<std::string>();
-    if (value.size() != 8)
-        throw std::runtime_error("无效的对象标识");
-    RE::FormID result = 0;
-    const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result, 16);
-    if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || !result)
+    const auto result = rules::FormIDFromHex(request.at(key).get<std::string>());
+    if (!result)
         throw std::runtime_error("无效的对象标识");
     return result;
 }
@@ -511,7 +507,7 @@ void Tick()
                 try {
                     CancelActivity();
                     if(dialogueOutfitMode!=0) {
-                        OpenPartnerWardrobe(id,dialogueOutfitMode==1?"part":"save");
+                        OpenPartnerWardrobe(id,dialogueOutfitMode==1?"wear":"save");
                         return;
                     }
                     // The dialogue line is "随机套装": only saved sets, with a message when none exist.
@@ -579,7 +575,7 @@ bool RegisterPapyrus(RE::BSScript::IVirtualMachine* vm)
         const auto it=members.find(actor->GetFormID());
         if(it==members.end()||!it->second.value("active",false)) return;
         dialogueOutfitRequest=actor->GetFormID();
-        dialogueOutfitMode=0;   // 0 = random saved set, 1 = part page, 2 = save page
+        dialogueOutfitMode=0;   // 0 = random saved set, 1 = wear page, 2 = save page
         dialogueOutfitDeadline=ActivityTime()+20;
     });
     vm->RegisterFunction("AdjustOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor,std::int32_t mode) {
