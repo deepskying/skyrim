@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from "react";
-import type {GameFollower} from "./bridge";
+import {focusWardrobe,type GameFollower} from "./bridge";
 import {outfitSlots,slotDescription,slotName,type OutfitItem} from "./outfits";
 import {WearPanel} from "./WearPanel";
 import "./outfits.css";
@@ -19,6 +19,9 @@ export function OutfitPanel({f,enabled,chance,mode,onEntryConsumed,notice,comman
  // Clicking a saved set wears it right away; the selection only drives the preview list below.
  const applyPreset=(id:number)=>{setPreset(id);if(usable)act("applyNamedOutfit",{presetId:id});};
  const entryConsumed=useRef(false);
+  // Ask native for this companion's inventory payload while the panel is open, and release it on
+  // the way out so other pages get the full snapshot back.
+  useEffect(()=>{focusWardrobe(f.id);return()=>{focusWardrobe("");};},[f.id]);
  useEffect(()=>{if(mode==="save"&&data&&enabled&&!entryConsumed.current){entryConsumed.current=true;openSave();onEntryConsumed?.();}},[mode,data,enabled]);
  useEffect(()=>{if(submitted.current&&notice&&!notice.ok){setError(notice.message);submitted.current=null;}},[notice]);
  useEffect(()=>{if(submitted.current&&presets.some(p=>p.name===submitted.current)){const saved=presets.find(p=>p.name===submitted.current)!;setPreset(saved.id);setTab("all");dialog.current?.close();submitted.current=null;}},[presets]);

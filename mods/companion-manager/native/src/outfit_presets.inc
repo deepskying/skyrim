@@ -218,6 +218,7 @@ outfit::Result ToggleWear(RE::Actor* actor,json& r,const json& request) {
         outfitChecks[actor->GetFormID()]={{key},ActivityTime()+0.25,ActivityTime()+2.0,true,true};
         logger::info("Wear off actor={:08X} key={} mask={:08X}",actor->GetFormID(),key,mask);
         equip->UnequipObject(actor,armor,found->extra,1,nullptr,false,false,false,true);
+        RefreshActorModel(actor);
         return outfit::Result::Pending;
     }
     std::vector<WornArmorInstance> strip;
@@ -238,6 +239,7 @@ outfit::Result ToggleWear(RE::Actor* actor,json& r,const json& request) {
     }
     logger::info("Wear on actor={:08X} key={} mask={:08X} replaced={}",actor->GetFormID(),key,mask,strip.size());
     equip->EquipObject(actor,armor,found->extra,1,nullptr,false,false,false,true);
+    RefreshActorModel(actor);
     return outfit::Result::Pending;
 }
 outfit::Result ChangeOutfitPart(RE::Actor* actor,json& r,const json& request) {

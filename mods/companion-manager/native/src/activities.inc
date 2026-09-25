@@ -206,6 +206,12 @@ std::vector<WornArmorInstance> RawWornArmor(RE::Actor* actor) {
     }
     return result;
 }
+// Worn equipment changes the biped, but a paused menu does not always rebuild the visible model;
+// refreshing it here is what lets the player watch new gear appear on the companion standing behind
+// the panel, the way SkyUI shows the player wearing what was just equipped.
+void RefreshActorModel(RE::Actor* actor) {
+    if(actor&&actor->Is3DLoaded()) actor->Update3DModel();
+}
 float Carried(RE::Actor* actor) {
     // Count all inventory weight, including worn items; never exploit perk weight exemptions.
     float total=0;
@@ -555,6 +561,7 @@ outfit::Result WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selecte
         logger::info("Outfit dispatch actor={:08X} item={} name={}",actor->GetFormID(),item.key,item.name);
         equip->EquipObject(actor,item.item,item.extra,1,nullptr,false,false,false,true);
     }
+    RefreshActorModel(actor);
     return outfit::Result::Pending;
 }
 outfit::Result ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {

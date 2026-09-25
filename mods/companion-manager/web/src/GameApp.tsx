@@ -2,7 +2,7 @@ import {CompanionVitals} from "./Vitals";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { pinnedCompanionId } from "./companion-selection";
 import { cardAlpha, cardStrongAlpha } from "./card-style";
-import { closeKey, request, type Settings } from "./bridge";
+import { closeKey, focusWardrobe, request, type Settings } from "./bridge";
 import { useGame } from "./useGame";
 import type { Section as DemoSection } from "./demo";
 import "./game.css";
@@ -101,6 +101,12 @@ export function GameApp() {
     if (pinned !== managementActor) setManagementActor(pinned);
   }, [entryWaiting, pinned, managementActor]);
   const enabled = !!s?.ready && !!s.managerAvailable && !game.busy;
+  // The compact overlay is an item panel too: keep only its companion's payload in the snapshot.
+  useEffect(() => {
+    if (wardrobeEntry.mode !== "compact") return;
+    focusWardrobe(f?.id ?? "");
+    return () => { focusWardrobe(""); };
+  }, [wardrobeEntry.mode, f?.id]);
   const editable = enabled && !!f?.managed && !f.dead && !f.unavailable;
   const prefs = s?.settings ?? {
     opacity: 82,

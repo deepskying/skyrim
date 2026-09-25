@@ -22,6 +22,9 @@ json ManagerSettings();
 std::string SessionToken();
 RE::TESQuest *Controller();
 void RefreshManagerView();
+// Item panels name the one companion whose wardrobe/outfit payload they need; 0 means every
+// managed companion keeps the full payload (the pre-existing behaviour).
+void SetWardrobeFocus(RE::FormID actor);
 bool ManagerViewOpen();
 void CloseManagerView();
 void OpenPartnerWardrobe(RE::FormID actor,std::string mode="inventory");

@@ -104,6 +104,18 @@ void OnRequest(const char *payload)
                     });
                 });
         }
+        else if (action == "focus")
+        {
+            // Only the companion an item panel is showing needs its (expensive) wardrobe and outfit
+            // payload; an empty id means "no item panel is open" and restores the full snapshot.
+            const auto raw = request.value("actorId", std::string{});
+            const auto id = raw.empty() ? RE::FormID{0} : companion::rules::FormIDFromHex(raw);
+            if (const auto tasks = SKSE::GetTaskInterface())
+                tasks->AddTask([id] {
+                    companion::SetWardrobeFocus(id);
+                    RequestRefresh();
+                });
+        }
         else if (action.starts_with("preview"))
         {
             if (!views || !panel)
@@ -285,10 +297,12 @@ bool companion::ManagerViewOpen() { return views && views->HasAnyFocus(); }
 void companion::OpenPartnerWardrobe(RE::FormID actor,std::string mode)
 {
     if(Open(mode=="compact")) {
-        SendSnapshot();
+        // Switch the page first: the panel already holds the previous snapshot, so it can paint the
+        // requested page immediately while the fresh (and much heavier) data is being built.
         const auto detail=json{{"actorId",std::format("{:08X}",actor)},{"mode",mode},{"session",SessionToken()}}.dump();
         const auto js=std::format("window.dispatchEvent(new CustomEvent('companion:wardrobe',{{detail:{}}}));",detail);
         views->ExecuteJavaScript(panel,js.c_str());
+        SendSnapshot();
     }
 }
 

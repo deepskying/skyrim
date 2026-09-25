@@ -41,6 +41,10 @@ std::uint64_t dialogueSequence = 0;
 std::chrono::steady_clock::time_point dialogueRetry{};
 std::string dialogueNotice;
 std::string dialogueState;
+// Which companion's inventory/outfit payload the open panel needs. Building every managed
+// companion's wardrobe walks their whole inventory and materializes item identities, so the panel
+// only asks for the one it shows; 0 falls back to shipping all of them.
+RE::FormID wardrobeFocus=0;
 
 std::string ID(RE::FormID id)
 {
@@ -552,6 +556,14 @@ void Tick()
 }
 } // namespace
 
+void SetWardrobeFocus(RE::FormID actor)
+{
+    std::scoped_lock guard(lock);
+    if(wardrobeFocus==actor) return;
+    wardrobeFocus=actor;
+    logger::info("Wardrobe focus {}",actor?std::format("{:08X}",actor):"off");
+}
+
 bool Fighting(RE::Actor *actor)
 {
     if (!actor || !actor->IsInCombat())
@@ -846,8 +858,12 @@ void DescribeActor(RE::Actor *actor, json &row)
     if (!managed)
         return;
     const auto &r = it->second;
-    row["wardrobe"] = WardrobeSnapshot(actor,r);
-    row["outfits"] = OutfitSnapshot(actor,r);
+    // The inventory walk and outfit merge are the expensive part of a snapshot, so they are only
+    // built for the companion an item panel is currently showing.
+    if(!wardrobeFocus||wardrobeFocus==actor->GetFormID()) {
+        row["wardrobe"] = WardrobeSnapshot(actor,r);
+        row["outfits"] = OutfitSnapshot(actor,r);
+    }
     row["carried"] = Carried(actor);
     row["capacity"] = Capacity(actor);
     row["behavior"] = Behavior(r);

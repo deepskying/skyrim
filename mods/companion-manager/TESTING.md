@@ -1,3 +1,12 @@
+## 1.8.18（2026-09-25）打开更快、顶栏不透明、换装立刻可见
+
+- 反馈:① 面板唤出速度能否提速(缓存等手段);② 顶栏与滚动条区域不要透明;③ SkyUI 那样暂停时能看见换上的新装备。
+- 打开提速(三处改动):(a) `OpenPartnerWardrobe` 改为**先派发页面事件、再 `SendSnapshot()`**——前端始终留着上一份快照,可以立即渲染「随从装备」,不必等整份快照重算;(b) 快照瘦身:新增 `companion::SetWardrobeFocus(id)`(manager.h/.cpp)与 UI 动作 `{type:"focus",actorId}`(main.cpp),`DescribeActor` 只在 `wardrobeFocus` 为空或等于该随从时才构建 `wardrobe`/`outfits`——这两项要遍历整份库存并物化物品实例,是快照里最贵的部分,以前每位在队随从都要各做一遍;前端在穿搭页/伙伴库存页/紧凑面板挂载时上报目标、卸载时清空(`bridge.focusWardrobe`)，**空值回退到旧行为**(全部构建),所以漏报不会让面板变空;(c) 暂停期间每 5 秒的面板刷新现在只重算一位随从。
+- 顶栏/滚动条不透明:`.cm-compact .cm-wear-head` 背景由 `rgba(12,14,17,.92)` 改为纯色 `#0c0e11`;新增 `.cm-wear-list::-webkit-scrollbar{width:12px}`、`-track{background:#0c0e11}`、`-thumb{background:#3a434b}`(hover `#4c565f`)。
+- 换装立刻可见:新增 `RefreshActorModel(actor)`(`activities.inc`,内部 `actor->Is3DLoaded()` 后调用 `Actor::Update3DModel()`),在 `WearSet` 与 `ToggleWear` 的装备/卸下之后各调用一次。暂停状态下引擎不一定重建可见模型,显式刷新才能像 SkyUI 那样直接看到随从换上新装备。
+- 验证:`npm test` 55 项通过;`npm run build`(含 `tsc --noEmit`)通过;ESP 结构测试 8 项 OK;浏览器回归新增断言——紧凑模式打开时向原生发出 `focus` 且 `actorId` 为当前随从、紧凑表头 `background-color` 为 `rgb(12, 14, 17)`(完全不透明)、样式表里存在 `::-webkit-scrollbar-track` 规则;原有断言全部继续通过。原生侧编译确认 `main.cpp`/`manager.cpp`/`activities.inc` 的 `.obj` 时间戳晚于源码。
+- 游戏内待复测:对话进入的等待感是否明显缩短(可与上一版对比);顶栏与滚动条区域是否不再透出画面;暂停时点击穿上/卸下后,**面板右侧背景里站着的随从是否当场换上新装备**(这是本轮最需要真机确认的一点)。
+
 ## 1.8.17（2026-09-25）紧凑面板:打开即暂停、左栏贴边
 
 - 反馈:① 打开面板时能否暂停(类似 SkyUI);② 左侧列表项调大、移除顶部搜索框;③ 左侧面板上下左三边贴边;④ 左侧面板要带透明度。

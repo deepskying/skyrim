@@ -137,8 +137,11 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>window.__previewCalls.some(call=>call.type==='previewClear'));
   // The dialogue's 调整穿搭 opens the compact overlay: no sidebar, no tabs, a transparent
   // viewport over the game and one translucent info card.
+  await page.evaluate(()=>{window.__focusCalls=[];const original=window.companionRequest;window.companionRequest=payload=>{const r=JSON.parse(payload);if(r.type==='focus')window.__focusCalls.push(r);return original(payload);};});
   await entry('000A2C94','compact');
   await page.locator('.cm-compact').waitFor();
+  // The panel tells native which companion's inventory it needs, so the snapshot stays small.
+  assert.equal((await page.evaluate(()=>window.__focusCalls)).some(call=>call.actorId==='000A2C94'),true);
   assert.equal(await page.locator('.sidebar').count(),0);
   assert.equal(await page.locator('.cm-outfit-toolbar').count(),0);
   assert.equal(await page.locator('.cm-compact .cm-wear-list').count(),1);
@@ -156,6 +159,14 @@ const assert=require('node:assert/strict');
   assert.ok(Math.abs(pane.bottom-pane.viewport)<=1,`left rail does not reach the bottom: ${pane.bottom}/${pane.viewport}`);
   assert.match(pane.bg,/rgba\(8, 10, 12, 0\.62\)/);
   assert.ok(await page.locator('.cm-compact .cm-wear-row').first().evaluate(e=>e.getBoundingClientRect().height)>=44);
+  // The header row and the scrollbar track are opaque, so the game never shows through them.
+  assert.equal(await page.locator('.cm-compact .cm-wear-head').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(12, 14, 17)');
+  assert.equal(await page.evaluate(()=>{
+    for(const sheet of document.styleSheets){
+      try{ if(Array.from(sheet.cssRules).some(rule=>rule.cssText.includes('::-webkit-scrollbar-track'))) return true; }catch{}
+    }
+    return false;
+  }),true);
   // Keyboard and mouse keep working in the overlay.
   const wornBefore=await page.locator('.cm-wear-row.is-worn').count();
   await page.locator('.cm-wear-list').focus();

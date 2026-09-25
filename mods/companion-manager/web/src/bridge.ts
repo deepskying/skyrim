@@ -609,6 +609,13 @@ export function request(type: "refresh" | "close"): boolean {
   return send({ type });
 }
 
+// Item panels name the companion whose inventory they are showing. Native then only builds that
+// one companion's wardrobe/outfit payload, which is the expensive half of a snapshot; an empty id
+// restores the full snapshot.
+export function focusWardrobe(actorId: string): boolean {
+  return send({ type: "focus", actorId });
+}
+
 export function percent(value: number, maximum: number): number {
   if (!Number.isFinite(value) || !Number.isFinite(maximum) || maximum <= 0)
     return 0;

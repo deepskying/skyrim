@@ -1,5 +1,5 @@
 import { useEffect,useLayoutEffect,useState } from "react";
-import type { Snapshot,GameFollower } from "./bridge";
+import { focusWardrobe,type Snapshot,type GameFollower } from "./bridge";
 import { categories,defaultBehavior,selectionTotals,validBehavior,type BehaviorSettings } from "./behavior";
 import { inventoryCategories,itemCategory,inventoryMatches,categoryCounts,type InventoryCategory } from "./inventory";
 import { CompanionPicker } from "./CompanionPicker";
@@ -13,6 +13,8 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
   // re-derived from the list; otherwise the page switches companions while the player edits.
   const pinned=wardrobe?pinnedCompanionId(actorId,followers):actorId;
   const f=followers.find(x=>x.id===(wardrobe?pinned:actorId));
+  // The inventory page is an item panel: ask native for just this companion's payload.
+  useEffect(()=>{if(!wardrobe)return;focusWardrobe(f?.id??"");return()=>{focusWardrobe("");};},[wardrobe,f?.id]);
   useLayoutEffect(()=>{
     if(pinned!==actorId)setActorId(pinned);
   },[pinned,actorId]);
