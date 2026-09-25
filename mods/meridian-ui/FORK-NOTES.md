@@ -7,7 +7,7 @@
 | 上游 | https://github.com/heathbrownkeyworks/MeridianUI |
 | 基础版本 | `5707877322c85a1bd1c2e3309487f266d0647ca9`（Release 1.5.0） |
 | 修改日期 | 2026-09-25 |
-| 修改内容 | ① NIF 预览在跨设备共享纹理不可用时改用游戏设备渲染（`src/UIPlatform/Render/NifPreviewRenderer.cpp` 一处条件，补丁见 `patches/`）；② 新增本声明与 `FORK-NOTES.md` 的其余说明。除此之外与 1.5.0 源码一致。 |
+| 修改内容 | ① NIF 预览在跨设备共享纹理不可用时改用游戏设备渲染（`src/UIPlatform/Render/NifPreviewRenderer.cpp` 一处条件，补丁见 `patches/`）；② 新增本声明与 `FORK-NOTES.md`；③ 新增 `build-local.ps1`（本机构建脚本，上游没有）。除此之外与 1.5.0 源码一致。 |
 | 许可 | 实现部分 **GPL-3.0-or-later + EXCEPTIONS.md 的额外许可**；`src/UIPlatform/MeridianUIAPI/*.h` 为 **MIT**。完整文本见 `LICENSE`、`LICENSING.md`、`THIRD_PARTY_NOTICES.md`、`LICENSES/`。 |
 
 Meridian UI 是 `GPL-3.0-or-later`（含附加许可）。本副本随其许可文件一并分发；
