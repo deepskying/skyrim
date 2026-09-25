@@ -18,7 +18,7 @@ type Props={
   command:(op:string,data?:Record<string,unknown>)=>boolean;
 };
 
-type Card={id:string;name:string;status:string;count:number;self:boolean;away:boolean;level:number;meta:string};
+type Card={id:string;name:string;status:string;count:number;self:boolean;away:boolean;level:number;meta:string;tone:string;home:string};
 
 function followerStatus(f:GameFollower) {
   if(f.group==="party") return f.waiting?"等待中":"在队";
@@ -32,8 +32,8 @@ export function OutfitBrowser({self,followers,session,selected,onSelect,onBack,e
   const [query,setQuery]=useState("");
   const cards=useMemo<Card[]>(()=>{
     const rows:Card[]=[];
-    if(self) rows.push({id:self.id,name:self.name,status:"你自己",count:self.outfits?.presets.length??self.presetCount??0,self:true,away:false,level:self.level??0,meta:"你的衣橱 · 武器、盾牌与弹药不入套装"});
-    for(const f of followers) rows.push({id:f.id,name:f.name,status:followerStatus(f),count:f.outfits?.presets.length??f.presetCount,self:false,away:f.group!=="party",level:f.level,meta:`${f.race} · ${f.role} · 居所：${f.home==="未设置"?"未设置":f.home}`});
+    if(self) rows.push({id:self.id,name:self.name,status:"你自己",count:self.outfits?.presets.length??self.presetCount??0,self:true,away:false,level:self.level??0,meta:"武器、盾牌与弹药不入套装",tone:"self",home:""});
+    for(const f of followers) rows.push({id:f.id,name:f.name,status:followerStatus(f),count:f.outfits?.presets.length??f.presetCount,self:false,away:f.group!=="party",level:f.level,meta:`${f.race} · ${f.role}`,tone:f.group==="party"?(f.waiting?"waiting":"party"):f.group==="registry"?"registry":"nearby",home:f.home==="未设置"?"未设置":f.home});
     const needle=query.trim().toLocaleLowerCase();
     return needle?rows.filter(r=>r.name.toLocaleLowerCase().includes(needle)||r.status.includes(needle)):rows;
   },[self,followers,query]);
@@ -47,8 +47,12 @@ export function OutfitBrowser({self,followers,session,selected,onSelect,onBack,e
       const unopened=!card.self&&card.away;
       return <button type="button" key={card.id} className={`cm-outfit-card${card.self?" self":""}${unopened?" away":""}`} aria-label={`查看${card.name}的套装`} onClick={()=>onSelect(card.id)}>
         <span className="cm-outfit-card-top"><strong title={card.name}>{card.name}</strong>{card.level>0&&<span className="cm-level">Lv. {card.level}</span>}{card.self&&<span className="cm-outfit-tag">你</span>}</span>
-        <span className="cm-outfit-card-meta" title={card.meta}>{card.meta}</span>
-        <span className="cm-outfit-card-foot"><span className="cm-outfit-avatar" aria-hidden="true">{card.name.slice(0,1)}</span><span>{card.status} · 已保存 {card.count} 套 · 点击查看穿搭</span></span>
+        <span className="cm-outfit-badges">
+          <span className={`cm-outfit-badge ${card.tone}`}>{card.status}</span>
+          <span className="cm-outfit-badge sets">{card.count} 套</span>
+          {!!card.home&&<span className="cm-outfit-badge home" title={`居所：${card.home}`}>居所：{card.home}</span>}
+        </span>
+        <span className="cm-outfit-card-foot"><span className="cm-outfit-avatar" aria-hidden="true">{card.name.slice(0,1)}</span><span className="cm-outfit-card-meta">{card.meta}</span><span className="cm-outfit-hint">点击查看穿搭</span></span>
       </button>;
     })}{!cards.length&&<p className="cm-empty" role="status">{followers.length||self?"没有找到匹配的伙伴":"先招募一位伙伴，即可调整穿搭。"}</p>}</div>
   </div>;
