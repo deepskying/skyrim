@@ -33,19 +33,12 @@ const assert=require('node:assert/strict');
   await page.locator('dialog[open]').waitFor();
   assert.match(await page.locator('dialog input').inputValue(),/^法恩达尔/);
   await page.getByRole('button',{name:'取消',exact:true}).click();
+  // The manual slot page was removed: the panel keeps only the saved-set and wear tabs, and an
+  // entry that still asks for "part" lands on the wear page instead of a page that no longer exists.
   await entry('000A2C94','part');
-  const body=page.locator('.cm-outfit-slots button').nth(2),feet=page.locator('.cm-outfit-slots button').nth(7);
-  assert.match(await body.getAttribute('class'),/is-worn/);
-  assert.equal(await page.locator('.cm-slot-equipment-grid').evaluate(e=>getComputedStyle(e).display),'grid');
-  assert.equal(await page.locator('.cm-slot-equipment-card.is-worn').count(),1);
-  await page.getByRole('button',{name:'卸下装备',exact:true}).click();
-  await page.getByText('当前未穿戴',{exact:true}).waitFor();
-  assert.equal(await page.locator('.cm-slot-equipment-card.is-worn').count(),0);
-  assert.doesNotMatch(await body.getAttribute('class'),/is-worn/);
-  await page.getByRole('button',{name:/弥光连体袍/}).click();
-  await page.getByText('卸下将同时腾出：身体、脚部',{exact:true}).waitFor();
-  assert.match(await body.getAttribute('class'),/is-worn/);assert.match(await feet.getAttribute('class'),/is-worn/);
-  assert.equal(await page.locator('.cm-slot-equipment-card.is-worn').count(),1);
+  await page.locator('.cm-wear-list').waitFor();
+  assert.equal(await page.getByRole('button',{name:'手动调整',exact:true}).count(),0);
+  assert.equal(await page.locator('.cm-outfit-toolbar .tabs button').count(),2);
   // The dialogue's 调整穿搭 line now opens the wear page: one flat apparel list, hover preview,
   // arrow-key selection and a click that equips or unequips the exact instance.
   await entry('000A2C94','wear');
@@ -58,6 +51,10 @@ const assert=require('node:assert/strict');
   // Rows are separated by a 2px gap over a transparent list background, so the cards read as
   // individual rows instead of one block of stripes.
   assert.equal(await page.locator('.cm-wear-list').evaluate(e=>getComputedStyle(e).rowGap),'2px');
+  // Favourited rows carry a light blue background, and the list stretches to the column height.
+  assert.equal(await page.locator('.cm-wear-row.is-favorite').count(),2);
+  assert.match(await page.locator('.cm-wear-row.is-favorite').first().evaluate(e=>getComputedStyle(e).backgroundColor),/122, 176, 226/);
+  assert.ok(await page.locator('.cm-wear-list').evaluate(e=>e.getBoundingClientRect().height)>=400);
   const armorStat=page.locator('.cm-wear-stats > div').first();
   await wearRows.nth(1).hover();
   assert.equal(await page.locator('.cm-wear-detail h3').innerText(),'皮甲（火焰抗性）');

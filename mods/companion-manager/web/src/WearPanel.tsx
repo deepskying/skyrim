@@ -61,7 +61,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
       <div className="cm-wear-list" role="listbox" aria-label="随从装备" tabIndex={0} ref={list} onKeyDown={onKey} onMouseLeave={()=>setHovered("")}>
         <div className="cm-wear-head" aria-hidden="true"><span>名称</span><span>数量</span><span>重量</span><span>价值</span></div>
         {shown.map(row=><div key={row.key} role="option" aria-selected={row.key===selectedKey} aria-disabled={blocked(row)}
-          className={`cm-wear-row${row.equipped?" is-worn":""}${preview?.key===row.key?" is-preview":""}`}
+          className={`cm-wear-row${row.equipped?" is-worn":""}${row.favorite?" is-favorite":""}${preview?.key===row.key?" is-preview":""}`}
           onMouseEnter={()=>setHovered(row.key)} onClick={()=>{setSelectedKey(row.key);toggle(row);}}>
           <span className="cm-wear-name"><strong>{row.name}</strong>{(row.equipped||row.quest||row.favorite)&&<small className="cm-wear-tags">{row.equipped&&<span>已穿戴</span>}{row.quest&&<span>任务</span>}{row.favorite&&<span>★</span>}</small>}</span>
           <span>{row.count}</span><span>{row.weight.toFixed(1)}</span><span>{row.value}</span>

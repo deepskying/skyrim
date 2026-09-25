@@ -1,10 +1,11 @@
 ## 1.8.14（2026-09-25）装备预览取景与列表间距
 
-- 反馈：① 装备预览的展示区域太小；② 列表项之间希望有 2px 间距。
+- 反馈：① 装备预览的展示区域太小；② 列表项之间希望有 2px 间距；③ 已收藏的列表项给淡蓝色背景；④ 移除「手动调整」页签；⑤ 左侧列表没有占满剩余空间。
 - 根因（平台侧，不是容器尺寸）：Meridian 的 NIF 取景把模型包围球半径下限钳在 `1.0`——小于 1 单位的网格（戒指、项链，以及按"米"级导出的掉落模型）被按半径 1 取景，模型缩在视口正中（截图实测约占高度 16%，正常取景应约 80%）。已在 `mods/meridian-ui` 应用本地补丁 `patches/0002`（半径只留 `0.05f` 防退化下限，取景公式与半径>1 的模型行为不变），用 `build-local.ps1` 重新构建并替换 MO2 里的 `MeridianUI.dll`（归档 `MO2\companion-manager-backups\meridian-nif-fix-1.5.0\`）。
-- 前端：`.cm-wear-list` 改为纵向 flex + `gap:2px` + 透明底，行自带 `var(--card-bg)` 与圆角，去掉行下边框；`.cm-wear-head` 保持吸顶并加 `z-index`。`.cm-preview-viewport` 高度 230px → 340px（窄屏 180px → 240px）。
-- 验证：`npm test` 55 项通过；`npm run build` 通过；浏览器回归新增两条断言（`.cm-wear-list` 计算样式 `row-gap === "2px"`、`.cm-preview-viewport` 高度 ≥ 300px）并 PASS；原生侧无改动（平台补丁单独构建验证：`NifPreviewRenderer.obj` 与 DLL 时间戳晚于源码改动）。
-- 游戏内待复测：戒指/盾牌/服装在预览里是否填满视口、拖拽与滚轮缩放手感是否合适；列表 2px 间距与表头吸顶是否正常。
+- 前端：`.cm-wear-list` 改为纵向 flex + `gap:2px` + 透明底，行自带 `var(--card-bg)` 与圆角，去掉行下边框；`.cm-wear-head` 保持吸顶并加 `z-index`；`.cm-wear-list-pane` 改为纵向 flex 且列表 `flex:1;min-height:0`（去掉 56vh 上限，窄屏仍保留 40vh），左栏因此与右栏等高、内部滚动；`.cm-wear-row.is-favorite` 淡蓝底 `rgba(122,176,226,.22)`，`is-favorite:hover` 与 `is-favorite.is-preview` 各加深一档，避免与 hover/选中态冲突。
+- 面板结构：`OutfitPanel` 删除「手动调整」页签与整页部位网格（含槽位状态、装备卡片、随机更换此部位按钮以及随之不再使用的 `slot`/`candidates`/`protectedMask`/`inSlot` 等状态）；`mode==="part"` 的入口改为落到「随从装备」页，旧原生端仍能正常打开。
+- 验证：`npm test` 55 项通过；`npm run build`（含 `tsc --noEmit`）通过；浏览器回归改写并 PASS——部位页断言替换为「不再存在『手动调整』页签、工具栏只剩 2 个页签、`part` 入口打开随从装备页」，新增收藏行断言（`.cm-wear-row.is-favorite` 计 2 条、计算背景色含 `122, 176, 226`）与列表高度断言（≥400px）；预览相关断言（`row-gap === "2px"`、视口 ≥300px、`previewSelect`/`previewLayout`/`previewCamera`/`previewClear`）继续通过。原生侧无改动（平台补丁单独构建验证：`NifPreviewRenderer.obj` 与 DLL 时间戳晚于源码改动）。
+- 游戏内待复测：戒指/盾牌/服装在预览里是否填满视口、拖拽与滚轮缩放手感是否合适；列表 2px 间距、收藏淡蓝底、表头吸顶、左栏是否填满高度；确认「手动调整」页签已消失且没有别处入口依赖它。
 
 ## 1.8.13（2026-09-25）新增「随从装备」页（第一轮列表 / 属性 / 穿脱，第二轮 3D 预览）
 
