@@ -216,7 +216,7 @@ json ReadActor(RE::Actor *actor, RE::Actor *player)
 
 json CollectSnapshot()
 {
-    json result = {{"automation", ActivityOverview()}, {"version", 3},
+    json result = {{"automation", ActivityOverview()}, {"version", 4},
                    {"mode", "game"},
                    {"followers", json::array()},
                    {"location", "未进入游戏"},

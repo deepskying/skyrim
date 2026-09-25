@@ -1,3 +1,9 @@
+## 1.9.8（2026-09-25）强化过的装备在套装里漏穿
+
+- 原生：`wardrobe_identity.h` 的让位规则加入"被套装引用的 key 留在穿戴件上"，引用表由 `activities.inc` 从所有成员与玩家的 `outfitPresets` 惰性收集（只在真的撞号时才建）；`outfit_rules.h` 新增 `EnchantSignature` / `SameEnchantment` / `FallbackInstance`；`WardrobeItem` 与 `OutfitItem` 带附魔 FormID 与充能，保存套装时两者恒写入（无附魔写 0）；`ApplyNamedOutfit` 在 key 缺失且记录有签名时按"同 base FormID + 同附魔签名 + 未穿戴"退化匹配，并保证两件套装不会同时认领同一个实例；快照 `version` 3 → 4（`snapshot.cpp`、`bridge.ts`、`preview-data.mjs`）。
+- 验证：原生 Release DLL 构建通过，8 个测试目标直接运行 exit=0（outfit-state-test 新增让位规则 7 组、附魔签名 11 组边界）；网页 58 项测试通过（新增「a saved set wears its reinforced piece again after the engine re-issued its identity」，含"旧套装没有签名时绝不回退"的断言）；`npm run build`（含 `tsc --noEmit`）通过。
+- 游戏内仍需人工复核：强化过的装备保存套装后换上、旧套装重新保存一次即可恢复。浏览器模拟与编译通过不等于游戏验证。
+
 ## 1.9.5（2026-09-25）去掉首字头像
 
 - 穿搭卡片底部移除姓名首字圆形头像，只保留种族 · 职业与提示。

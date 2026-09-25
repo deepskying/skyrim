@@ -46,7 +46,7 @@ export type Settings = {
 };
 export type Snapshot = {
   automation?:Automation;
-  version: 3;
+  version: 4;
   session: string;
   managerAvailable: boolean;
   settings: Settings;
@@ -149,7 +149,7 @@ function validInventory(items: unknown[]) {
 export function parseSnapshot(value: unknown): Snapshot | null {
   if (
     !record(value) ||
-    value.version !== 3 ||
+    value.version !== 4 ||
     typeof value.session !== "string" ||
     !value.session ||
     value.session.length > 128 ||

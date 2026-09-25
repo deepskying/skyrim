@@ -29,10 +29,33 @@ int main(){
     CHECK(!rules::ValidSetting("savedOutfitChance",70.5));
 
     // Wardrobe identities: a key must describe exactly one instance. Two rows that collide
-    // (an equipped copy inheriting the pack stack's ExtraUniqueID) are repaired instead of
-    // being emitted twice, so the stack keeps its identity and only the equipped copy yields.
-    CHECK(rules::KeepsExistingIdentity(false));   // stack keeps the id, worn copy takes a new one
-    CHECK(!rules::KeepsExistingIdentity(true));   // worn copy already holds it, so it yields
+    // (an equipped copy inheriting the pack stack's ExtraUniqueID) are repaired instead of being
+    // emitted twice. Without a saved set the stack keeps its identity and the worn copy yields;
+    // while a saved set still names the key the worn copy keeps it instead, because that set
+    // captured the key from worn gear and cannot follow a reassignment.
+    CHECK(rules::KeepsExistingIdentity(false,false,false));  // nothing worn: the first row keeps it
+    CHECK(!rules::KeepsExistingIdentity(true,false,false));  // worn copy already holds it, so it yields
+    CHECK(rules::KeepsExistingIdentity(false,true,false));   // stack seen first keeps it, so the worn copy yields
+    CHECK(rules::KeepsExistingIdentity(true,false,true));    // referenced: the worn copy keeps it
+    CHECK(!rules::KeepsExistingIdentity(false,true,true));   // referenced: the pack copy takes a new id
+    CHECK(rules::KeepsExistingIdentity(false,false,true));   // neither worn: the first row keeps it
+    CHECK(!rules::KeepsExistingIdentity(true,true,true));    // both worn: the first row yields
+
+    // A saved set that names an instance the inventory no longer carries may only fall back to the
+    // same base form carrying the same enchantment signature: another enchantment, the same one at
+    // a different charge, and an already worn copy are never worn in its place.
+    const outfit::EnchantSignature plain{}, fire{0x0007A0F7,200,true}, refilled{0x0007A0F7,180,true}, frost{0x0007A0F8,200,true};
+    CHECK(outfit::SameEnchantment(plain,plain));
+    CHECK(outfit::SameEnchantment(fire,fire));
+    CHECK(!outfit::SameEnchantment(plain,fire));         // a plain piece never stands in for an enchanted one
+    CHECK(!outfit::SameEnchantment(fire,plain));         // nor the other way round
+    CHECK(!outfit::SameEnchantment(fire,frost));         // nor one enchantment for another
+    CHECK(!outfit::SameEnchantment(fire,refilled));      // the same enchantment at another charge differs
+    CHECK(outfit::FallbackInstance(fire,fire,false));
+    CHECK(outfit::FallbackInstance(plain,plain,false));
+    CHECK(!outfit::FallbackInstance(fire,fire,true));    // an already worn copy is in use
+    CHECK(!outfit::FallbackInstance(fire,plain,false));
+    CHECK(!outfit::FallbackInstance(plain,fire,false));
     std::unordered_set<std::uint16_t> used{1,2,3,0xFFFF};
     CHECK(rules::FirstFreeUniqueID(used)==4);
     used.insert(4);

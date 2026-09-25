@@ -6,6 +6,7 @@ struct WardrobeItem {
     int count{}, value{}, category{};
     float weight{};
     bool equipped{}, quest{}, favorite{}, equipment{}, stolen{};
+    outfit::EnchantSignature enchant{};
 };
 struct OutfitCheck {
     std::vector<std::string> keys;
@@ -59,10 +60,42 @@ std::string WardrobeKey(RE::TESBoundObject* item,RE::ExtraDataList* extra) {
     auto* unique=extra?extra->GetByType<RE::ExtraUniqueID>():nullptr;
     return std::format("{:08X}:{:08X}:{:04X}",item->GetFormID(),unique?unique->baseID:0,unique?unique->uniqueID:0);
 }
+// The enchantment an instance carries, as the pair a saved set stores: the form and the soul
+// charge. A stack whose per-instance enchantment is missing falls back to the base form's.
+outfit::EnchantSignature EnchantSignatureOf(RE::TESBoundObject* item,RE::ExtraDataList* extra) {
+    if(auto* data=extra?extra->GetByType<RE::ExtraEnchantment>():nullptr)
+        if(auto* enchantment=data->enchantment)
+            return {enchantment->GetFormID(),data->charge,true};
+    if(auto* enchantable=item?item->As<RE::TESEnchantableForm>():nullptr)
+        if(auto* enchantment=enchantable->formEnchanting)
+            return {enchantment->GetFormID(),0,true};
+    return {};
+}
+// Every key a saved outfit still names, on any character. A key on this list must stay with the
+// instance the set captured, so the identity repair in Wardrobe() never hands it to another copy.
+std::unordered_set<std::string> ReferencedOutfitKeys() {
+    std::unordered_set<std::string> keys;
+    const auto collect=[&](const json& r) {
+        for(const auto& preset:r.value("outfitPresets",json::array()))
+            for(const auto& item:preset.value("items",json::array()))
+                if(item.contains("key")) if(const auto& key=item["key"];key.is_string()) keys.insert(key.get<std::string>());
+    };
+    collect(playerOutfits);
+    for(const auto& [id,r]:members) { static_cast<void>(id); collect(r); }
+    return keys;
+}
 std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool identify=false) {
     std::vector<WardrobeItem> rows;
     std::unordered_map<RE::FormID,std::unordered_set<std::uint16_t>> usedIDs;
     std::unordered_map<std::string,std::size_t> rowByKey;
+    // Collisions are rare, so the saved-set index is built the first time one shows up rather than
+    // on every wardrobe walk.
+    std::unordered_set<std::string> referencedKeys;
+    bool referencedLoaded=false;
+    const auto referenced=[&](const std::string& key)->bool {
+        if(!referencedLoaded) { referencedKeys=ReferencedOutfitKeys(); referencedLoaded=true; }
+        return referencedKeys.contains(key);
+    };
     const auto favoriteOf=[&](const std::string& key) {
         if (r.contains("favorites"))
             for (const auto& f:r["favorites"]) if (f==key) return true;
@@ -105,15 +138,16 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
             if(const auto known=rowByKey.find(key);known!=rowByKey.end()) {
                 auto& existing=rows[known->second];
                 const auto wornCopy=extra&&(extra->HasType<RE::ExtraWorn>()||extra->HasType<RE::ExtraWornLeft>());
-                if(rules::KeepsExistingIdentity(existing.equipped)) {
+                const auto keyReferenced=referenced(key);
+                if(rules::KeepsExistingIdentity(existing.equipped,wornCopy,keyReferenced)) {
                     const auto replacement=reidentify(item,extra);
                     if(replacement.empty()) {
                         logger::warn("Wardrobe identity duplicate dropped base={:08X} name={}",item->GetFormID(),
                                      item->GetName()?item->GetName():"");
                         return;
                     }
-                    logger::info("Wardrobe identity reassigned base={:08X} name={} worn={} key={} new={}",
-                                 item->GetFormID(),item->GetName()?item->GetName():"",wornCopy,key,replacement);
+                    logger::info("Wardrobe identity reassigned base={:08X} name={} existingWorn={} incomingWorn={} referenced={} newOwner={} key={} new={}",
+                                 item->GetFormID(),item->GetName()?item->GetName():"",existing.equipped,wornCopy,keyReferenced,"incoming",key,replacement);
                     key=replacement;
                 } else {
                     const auto replacement=reidentify(item,existing.extra);
@@ -122,8 +156,8 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
                                      item->GetName()?item->GetName():"");
                         return;
                     }
-                    logger::info("Wardrobe identity reassigned base={:08X} name={} worn={} key={} new={}",
-                                 item->GetFormID(),item->GetName()?item->GetName():"",existing.equipped,key,replacement);
+                    logger::info("Wardrobe identity reassigned base={:08X} name={} existingWorn={} incomingWorn={} referenced={} newOwner={} key={} new={}",
+                                 item->GetFormID(),item->GetName()?item->GetName():"",existing.equipped,wornCopy,keyReferenced,"existing",key,replacement);
                     rowByKey.erase(known);
                     existing.key=replacement;
                     existing.favorite=favoriteOf(replacement);
@@ -140,7 +174,7 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
                 extra?(extra->HasType<RE::ExtraWorn>()||extra->HasType<RE::ExtraWornLeft>()):false,
                 entry.second->IsQuestObject()||!item->GetPlayable(),favorite,
                 item->As<RE::TESObjectARMO>()||item->As<RE::TESObjectWEAP>(),
-                !specific.IsOwnedBy(RE::PlayerCharacter::GetSingleton(),true)});
+                !specific.IsOwnedBy(RE::PlayerCharacter::GetSingleton(),true),EnchantSignatureOf(item,extra)});
             rowByKey.emplace(rows.back().key,rows.size()-1);
         };
         int remaining=entry.first;

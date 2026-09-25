@@ -51,6 +51,27 @@ test('saved outfit skips a missing instance instead of wearing another enchanted
   // The set names the missing instance, so neither it nor the stand-in copy stays on top of it.
   assert.equal(original.equipped,false);assert.equal(replacement.equipped,false);
 });
+test('a saved set wears its reinforced piece again after the engine re-issued its identity',()=>{
+  const s=fixture(),f=s.followers[0],plain=f.outfits.items[0],piece=f.outfits.items[1];
+  // The enchanted copy is the one being worn when the set is saved.
+  plain.equipped=false;piece.equipped=true;
+  assert.ok(run(s,'saveNamedOutfit',{name:'强化装'}).ok);
+  const p=f.outfits.presets.find(p=>p.name==='强化装'),saved=p.items.find(i=>i.key===piece.key);
+  assert.ok(saved);assert.equal(saved.enchant,0x0007A0F7);assert.equal(saved.charge,200);
+  // A temper round trip takes the piece off and puts it back on, and the engine hands the copy it
+  // re-equips a fresh uid: the key the set stored no longer resolves to any row.
+  piece.equipped=false;piece.key='00012E49:00000014:00FF';
+  assert.ok(run(s,'applyNamedOutfit',{presetId:p.id}).ok);
+  // Same base form with the same enchantment signature, so the reinforced piece comes back on and
+  // the plain copy of that base stays off.
+  assert.equal(piece.equipped,true);assert.equal(plain.equipped,false);
+  // A set saved before signatures existed carries none to match on, so it is never guessed at.
+  const legacy=structuredClone(p);legacy.id=99;
+  for(const i of legacy.items){delete i.enchant;delete i.charge;}
+  f.outfits.presets.push(legacy);piece.equipped=false;
+  assert.ok(run(s,'applyNamedOutfit',{presetId:legacy.id}).ok);
+  assert.equal(piece.equipped,false);assert.equal(plain.equipped,false);
+});
 test('multi-slot clothes replace both body and feet; protection in either slot blocks them',()=>{
  const s=fixture(),d=s.followers[0].outfits,robe=d.items[2],boots=d.items[3];
  boots.quest=true;assert.equal(run(s,'outfitPart',{slot:32,itemKey:robe.key}).ok,false);

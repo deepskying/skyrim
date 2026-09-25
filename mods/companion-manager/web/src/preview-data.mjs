@@ -1,8 +1,13 @@
 import { defaultBehavior } from "./behavior.ts";
+// Two pieces match only when both carry the same enchantment at the same charge, so a saved set
+// whose instance identity was re-issued never lands on another enchanted copy. Only recorded
+// signatures count: a set saved before they existed has none and is never guessed at.
+const sameEnchantment=(saved,item)=>(saved.enchant??0)===(item.enchant??0)&&((saved.enchant??0)===0||(saved.charge??0)===(item.charge??0));
 function demoOutfits(){
- const specs=[["00012E49:00000014:0002","皮甲",4,true],["00012E49:00000014:0003","皮甲（火焰抗性）",4,false],["0001BE1A:00000014:0004","弥光连体袍",132,false],["00013920:00000014:0005","白色高跟靴",128,true],["00013921:00000014:0006","黑色短靴",128,false],["0003B97C:00000014:0007","银项链",32,true]];
+ // [key,name,mask,equipped,enchant] - the enchanted copy carries the signature a saved set stores.
+ const specs=[["00012E49:00000014:0002","皮甲",4,true],["00012E49:00000014:0003","皮甲（火焰抗性）",4,false,{enchant:0x0007A0F7,charge:200}],["0001BE1A:00000014:0004","弥光连体袍",132,false],["00013920:00000014:0005","白色高跟靴",128,true],["00013921:00000014:0006","黑色短靴",128,false],["0003B97C:00000014:0007","银项链",32,true]];
   // Random changes only ever wear favorites, so the demo keeps spare pieces favorited too.
-  const items=specs.map(([key,name,mask,equipped],index)=>({key,name,mask,equipped,form:parseInt(key.slice(0,8),16),favorite:equipped||index===1||index===4,available:true,quest:false,hidden:false}));
+  const items=specs.map(([key,name,mask,equipped,enchant],index)=>({key,name,mask,equipped,form:parseInt(key.slice(0,8),16),favorite:equipped||index===1||index===4,available:true,quest:false,hidden:false,...(enchant??{})}));
  return {items,pending:false,presets:[{id:1,name:"月下长袍",items:[structuredClone(items[2]),{key:"000877AA:00000014:0008",name:"翡翠戒指",mask:64,equipped:false,favorite:true,available:false,form:0x877aa}]}]};
 }
 export function fixture() {
@@ -107,7 +112,7 @@ export function fixture() {
     ],
   });
   return {
-    version: 3,
+    version: 4,
     automation:{defaults:{...defaultBehavior},history:[],playerCarried:220,playerCapacity:300},
     mode: "game",
     session: "fixture-save-1",
@@ -219,7 +224,11 @@ export function simulate(s, r) {
       if(!name||name.length>30||d.presets.some(p=>p.name===name))return {ok:false,message:"套装名称无效或重复"};
       if(d.presets.length>=64)return {ok:false,message:"套装数量已达上限"};
       const worn=d.items.filter(i=>i.equipped);if(!worn.length)return {ok:false,message:"没有服饰"};
-      worn.forEach(i=>i.favorite=true);d.presets.push({id:Math.max(0,...d.presets.map(p=>p.id))+1,name,items:structuredClone(worn)});
+      worn.forEach(i=>i.favorite=true);
+      // The signature is written for plain pieces too, so a set saved from now on is never mistaken
+      // for one saved before signatures existed.
+      d.presets.push({id:Math.max(0,...d.presets.map(p=>p.id))+1,name,
+        items:worn.map(i=>({...structuredClone(i),enchant:i.enchant??0,charge:i.charge??0}))});
     } else {
       let keys=[];
       const protectedMask=d.items.filter(i=>i.quest&&i.equipped).reduce((mask,i)=>mask|i.mask,0);
@@ -229,7 +238,17 @@ export function simulate(s, r) {
         const pool=d.items.filter(i=>i.available&&!i.quest&&!i.equipped&&!(i.mask&protectedMask)&&(i.mask&(2**(r.slot-30)))&&(r.itemKey?i.key===r.itemKey:i.favorite));
         if(!pool.length)return {ok:false,message:"没有可替换服饰"};keys=[pool[Math.floor(Math.random()*pool.length)].key];
       } else if(r.command==="applyNamedOutfit") {
-        const preset=d.presets.find(p=>p.id===r.presetId);if(!preset)return {ok:false,message:"套装不存在"};keys=preset.items.map(i=>i.key);
+        const preset=d.presets.find(p=>p.id===r.presetId);if(!preset)return {ok:false,message:"套装不存在"};
+        // A set names instances: while an instance is still there it is used as saved. When its
+        // identity was re-issued (a temper round trip duplicates it), the same base form with the
+        // same enchantment signature stands in - never a differently enchanted copy.
+        const chosen=new Set();
+        for(const saved of preset.items){
+          let i=d.items.find(x=>x.key===saved.key);
+          if(!i)i=d.items.find(x=>saved.enchant!==undefined&&!x.equipped&&x.available&&x.form===saved.form&&sameEnchantment(saved,x));
+          if(!i||chosen.has(i.key))continue;
+          chosen.add(i.key);keys.push(i.key);
+        }
         // A saved set is a whole outfit: the request first takes off whatever the set does not name.
         for(const i of d.items) if(i.equipped&&!i.quest&&!keys.includes(i.key)) i.equipped=false;
       } else if(d.presets.length&&Math.random()*100<(s.settings.savedOutfitChance??70))keys=d.presets[Math.floor(Math.random()*d.presets.length)].items.map(i=>i.key);

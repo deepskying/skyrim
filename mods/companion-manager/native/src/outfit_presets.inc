@@ -56,12 +56,22 @@ std::vector<WornArmorInstance> StripCandidates(RE::Actor* actor,const std::vecto
     }
     return strip;
 }
+// A saved set records the enchantment signature next to the identity it captured, so a set whose
+// instance was re-issued can still be matched back to the same enchanted copy instead of being
+// applied to a differently enchanted one.
+void AppendEnchantSignature(json& row,const outfit::EnchantSignature& enchant) {
+    if(!enchant.enchanted) return;
+    row["enchant"]=enchant.form;
+    row["charge"]=enchant.charge;
+}
 json OutfitItem(const WardrobeItem& row,bool hidden=false) {
     const auto* armor=row.item->As<RE::TESObjectARMO>();
-    return {{"key",row.key},{"form",row.item->GetFormID()},{"name",row.name},
+    json item={{"key",row.key},{"form",row.item->GetFormID()},{"name",row.name},
         {"mask",static_cast<std::uint32_t>(armor->GetSlotMask())},
         {"equipped",row.equipped},{"favorite",row.favorite},{"quest",row.quest},
         {"available",row.count>0&&!hidden},{"hidden",hidden}};
+    AppendEnchantSignature(item,row.enchant);
+    return item;
 }
 json OutfitItems(RE::Actor* actor,const json& r) {
     json result=json::array();
@@ -77,10 +87,12 @@ json OutfitItems(RE::Actor* actor,const json& r) {
         const auto key=WardrobeKey(worn.armor,worn.extra);
         if(std::any_of(result.begin(),result.end(),[&](const auto& x){return x["key"]==key;})) continue;
         const auto favorites=r.value("favorites",json::array());
-        result.push_back({{"key",key},{"form",worn.armor->GetFormID()},{"name",worn.armor->GetName()},
+        json item={{"key",key},{"form",worn.armor->GetFormID()},{"name",worn.armor->GetName()},
             {"mask",static_cast<std::uint32_t>(worn.armor->GetSlotMask())},{"equipped",true},
             {"favorite",std::find(favorites.begin(),favorites.end(),key)!=favorites.end()},
-            {"quest",worn.protectedItem},{"available",false},{"hidden",true}});
+            {"quest",worn.protectedItem},{"available",false},{"hidden",true}};
+        AppendEnchantSignature(item,EnchantSignatureOf(worn.armor,worn.extra));
+        result.push_back(std::move(item));
     }
     return result;
 }
@@ -104,7 +116,13 @@ void SaveNamedOutfit(RE::Actor* actor,json& r,const std::string& name) {
     if(outfitChecks.contains(actor->GetFormID())) throw std::runtime_error("请等待换装确认后再保存");
     json list=json::array(),favorites=r.value("favorites",json::array());
     for(const auto& row:OutfitItems(actor,r)) if(row["equipped"].get<bool>()) {
-        list.push_back({{"key",row["key"]},{"form",row["form"]},{"name",row["name"]},{"mask",row["mask"]}});
+        // Carrying the enchantment signature is what lets this set survive its instance identity
+        // being re-issued later: the fallback in ApplyNamedOutfit matches on it. It is written for
+        // plain pieces too, so a set saved from now on is never mistaken for one saved before the
+        // signature existed - those must not fall back onto a guessed copy.
+        json item={{"key",row["key"]},{"form",row["form"]},{"name",row["name"]},{"mask",row["mask"]}};
+        item["enchant"]=row.value("enchant",0u);item["charge"]=row.value("charge",0u);
+        list.push_back(std::move(item));
         if(std::find(favorites.begin(),favorites.end(),row["key"])==favorites.end()) favorites.push_back(row["key"]);
     }
     if(list.empty()) throw std::runtime_error("当前没有可保存的服饰");
@@ -128,15 +146,42 @@ void RemoveNamedOutfit(json& r,const json& presetID) {
     presets.erase(found);
     r["outfitPresets"]=std::move(presets);
 }
+// The set names an instance the inventory no longer carries under that identity: the engine
+// re-issued it after a temper round trip duplicated it. The same base form with the same
+// enchantment signature is the only safe stand-in; a differently enchanted copy or an already
+// worn one is never substituted, so a missing piece still reports as missing. Sets saved before
+// the signature existed carry no signature at all and are never guessed at: the piece has to be
+// saved again before it can be recovered.
+const WardrobeItem* FallbackRow(const std::vector<WardrobeItem>& rows,const json& saved) {
+    const auto formField=saved.find("form");
+    if(formField==saved.end()||!formField->is_number_integer()) return nullptr;
+    outfit::EnchantSignature enchant{};
+    const auto field=saved.find("enchant");
+    if(field==saved.end()||!field->is_number_integer()) return nullptr;
+    enchant.form=field->get<std::uint32_t>();enchant.enchanted=enchant.form!=0;
+    if(const auto charge=saved.find("charge");charge!=saved.end()&&charge->is_number_integer())
+        enchant.charge=static_cast<std::uint16_t>((std::min)(charge->get<std::uint32_t>(),0xFFFFu));
+    const auto form=formField->get<RE::FormID>();
+    const auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& row){
+        return row.item->GetFormID()==form&&outfit::FallbackInstance(enchant,row.enchant,row.equipped);
+    });
+    return found==rows.end()?nullptr:&*found;
+}
 outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool manual) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
     const auto rows=Wardrobe(actor,r,true);std::vector<WardrobeItem> selected;
     auto occupied=ProtectedOutfitSlots(actor);
+    std::unordered_set<std::string> chosen;
     unsigned missing=0;
     for(const auto& saved:preset.at("items")) {
         const auto savedKey=saved.at("key").get<std::string>();
-        auto row=std::find_if(rows.begin(),rows.end(),[&](const auto& x){return x.key==savedKey;});
-        if(row==rows.end()) {++missing;continue;}
+        const auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& x){return x.key==savedKey;});
+        const WardrobeItem* row=found!=rows.end()?&*found:FallbackRow(rows,saved);
+        if(row&&found==rows.end())
+            logger::info("Outfit fallback actor={:08X} saved={} name={} matched={}",
+                         actor->GetFormID(),savedKey,saved.value("name",std::string{}),row->key);
+        // Two saved pieces must never both claim one instance, whichever way each was found.
+        if(!row||!chosen.insert(row->key).second) {++missing;continue;}
         auto* armor=row->item->As<RE::TESObjectARMO>();
         if(!OutfitArmor(armor)||armor==actor->GetSkin()||row->quest) continue;
         const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());

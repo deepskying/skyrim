@@ -33,6 +33,21 @@ inline bool CanUnlockReplacement(bool manual, bool worn, bool protectedItem,
 constexpr bool StripBeforeWear(bool outfitPiece,bool protectedItem,bool namedBySet) {
     return outfitPiece&&!protectedItem&&!namedBySet;
 }
+// A saved set names one instance by key. When that identity is gone - the engine re-issues it
+// after a temper round trip duplicates it - the only safe stand-in is the same base form carrying
+// the same enchantment signature: another enchantment, or the same one at a different charge, is
+// a different item, and a worn copy is already in use.
+struct EnchantSignature {
+    std::uint32_t form{};
+    std::uint16_t charge{};
+    bool enchanted{};
+};
+constexpr bool SameEnchantment(const EnchantSignature& a,const EnchantSignature& b) {
+    return a.enchanted==b.enchanted&&(!a.enchanted||(a.form==b.form&&a.charge==b.charge));
+}
+constexpr bool FallbackInstance(const EnchantSignature& saved,const EnchantSignature& row,bool worn) {
+    return !worn&&SameEnchantment(saved,row);
+}
 // The wear page toggles one named instance. It covers every playable armor record that occupies a
 // slot - jewelry and shields included - while the outfit generator deliberately leaves both alone.
 constexpr bool Toggleable(std::uint32_t mask,bool playable) { return playable&&mask!=0; }

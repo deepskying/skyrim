@@ -6,11 +6,19 @@ namespace companion::rules
 {
 // One snapshot row per addressable inventory instance means one unique key per instance.
 // Equipping an item makes the engine copy the pack stack's ExtraUniqueID onto the worn copy,
-// so the same identity can describe two different instances. The pack stack keeps its identity
-// (locks, favorites and saved outfits already point at it) and the equipped copy takes a new
-// one; whichever row already carries the equipped state is the row that yields.
-inline bool KeepsExistingIdentity(bool existingEquipped)
+// so the same identity can describe two different instances. Whichever row yields takes a fresh
+// id; the other keeps the key it already had.
+//
+// A saved outfit is the one thing that cannot follow a reassignment: it stores the key it
+// captured, so moving that key to a copy the set does not describe leaves the set pointing at an
+// instance it never named. Saved sets are captured from worn gear, so while a set still
+// references the key the worn copy keeps it and the pack stack - the copy no set names - takes
+// the new id. Without a reference the pack stack keeps its identity, because locks, favorites and
+// an unsaved outfit all follow the stock row, and the worn copy is the row that yields.
+inline bool KeepsExistingIdentity(bool existingEquipped, bool incomingEquipped, bool keyReferenced)
 {
+    if (keyReferenced && existingEquipped != incomingEquipped)
+        return existingEquipped;
     return !existingEquipped;
 }
 
