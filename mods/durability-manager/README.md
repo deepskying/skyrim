@@ -4,6 +4,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- Version 0.1.51 / Equipment Workshop 2.3.2 names the prepared filler 补足药水 again: the player's term for the button means every finished product (potions and poisons) and only excludes alchemy ingredients, which is what 2.3.1 already did. Button label, tooltip and the footer wording now say so explicitly; behaviour is unchanged.
+
 - Version 0.1.50 / Equipment Workshop 2.3.1 fixes the potion-only filler: it is now 补足药剂 and spends finished potions *and* poisons, excluding only raw ingredients (matching materials in the player's pack are mostly poisons, so the old kind=potion gate left the button greyed out). Material cards show the kind in the first badge again (药水 2 / 毒药 3 / 原材料 8) and the card footer explains a disabled filler (no base count, no matching material, ingredients only, or the basket is already full).
 
 - Version 0.1.49 / Equipment Workshop 2.3.0 tidies the magic arrow charge section: the action row now holds 补足充能, 补足药水 and 清空材料 (the footer copy moved up), and each material card shows the name plus two side-by-side badges (库存 N and +N 充能) instead of three stacked lines. Card minimum height now scales with the panel font size, which fixes the clipped third line at 130% scale. Layout checked in a headless browser at 2048x1152 and 2560x1440 with the panel font scale forced to 130%.

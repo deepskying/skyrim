@@ -128,7 +128,8 @@ test('queued crafting gates the start button on the co-save and the per-spell ce
 test('the charge section offers a prepared-only filler and a clear button', () => {
   const panel = readFileSync(new URL('../src/arrows/MagicCrafting.tsx', import.meta.url), 'utf8');
   assert.match(panel, /补足充能/);
-  assert.match(panel, /补足药剂/);
+  assert.match(panel, /补足药水/);
+  assert.match(panel, /不消耗炼金材料/);
   assert.match(panel, /fillCharge\(state, previous, true\)/);
   // Finished potions and poisons both fill it; raw ingredients never do.
   assert.match(panel, /plan\.materials\.some\(m => m\.kind !== 'ingredient'\)/);
