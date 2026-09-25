@@ -1,7 +1,8 @@
 import { defaultBehavior } from "./behavior.ts";
 function demoOutfits(){
  const specs=[["00012E49:00000014:0002","皮甲",4,true],["00012E49:00000014:0003","皮甲（火焰抗性）",4,false],["0001BE1A:00000014:0004","弥光连体袍",132,false],["00013920:00000014:0005","白色高跟靴",128,true],["00013921:00000014:0006","黑色短靴",128,false],["0003B97C:00000014:0007","银项链",32,true]];
- const items=specs.map(([key,name,mask,equipped])=>({key,name,mask,equipped,form:parseInt(key.slice(0,8),16),favorite:equipped,available:true,quest:false,hidden:false}));
+  // Random changes only ever wear favorites, so the demo keeps spare pieces favorited too.
+  const items=specs.map(([key,name,mask,equipped],index)=>({key,name,mask,equipped,form:parseInt(key.slice(0,8),16),favorite:equipped||index===1||index===4,available:true,quest:false,hidden:false}));
  return {items,pending:false,presets:[{id:1,name:"月下长袍",items:[structuredClone(items[2]),{key:"000877AA:00000014:0008",name:"翡翠戒指",mask:64,equipped:false,favorite:true,available:false,form:0x877aa}]}]};
 }
 export function fixture() {
@@ -203,12 +204,15 @@ export function simulate(s, r) {
       const protectedMask=d.items.filter(i=>i.quest&&i.equipped).reduce((mask,i)=>mask|i.mask,0);
       if(r.command==="outfitPart") {
         if(!Number.isInteger(r.slot)||r.slot<30||r.slot>61||r.slot===39)return {ok:false,message:"槽位无效"};
-        const pool=d.items.filter(i=>i.available&&!i.quest&&!i.equipped&&!(i.mask&protectedMask)&&(i.mask&(2**(r.slot-30)))&&(!r.itemKey||i.key===r.itemKey));
+        // A named piece stays a direct manual pick; the random button draws on favorites only.
+        const pool=d.items.filter(i=>i.available&&!i.quest&&!i.equipped&&!(i.mask&protectedMask)&&(i.mask&(2**(r.slot-30)))&&(r.itemKey?i.key===r.itemKey:i.favorite));
         if(!pool.length)return {ok:false,message:"没有可替换服饰"};keys=[pool[Math.floor(Math.random()*pool.length)].key];
       } else if(r.command==="applyNamedOutfit") {
         const preset=d.presets.find(p=>p.id===r.presetId);if(!preset)return {ok:false,message:"套装不存在"};keys=preset.items.map(i=>i.key);
+        // A saved set is a whole outfit: the request first takes off whatever the set does not name.
+        for(const i of d.items) if(i.equipped&&!i.quest&&!keys.includes(i.key)) i.equipped=false;
       } else if(d.presets.length&&Math.random()*100<(s.settings.savedOutfitChance??70))keys=d.presets[Math.floor(Math.random()*d.presets.length)].items.map(i=>i.key);
-      else {let occupied=protectedMask;for(const i of d.items.filter(i=>i.available&&!i.quest&&!i.equipped).sort(()=>Math.random()-.5)){if(!(occupied&i.mask)){keys.push(i.key);occupied|=i.mask;}}}
+      else {let occupied=protectedMask;for(const i of d.items.filter(i=>i.favorite&&i.available&&!i.quest&&!i.equipped).sort(()=>Math.random()-.5)){if(!(occupied&i.mask)){keys.push(i.key);occupied|=i.mask;}}}
       for(const key of keys){const i=d.items.find(i=>i.key===key);if(i&&i.available&&!i.quest&&!(i.mask&protectedMask))wear(i);}
     }
     for(const p of d.presets)for(const saved of p.items){const i=d.items.find(i=>i.key===saved.key);saved.available=!!i?.available;saved.equipped=!!i?.equipped;saved.favorite=!!i?.favorite;}
@@ -225,11 +229,10 @@ export function simulate(s, r) {
     case "deferRequest":f.request="";break;
     case "changeOutfit": {
       // Preview fixtures model body clothing and accessories as separate slots.
-      // Native selection uses the actual armor slot masks.
+      // Native selection uses the actual armor slot masks and only ever wears favorites.
       const selected=[2,4].flatMap(category=>{
         if(f.wardrobe.some(i=>i.category===category&&i.quest&&i.equipped))return [];
-        const available=f.wardrobe.filter(i=>i.category===category&&!i.quest);
-        const locked=available.filter(i=>i.favorite),pool=locked.length?locked:available;
+        const pool=f.wardrobe.filter(i=>i.category===category&&!i.quest&&i.favorite);
         const choice=pool.find(i=>!i.equipped)??pool[0];return choice?[choice]:[];
       });
       if(!selected.some(i=>!i.equipped))return {ok:false,message:"没有可替换的服饰"};

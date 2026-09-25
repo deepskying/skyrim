@@ -12,6 +12,8 @@ struct OutfitCheck {
     double nextCheck{},deadline{};
     bool manual{};
     bool removing{};
+    // Whole-set requests take pieces off first; those keys must stay gone for the check to pass.
+    std::vector<std::string> removed;
 };
 std::unordered_map<RE::FormID,OutfitCheck> outfitChecks;
 struct ActivityJob {
@@ -474,12 +476,17 @@ void CheckOutfits() {
         if(now<check.nextCheck) {++it;continue;}
         check.nextCheck=now+0.25;
         const auto rows=Wardrobe(actor,json::object(),false);
+        const auto rawWorn=RawWornArmor(actor);
+        const auto worn=[&](const std::string& key) {
+            return std::any_of(rawWorn.begin(),rawWorn.end(),[&](const auto& row){return WardrobeKey(row.armor,row.extra)==key;});
+        };
         std::size_t confirmed=0;
-        const auto rawWorn=check.removing?RawWornArmor(actor):std::vector<WornArmorInstance>{};
         for(const auto& key:check.keys)
-            if(check.removing?std::none_of(rawWorn.begin(),rawWorn.end(),[&](const auto& row){return WardrobeKey(row.armor,row.extra)==key;}):
+            if(check.removing?!worn(key):
                std::any_of(rows.begin(),rows.end(),[&](const auto& row){return row.key==key&&row.equipped;})) ++confirmed;
-        const auto result=outfit::PollConfirmation(check.keys.size(),confirmed,now>=check.deadline);
+        for(const auto& key:check.removed) if(!worn(key)) ++confirmed;
+        const auto requested=check.keys.size()+check.removed.size();
+        const auto result=outfit::PollConfirmation(requested,confirmed,now>=check.deadline);
         if(result==outfit::Result::Pending) {++it;continue;}
         for(const auto& key:check.keys) {
             const auto row=std::find_if(rows.begin(),rows.end(),[&](const auto& row){return row.key==key;});
@@ -489,7 +496,7 @@ void CheckOutfits() {
             logger::info("Outfit still worn actor={:08X} item={} name={}",id,row.key,row.name);
         if(const auto& biped=actor->GetBiped();biped) for(const auto& part:biped->objects) if(part.item)
             logger::info("Outfit model actor={:08X} item={:08X}",id,part.item->GetFormID());
-        logger::info("Outfit final actor={:08X} confirmed={}/{} result={}",id,confirmed,check.keys.size(),outfit::Message(result));
+        logger::info("Outfit final actor={:08X} confirmed={}/{} removed={} result={}",id,confirmed,requested,check.removed.size(),outfit::Message(result));
         if(outfit::Changed(result)) {
             members[id]["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
             ActivityLog(std::format("{}：{}",actor->GetName(),outfit::Message(result)),false);
@@ -501,7 +508,8 @@ void CheckOutfits() {
         RefreshManagerView();
     }
 }
-outfit::Result WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selected,bool manual) {
+outfit::Result WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selected,bool manual,
+                       std::vector<WornArmorInstance> strip={}) {
     auto* equip=RE::ActorEquipManager::GetSingleton();
     if(!equip) return outfit::Result::Unconfirmed;
     // CommonLib's forceEquip parameter means PreventRemoval in the engine.
@@ -524,9 +532,25 @@ outfit::Result WearSet(RE::Actor* actor,const std::vector<WardrobeItem>& selecte
             }
         }
     }
+    // A whole-set request arrives with the pieces to take off first, so the companion wears the
+    // set itself rather than the set plus whatever was left over.
+    const bool pendingWear=std::any_of(selected.begin(),selected.end(),[](const auto& item){return !item.equipped;});
+    if(!pendingWear&&strip.empty()) return outfit::Result::Unchanged;
     OutfitCheck check{{},ActivityTime()+0.25,ActivityTime()+2.0,manual};
     for(const auto& item:selected) if(!item.equipped) check.keys.push_back(item.key);
+    for(const auto& old:strip) check.removed.push_back(WardrobeKey(old.armor,old.extra));
     outfitChecks[actor->GetFormID()]=std::move(check);
+    for(const auto& old:strip) {
+        if(old.extra->HasType<RE::ExtraCannotWear>()) {
+            const bool removed=old.extra->RemoveByType(RE::ExtraDataType::kCannotWear);
+            if(removed) {
+                if(auto* changes=actor->GetInventoryChanges()) changes->changed=true;
+                actor->AddChange(RE::TESObjectREFR::ChangeFlags::kInventory);
+            }
+        }
+        logger::info("Outfit strip actor={:08X} item={} name={}",actor->GetFormID(),WardrobeKey(old.armor,old.extra),old.armor->GetName());
+        equip->UnequipObject(actor,old.armor,old.extra,1,nullptr,false,false,false,true);
+    }
     for(const auto& item:selected) if(!item.equipped) {
         logger::info("Outfit dispatch actor={:08X} item={} name={}",actor->GetFormID(),item.key,item.name);
         equip->EquipObject(actor,item.item,item.extra,1,nullptr,false,false,false,true);
@@ -544,7 +568,10 @@ outfit::Result ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {
         if(auto* armor=row.item->As<RE::TESObjectARMO>()) {
             const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());
             logger::info("Outfit item={} name={} count={} mask={:08X} locked={} worn={} protected={} playable={} removalLocked={}",row.key,row.name,row.count,mask,row.favorite,row.equipped,row.quest,armor->GetPlayable(),row.extra&&row.extra->HasType<RE::ExtraCannotWear>());
-            if(!row.quest&&!armor->IsShield()&&armor!=actor->GetSkin()) candidates.push_back({i,mask,row.favorite,row.equipped});
+            // Random changes only ever put on favorited gear. A manual request may still take off
+            // what the companion already wears - favorited or not - so a slot is never left stuck
+            // on a piece the player cannot re-dress from the collection.
+            if((row.favorite||(fallback&&row.equipped))&&!row.quest&&!armor->IsShield()&&armor!=actor->GetSkin()) candidates.push_back({i,mask,row.favorite,row.equipped});
             else if(row.equipped) occupied|=mask;
         }
     }

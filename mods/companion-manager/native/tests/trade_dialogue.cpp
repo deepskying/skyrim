@@ -1,7 +1,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include <cassert>
+#include "check.h"
 #include <memory>
 namespace RE {
 struct TESFaction {};
@@ -39,15 +39,15 @@ int main(){
     voice.data.functionData.function=Fn::kVoiceGate;voice.next=&condition;
     condition.data.functionData.params[0]=&vanilla;condition.next=&quest;
     quest.data.functionData.function=Fn::kQuestGate;
-    assert(companion::dialogue::ExtendTradeCondition(&condition,false,&vanilla,&managed));
+    CHECK(companion::dialogue::ExtendTradeCondition(&condition,false,&vanilla,&managed));
     for(int mask=0;mask<32;++mask){
         const bool v=mask&1,m=mask&2,t=mask&4,a=mask&8,b=mask&16;
-        assert(Evaluate(&voice,&vanilla,v,m,t,a,b)==(a&&b&&(v||(m&&t))));
+        CHECK(Evaluate(&voice,&vanilla,v,m,t,a,b)==(a&&b&&(v||(m&&t))));
     }
-    assert(!companion::dialogue::ExtendTradeCondition(&condition,false,&vanilla,&managed));
+    CHECK(!companion::dialogue::ExtendTradeCondition(&condition,false,&vanilla,&managed));
     auto* node=condition.next;int count=0;
     while(node!=&quest){auto* next=node->next;delete node;node=next;++count;}
-    assert(count==3);
+    CHECK(count==3);
     for(int kind=0;kind<8;++kind){
         RE::TESConditionItem unsupported;unsupported.data.functionData.params[0]=&vanilla;
         if(kind==0)unsupported.data.flags.isOR=true;
@@ -57,7 +57,7 @@ int main(){
         if(kind==4)unsupported.data.flags.swapTarget=true;
         if(kind==5)unsupported.data.object=RE::CONDITIONITEMOBJECT::kTarget;
         if(kind==6)unsupported.data.comparisonValue.f=0;
-        assert(!companion::dialogue::ExtendTradeCondition(&unsupported,kind==7,&vanilla,&managed));
-        assert(unsupported.next==nullptr);
+        CHECK(!companion::dialogue::ExtendTradeCondition(&unsupported,kind==7,&vanilla,&managed));
+        CHECK(unsupported.next==nullptr);
     }
 }

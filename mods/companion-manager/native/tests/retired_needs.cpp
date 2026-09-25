@@ -4,7 +4,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include <cassert>
+#include "check.h"
 #include <cmath>
 #include <unordered_map>
 #include <stdexcept>
@@ -34,23 +34,23 @@ RE::Actor* Actor(RE::FormID id){auto it=actors.find(id);return it==actors.end()?
 
 int main(){
     SKSE::SerializationInterface serial;
-    assert(ReadRetiredNeeds(json::object(),&serial).empty());
+    CHECK(ReadRetiredNeeds(json::object(),&serial).empty());
     json rows=json::array({{{"actor",1},{"penalties",{20,10,10}}},{{"actor",2},{"penalties",{0,0,0}}},{{"actor",999},{"penalties",{1,1,1}}}});
     retiredNeeds=ReadRetiredNeeds({{"needsActors",rows}},&serial);
-    assert(retiredNeeds.size()==1&&retiredNeeds.contains(101));
-    ClearRetiredNeeds();assert(retiredNeeds.size()==1); // unloaded actor survives until available
+    CHECK(retiredNeeds.size()==1&&retiredNeeds.contains(101));
+    ClearRetiredNeeds();CHECK(retiredNeeds.size()==1); // unloaded actor survives until available
     actors.emplace(101,RE::Actor{});
-    ClearRetiredNeeds();assert(retiredNeeds.empty());
+    ClearRetiredNeeds();CHECK(retiredNeeds.empty());
     const auto& a=actors.at(101);
-    assert((a.maximum==std::array<float,3>{200,100,100}));
-    assert(a.maximum[0]+a.damage[0]==160&&a.maximum[1]+a.damage[1]==80); // no free healing
-    auto after=a.maximum;ClearRetiredNeeds();assert(a.maximum==after); // cannot restore twice
+    CHECK((a.maximum==std::array<float,3>{200,100,100}));
+    CHECK(a.maximum[0]+a.damage[0]==160&&a.maximum[1]+a.damage[1]==80); // no free healing
+    auto after=a.maximum;ClearRetiredNeeds();CHECK(a.maximum==after); // cannot restore twice
     for(auto invalid: {json::array({-1,0,0}),json::array({0,0}),json::array({"bad",0,0})}){
         bool rejected=false;
         try{ReadRetiredNeeds({{"needsActors",json::array({{{"actor",1},{"penalties",invalid}}})}},&serial);}catch(const std::exception&){rejected=true;}
-        assert(rejected);
+        CHECK(rejected);
     }
     rows.push_back(rows[0]);
     bool duplicate=false;try{ReadRetiredNeeds({{"needsActors",rows}},&serial);}catch(const std::exception&){duplicate=true;}
-    assert(duplicate);
+    CHECK(duplicate);
 }

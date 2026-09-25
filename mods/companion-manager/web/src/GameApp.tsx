@@ -1,5 +1,7 @@
 import {CompanionVitals} from "./Vitals";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { pinnedCompanionId } from "./companion-selection";
+import { cardAlpha, cardStrongAlpha } from "./card-style";
 import { closeKey, request, type Settings } from "./bridge";
 import { useGame } from "./useGame";
 import type { Section as DemoSection } from "./demo";
@@ -89,7 +91,14 @@ export function GameApp() {
     ) ?? [];
   const magicFollowers = s?.followers.filter(f => f.managed) ?? [];
   const entryWaiting=["save","part"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
-  const f = section === "outfits" ? (entryWaiting?undefined:managementActor?magicFollowers.find(f=>f.id===managementActor):magicFollowers[0]) : section === "magic" ? (magicFollowers.find(f => f.id === managementActor) ?? magicFollowers[0]) : s?.followers.find((f) => f.id === selected && f.group === section);
+  const pinned = section==="outfits"||section==="magic" ? pinnedCompanionId(managementActor,magicFollowers) : managementActor;
+  const f = section === "outfits" ? (entryWaiting?undefined:magicFollowers.find(x => x.id === pinned)) : section === "magic" ? magicFollowers.find(x => x.id === pinned) : s?.followers.find((x) => x.id === selected && x.group === section);
+  // The snapshot arrives ordered by live distance, so the target must be pinned: re-deriving it
+  // from the list would move the panel whenever another companion walks closer.
+  useLayoutEffect(() => {
+    if (entryWaiting) return;
+    if (pinned !== managementActor) setManagementActor(pinned);
+  }, [entryWaiting, pinned, managementActor]);
   const enabled = !!s?.ready && !!s.managerAvailable && !game.busy;
   const editable = enabled && !!f?.managed && !f.dead && !f.unavailable;
   const prefs = s?.settings ?? {
@@ -185,8 +194,11 @@ export function GameApp() {
       onChange={() => act(key, { value: !value })}
     />
   );
+  const surface = cardAlpha(prefs.opacity);
   const style = {
     "--panel-alpha": prefs.opacity / 100,
+    "--card-bg": `rgba(23,32,39,${surface})`,
+    "--card-bg-strong": `rgba(48,66,54,${cardStrongAlpha(surface)})`,
     "--base-size": `${prefs.font}px`,
     "--text-scale": prefs.font / 15,
   } as CSSProperties;
@@ -300,7 +312,7 @@ export function GameApp() {
               <h2>按你的习惯同行</h2>
               <p>外观与行为偏好随当前游戏存档保存。</p>
               <div className="settings-grid">
-                <div className="panel"><h3>整套随机</h3><PreferenceRange key={`outfit-${prefs.savedOutfitChance??70}`} label="使用已保存套装的概率" value={prefs.savedOutfitChance??70} min={0} max={100} unit="%" disabled={!enabled} onSave={v=>change("savedOutfitChance",v)}/><p>其余 {100-(prefs.savedOutfitChance??70)}% 概率重新组合。没有保存套装时始终重新组合；每名随从独立保存套装。</p></div>
+                <div className="panel"><h3>整套随机</h3><PreferenceRange key={`outfit-${prefs.savedOutfitChance??70}`} label="使用已保存套装的概率" value={prefs.savedOutfitChance??70} min={0} max={100} unit="%" disabled={!enabled} onSave={v=>change("savedOutfitChance",v)}/><p>其余 {100-(prefs.savedOutfitChance??70)}% 概率从收藏重新组合。随机整套与随机部位都只使用已收藏服饰；没有保存套装时始终重新组合；每名随从独立保存套装。</p></div>
                 <div className="panel">
                   <h3>界面外观</h3>
                   <PreferenceRange

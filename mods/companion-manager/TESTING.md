@@ -1,3 +1,53 @@
+## 1.8.12（2026-09-25）穿搭对话升级为三条一级选项
+
+- 需求：把「穿搭调整」里的条目提升为一级对话——①随机套装（只在已保存套装里随机，无套装时提示）②保存当前套装 ③调整穿搭（本轮仍是打开面板，装备预览后续再做）。
+- ESP：`source/build_plugin.py` 去掉父话题（原 0xB01「穿搭调整」DIAL 与 0xB02 INFO 及其 TCLT 子话题结构），改为三条独立顶级分支：`0xB00→随机套装(0xB01/0xB02, CMRandomOutfitTopic)`、`0xB04→保存当前套装(0xB10/0xB11, CMOutfitSaveTopic)`、`0xB08→调整穿搭(0xB12/0xB13, CMOutfitPartTopic)`；每条分支 `DNAM=1`、`SNAM` 指向自己的话题，话题 `BNAM` 指向自己的分支，INFO 条件沿用 4 条作用域条件。旧 0xB14/0xB15（整套随机子项）不再产生。
+- 原生：新增 `outfit::HasSavedSet` / `SavedSetPick` 规则与 `Result::NoSavedSets`（消息「还没有保存的套装：请先在伙伴穿搭面板保存一套」）及 `RandomSavedOutfit`（无套装直接返回 `NoSavedSets`，不做重新组合）；`CMDialogue.RandomOutfit` 改名 `RandomSavedOutfit`，对话模式 0 走新函数；面板「随机一套」与定时换装仍用 `RandomNamedOutfit`（70/30）。
+- 脚本：`CMDialogue.psc` 与 `CMRandomOutfitTopic.psc` 同步改为 `RandomSavedOutfit`，Papyrus 5 个脚本 0 错误 0 警告。
+- 验证：ESP 结构测试 8 项通过（新增：三条独立分支/话题/INFO 与标题顺序、无 TCLT、VMAD 字节结构、片段脚本调用 `RandomSavedOutfit`、脚本中不再存在 `RandomOutfit`）；原生 8 个测试目标 exit=0（outfit-state-test 新增 `HasSavedSet`/`SavedSetPick` 边界与 `NoSavedSets` 消息区分）；网页 46 项测试与构建通过。
+- 游戏内待复测：与已纳入管理的在队同伴对话，二级菜单不再出现，直接看到三条；连点「随机套装」应在已保存套装之间轮换，且**不会**出现从收藏重新组合的搭配；删光已保存套装后点该条应只提示"还没有保存的套装"；「保存当前套装」与「调整穿搭」行为与之前一致。三条的显示顺序以实际为准（当前按 PNAM 50/49/48 与记录顺序排列）。
+
+## 1.8.11（2026-09-25）点击套装卡片直接换整套
+
+- 需求：面板里点其他套装的卡片直接换整套，不必再点下方的「使用此套装」。
+- 前端：`OutfitPanel` 新增 `applyPreset(id)`——选中该套装并在可用时立即提交 `applyNamedOutfit`；套装卡片第三行改为「N 件服饰 · 点击换上」，卡片点击直接换装；移除「使用此套装」按钮，工具条保留「随机一套」与「移除当前套装」，提示文案随选中状态更新（不可用时提示"当前无法换装，仅预览"）；「当前套装」卡片仍只做预览。
+- 验证：浏览器实测（预览页 + 临时 Playwright）：断言页面已无「使用此套装」按钮；单击「月下长袍」卡片后，原先的皮甲 / 白色高跟靴 / 银项链全部换下，只剩套装里的弥光连体袍，符合 1.8.10 的整套替换语义。网页 46 项测试与 TypeScript / Vite 构建通过（本改动不涉及原生与 ESP）。
+- 游戏内待复测：点击套装卡片应立即换装并出现换装确认提示；战斗中点击只切换预览并提示无法换装。
+
+## 1.8.10（2026-09-25）使用套装改为整套替换
+
+- 反馈：使用已保存套装时不会清空其他槽位，换装后是「套装 + 先前装备」的混合状态。
+- 原生：新增规则 `outfit::StripBeforeWear`（是套装部件、非任务/皮肤、且套装未指名才脱下）与 `StripCandidates`；`WearSet` 增加剥离列表参数，先清 `ExtraCannotWear` 再 `UnequipObject`，然后才穿套装；`OutfitCheck` 增加 `removed` 列表,`CheckOutfits` 同时核对"该穿的穿上、该脱的脱掉"（`Outfit final ... removed=N`）；`WearSet` 在"没有要穿的、也没有要脱的"时返回 `Unchanged`。`ApplyNamedOutfit` 仅对玩家/对话请求（manual）传入剥离列表：自动定时换装保持不脱旧装备，避免部件缺失时把无人看管的同伴脱空。套装实例全部缺失时仍返回 `NoSelection` 且不做任何更改。
+- 前端：面板「使用此套装」说明改为"先换下当前服饰（任务装备与角色皮肤保留）；库存缺失的实例跳过，对应部位保持空着"；`preview-data.mjs` 的 `applyNamedOutfit` 模拟同步为整套替换，并新增与修正测试：新增「applying a saved outfit takes off the pieces it does not name」（任务装备保留、套装未包含的部位脱下、缺失实例不留替代品），原「缺失实例不清空该槽位」的断言按新语义改为"替身也一并脱下、槽位留空"。
+- 验证：原生 Release DLL 构建通过，8 个测试目标直接运行 exit=0（outfit-state-test 覆盖 StripBeforeWear 四类判定）；网页 46 项测试与 TypeScript / Vite 构建通过；ESP 未改动（结构测试 9 项仍通过）。
+- 游戏内待复测：给同伴穿上一件套装未包含的戒指/头环 → 使用套装 → 该件应被换下、套装配不到的槽位应为空；任务装备（如任务头盔）应保持穿戴；日志应出现 `Outfit strip`、`Outfit dispatch` 与 `Outfit final ... removed=N`；定时自动换装不应脱掉旧装备。
+
+## 1.8.9（2026-09-25）穿搭卡片透出角色
+
+- 需求：调整穿搭时装备卡片是不透明底色，挡住了身后的随从，看不到换装效果。
+- 前端：`GameApp` 新增 `--card-bg` / `--card-bg-strong` 变量（`web/src/card-style.ts`，按「面板不透明度」推导并夹在 0.34–0.72，永远不透明），`outfits.css` 的 `.cm-outfit-row`、`.cm-slot-equipment-card`、以及两处选中态底色改用它；卡片仍保留边框与已穿戴高亮，文字对比靠底色而非纯色实现。变量缺失时 CSS 回退到 `rgba(23,32,39,.55)`，设计预览页同样透出背景。
+- 浏览器实测（临时安装 Playwright 1.49 + 系统 Edge，`npm run dev` 预览页）：`node tests/outfit-dialogue.browser.cjs` 通过；另用临时脚本复现"其他同伴走近导致快照重排"，面板目标保持莱迪亚不变，并读取到卡片计算样式为 `rgba(23,32,39,0.56)`（非不透明）。
+- 顺手修正 `tests/outfit-dialogue.browser.cjs` 的一处 strict 模式定位（`dialog` 有两个，改用 `dialog[open]`），该脚本此前在本机无法运行，Playwright 可用后成为 1.8.8 选择固定与对话归属回归测试。
+- 验证：网页 45 项测试通过（新增 `cardAlpha` 边界与"永不不透明"检查）、TypeScript / Vite 构建通过；浏览器回归脚本 PASS；原生 DLL 与 ESP 未改动，仅版本号同步。
+
+## 1.8.8（2026-09-25）撤回部位对话菜单与固定面板目标
+
+- 实测反馈：1.8.7 的平铺部位随机对话项体验不好；另外打开穿搭面板后，随从走开或其他人经过时面板里的目标同伴会自动变化。
+- 撤回：`source/build_plugin.py` 恢复三项固定菜单（保存当前套装 / 手动调整 / 整套随机），TCLT 与优先级回到 0x01000B10/0x01000B12/0x01000B14，删除 13 组部位 DIAL/INFO、13 个 `CMOutfitSlot*` 全局变量、`GetGlobalValue` 条件、`CMOutfitSlotTopic.psc` 与同名 PEX；`CMDialogue` 去掉 `RandomOutfitPart`；原生删除 `RandomFavoritePart`、`FavoritePartCandidates`、槽位全局变量与 `MenuOpenCloseEvent` 同步、`dialogueOutfitSlot` 与模式 3，`outfit_rules.h` 去掉 `NamedSlots`/`EligibleFavoritePart`（保留 `SlotBit` 与 `EligibleFavoriteRow`）；package / install 脚本的必需文件列表回到五个 PEX。整套随机与面板随机只从收藏挑选的规则保留。
+- 修复目标漂移：根因是原生快照按 (owned, teammate, 距离) 排序，`GameApp` 的衣橱/法术页与 `Management` 的伙伴库存页在未显式选人时取列表首项 `followers[0]`，同伴移动或他人靠近就换人，OutfitPanel 还带 `key` 随人数变化重挂载。新增 `web/src/companion-selection.ts` 的 `pinnedCompanionId`：已选同伴仍在名册时保持不变，快照为空时保留选择，只有离开名册才回落到第一位；两处组件改用 `useLayoutEffect` 固定选择，`CompanionPicker` 列表按姓名 + FormID 稳定排序。
+- 验证：ESP 结构测试 9 项通过（新增「菜单只有三个固定选项、无 GLOB、无部位脚本」检查）；Papyrus 5 个脚本 0 错误 0 警告；原生 Release DLL 构建通过，8 个测试目标直接运行 exit=0；网页 44 项测试（新增选择固定 2 项）与 TypeScript / Vite 构建通过。
+- 游戏内待复测：对话确认下级只有三项；打开衣橱/法术/伙伴库存面板后让同伴走动、引其他同伴靠近，确认面板目标不再变化，切换伙伴后仍能保持；确认部位换装只在面板里进行。
+
+## 1.8.7（2026-09-25）对话换装菜单与收藏随机
+
+- 需求：把「穿搭调整」下级菜单改成 保存当前套装 / 手动调整 / 整套随机 / 平铺的 13 个部位随机；部位随机只从收藏挑选，该部位没有可选收藏服饰时不显示这一项；整套随机的 30% 重新组合同样只从收藏挑选；面板页签名与「手动调整」统一。
+- ESP：`source/build_plugin.py` 重建对话组，父 INFO 的 TCLT 顺序即菜单顺序（0x01000B10 保存、0x01000B12 手动调整、0x01000B14 整套随机、0x01000B20+ 逐槽位），13 个部位各一组 DIAL/INFO 并共用 `CMOutfitSlotTopic` 的 Fragment_0..12，另加 13 个浮点全局变量 `CMOutfitSlot30..43`（0x01000C00+i，初值 0）。部位 INFO 在原有 4 条作用域条件下追加 `GetGlobalValue(该槽位变量) == 1`。
+- 原生：`outfit_rules.h` 新增 `SlotBit` / `EligibleFavoriteRow` / `EligibleFavoritePart` 与 13 槽位表；`outfit_presets.inc` 新增 `FavoritePartPool`、`PartMask`、`SlotLabel`、`RandomFavoritePart`，`ChangeOutfitPart` 改用它（带 itemKey 的明确点击不受收藏限制）；`ChangeOutfit` 的候选加入收藏条件；无候选提示改为指向收藏。`CMDialogue` 新增原生函数 `RandomOutfitPart(actor, slot)`，走既有的对话换装校验（非战斗、非剧情、3D 已加载、距离 600）。新增 `MenuOpenCloseEvent` 接收器与 Tick 内 0.5 秒节流的 `SyncOutfitSlotGlobals`，在对话打开和说话人变化时刷新槽位变量；读档时清零。
+- 前端：`OutfitPanel` 页签「指定部位」→「手动调整」，部位随机的按钮禁用条件改为要求存在收藏候选，文案写明随机只使用收藏；设置页与行为管理页同步说明；`preview-data.mjs` 的模拟规则与演示数据同步为收藏制，并新增回归测试「random piece and whole-set changes draw on favorites only」。
+- 测试工具修正：8 个原生规则测试目标此前用 `-UNDEBUG` 后又收到规则注入的 `-DNDEBUG`，`assert` 全部被编译掉，目标始终成功而不执行任何检查（用 `assert(1==2)` 探针实证）。新增 `tests/check.h` 的 `CHECK` 宏（与 NDEBUG 无关）并机械替换 8 个测试文件，`outfit-state-test` 补上 `/utf-8`；改为直接运行 exe 校验退出码后，8 个目标 exit=0 且探针能正确失败退出。
+- 验证：ESP 结构测试 9 项通过（含槽位记录、共用脚本 fragment、`GetGlobalValue` 参数）；Papyrus 编译 6 个脚本 0 错误 0 警告；原生 Release DLL 构建通过，8 个测试目标直接运行 exit=0；网页 42 项测试与 TypeScript / Vite 构建通过。
+- 游戏内待复测：与同伴对话确认二级菜单为 保存当前套装 / 手动调整 / 整套随机 加实际可换部位；日志出现 `Outfit slot gate slot=.. available=..`（收藏变化后应随之翻转）与 `Outfit slot request/dispatch`；对耳部、尾部等冷门槽位确认无收藏时该选项不显示；确认整套随机与面板随机按钮都不再穿上未收藏装备。
+
 ## 1.8.6（2026-09-24）战斗状态与队友停战
 
 - 现场问题：随从战斗结束后仍保持交战状态、无法交互；随从之间偶发互殴（目前只见瑟拉娜）。

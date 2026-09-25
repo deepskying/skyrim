@@ -11,8 +11,11 @@ export function CompanionPicker({ followers, value, onChange, label = "查看伙
   const trigger = useRef<HTMLButtonElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const listId = useId();
-  const current = followers.find(f => f.id === value);
-  const matches = followers.filter(f => f.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  // Snapshot order follows live distance; sorting by name keeps the popover still while the
+  // player reads it, so a click cannot land on a row that moved under the pointer.
+  const ordered = [...followers].sort((a, b) => a.name.localeCompare(b.name, "zh") || a.id.localeCompare(b.id));
+  const current = ordered.find(f => f.id === value);
+  const matches = ordered.filter(f => f.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   const index = Math.min(active, matches.length - 1);
   const status = (f: GameFollower) => f.group === "registry" ? "已离队" : "在队";
   const close = (restoreFocus = false) => {
@@ -21,7 +24,7 @@ export function CompanionPicker({ followers, value, onChange, label = "查看伙
   };
   const show = () => {
     setQuery("");
-    setActive(Math.max(0, followers.findIndex(f => f.id === value)));
+    setActive(Math.max(0, ordered.findIndex(f => f.id === value)));
     setOpen(true);
   };
   const choose = (id: string) => { onChange(id); close(true); };
@@ -80,7 +83,7 @@ export function CompanionPicker({ followers, value, onChange, label = "查看伙
         </div>)}
       </div>
       {!matches.length && <p className="cm-companion-empty" role="status">没有找到匹配的伙伴</p>}
-      <div className="cm-companion-count">{query.trim() ? `找到 ${matches.length} 位伙伴` : `共 ${followers.length} 位伙伴`}</div>
+      <div className="cm-companion-count">{query.trim() ? `找到 ${matches.length} 位伙伴` : `共 ${ordered.length} 位伙伴`}</div>
     </div>}
   </div>;
 }

@@ -468,6 +468,12 @@ void SyncDialogueRecruitment()
         RefreshManagerView();
     }, actor, slot, active);
 }
+RE::Actor* DialogueSpeaker()
+{
+    auto* manager=RE::MenuTopicManager::GetSingleton();
+    auto speaker=manager?manager->speaker.get():RE::NiPointer<RE::TESObjectREFR>{};
+    return speaker?speaker->As<RE::Actor>():nullptr;
+}
 void Tick()
 {
     std::scoped_lock guard(lock);
@@ -480,9 +486,7 @@ void Tick()
     const auto now = ActivityTime();
     try { CheckOutfits(); } catch(const std::exception& e) { outfitChecks.clear(); logger::warn("Outfit confirmation: {}",e.what()); }
     if(ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) {
-        auto* manager=RE::MenuTopicManager::GetSingleton();
-        auto speaker=manager?manager->speaker.get():RE::NiPointer<RE::TESObjectREFR>{};
-        auto* actor=speaker?speaker->As<RE::Actor>():nullptr;
+        auto* actor=DialogueSpeaker();
         if(actor&&actor->GetFormID()!=lastOutfitSpeaker) {
             lastOutfitSpeaker=actor->GetFormID();
             logger::info("Outfit dialogue actor={} managed={} teammate={} modeFaction={} questRunning={} infos={} conditions={}",
@@ -510,7 +514,8 @@ void Tick()
                         OpenPartnerWardrobe(id,dialogueOutfitMode==1?"part":"save");
                         return;
                     }
-                    const auto result=RandomNamedOutfit(actor,it->second,true);
+                    // The dialogue line is "随机套装": only saved sets, with a message when none exist.
+                    const auto result=RandomSavedOutfit(actor,it->second,true);
                     if(outfit::Changed(result)) it->second["lastOutfitHours"]=RE::Calendar::GetSingleton()->GetHoursPassed();
                     RE::DebugNotification(outfit::Message(result));
                     RefreshManagerView();
@@ -568,13 +573,13 @@ RE::TESQuest *Controller()
 }
 bool RegisterPapyrus(RE::BSScript::IVirtualMachine* vm)
 {
-    vm->RegisterFunction("RandomOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor) {
+    vm->RegisterFunction("RandomSavedOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor) {
         std::scoped_lock guard(lock);
         if(!ready||!actor||dialogueOutfitRequest) return;
         const auto it=members.find(actor->GetFormID());
         if(it==members.end()||!it->second.value("active",false)) return;
         dialogueOutfitRequest=actor->GetFormID();
-        dialogueOutfitMode=0;
+        dialogueOutfitMode=0;   // 0 = random saved set, 1 = part page, 2 = save page
         dialogueOutfitDeadline=ActivityTime()+20;
     });
     vm->RegisterFunction("AdjustOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor,std::int32_t mode) {

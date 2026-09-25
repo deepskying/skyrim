@@ -23,28 +23,34 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(set(r['sig'] for r in self.rows[1:]),{b'FACT',b'PACK',b'QUST',b'DLBR',b'DIAL',b'INFO'})
 
     def test_outfit_dialogue_is_owned_scoped_and_scripted(self):
-        by_type={r['sig']:dict(subrecords(r['data'])) for r in self.rows if r['form'] in (0x01000B00,0x01000B01,0x01000B02)}
-        branch,topic,info=(by_type[k] for k in (b'DLBR',b'DIAL',b'INFO'))
-        self.assertEqual(branch[b'QNAM'],struct.pack('<I',0x01000B03))
-        self.assertEqual(branch[b'DNAM'],struct.pack('<I',1)) # top-level, not blocking/exclusive
-        self.assertEqual(branch[b'SNAM'],struct.pack('<I',0x01000B01))
-        self.assertEqual(topic[b'BNAM'],struct.pack('<I',0x01000B00))
-        self.assertEqual(topic[b'QNAM'],branch[b'QNAM'])
-        self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),'穿搭调整')
-        self.assertEqual(topic[b'TIFC'],struct.pack('<I',1))
-        self.assertEqual(info[b'TPIC'],branch[b'SNAM'])
-        self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0xA00,0))
-        self.assertNotIn(b'VMAD',info) # Parent only opens the linked choices; it never equips.
-        parent=next(r for r in self.rows if r['form']==0x01000B02)
-        self.assertEqual([struct.unpack('<I',v)[0] for k,v in subrecords(parent['data']) if k==b'TCLT'],[0x01000B10,0x01000B12,0x01000B14])
-        self.assertTrue(info[b'NAM1'].rstrip(b'\0'))
-        row=next(r for r in self.rows if r['form']==0x01000B11)
-        info=dict(subrecords(row['data']))
-        conditions=[v for k,v in subrecords(row['data']) if k==b'CTDA']
-        self.assertEqual([(struct.unpack_from('<H',c,8)[0],struct.unpack_from('<I',c,12)[0],struct.unpack_from('<f',c,4)[0]) for c in conditions],
-                         [(71,0x01000801,1),(453,0,1),(46,0,0),(289,0,0)])
-        self.assertTrue(all(c[0]==0 for c in conditions))
-        vmad=info[b'VMAD']; offset=6
+        entries=((0x01000B00,0x01000B01,0x01000B02,'随机套装','CMRandomOutfitTopic','好，我随机换一套。'),
+                 (0x01000B04,0x01000B10,0x01000B11,'保存当前套装','CMOutfitSaveTopic','给这套穿搭起个名字吧。'),
+                 (0x01000B08,0x01000B12,0x01000B13,'调整穿搭','CMOutfitPartTopic','想调整哪个部位？'))
+        # Three lines sit directly in the dialogue menu: each is its own top-level branch, so the
+        # nested "调整穿搭" parent topic is gone.
+        self.assertEqual([r['form'] for r in self.rows if r['sig']==b'DLBR'],[e[0] for e in entries])
+        for branch_id,topic_id,info_id,title,script,response in entries:
+            branch=dict(subrecords(next(r for r in self.rows if r['form']==branch_id)['data']))
+            self.assertEqual(branch[b'QNAM'],struct.pack('<I',0x01000B03))
+            self.assertEqual(branch[b'DNAM'],struct.pack('<I',1)) # top-level, not blocking/exclusive
+            self.assertEqual(branch[b'SNAM'],struct.pack('<I',topic_id))
+            topic=dict(subrecords(next(r for r in self.rows if r['form']==topic_id)['data']))
+            self.assertEqual(topic[b'BNAM'],struct.pack('<I',branch_id))
+            self.assertEqual(topic[b'QNAM'],branch[b'QNAM'])
+            self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),title)
+            self.assertEqual(topic[b'TIFC'],struct.pack('<I',1))
+            row=next(r for r in self.rows if r['form']==info_id)
+            info=dict(subrecords(row['data']))
+            self.assertEqual(info[b'TPIC'],struct.pack('<I',topic_id))
+            self.assertEqual(struct.unpack('<HH',info[b'ENAM']),(0xA01,0))
+            self.assertEqual(info[b'NAM1'].decode('utf8').rstrip('\0'),response)
+            self.assertNotIn(b'TCLT',info)
+            conditions=[v for k,v in subrecords(row['data']) if k==b'CTDA']
+            self.assertEqual([(struct.unpack_from('<H',c,8)[0],struct.unpack_from('<I',c,12)[0],struct.unpack_from('<f',c,4)[0]) for c in conditions],
+                             [(71,0x01000801,1),(453,0,1),(46,0,0),(289,0,0)])
+            self.assertTrue(all(c[0]==0 for c in conditions))
+        vmad=dict(subrecords(next(r for r in self.rows if r['form']==0x01000B02)['data']))[b'VMAD']
+        offset=6
         def string():
             nonlocal offset
             n=struct.unpack_from('<H',vmad,offset)[0];offset+=2
@@ -59,16 +65,27 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(offset,len(vmad))
         for script in ('CMDialogue','CMRandomOutfitTopic','CMOutfitPartTopic','CMOutfitSaveTopic'):
             self.assertEqual((ROOT/f'data/Scripts/{script}.pex').read_bytes()[:4],bytes.fromhex('fa57c0de'))
+        # The dialogue calls the saved-set-only action, never the mixed 70/30 recomposition.
+        dialogue=(ROOT/'source/papyrus/CMDialogue.psc').read_text(encoding='utf8')
+        self.assertIn('Function RandomSavedOutfit(Actor who) Global Native',dialogue)
+        self.assertNotIn('Function RandomOutfit(Actor who)',dialogue)
+        fragment=(ROOT/'source/papyrus/CMRandomOutfitTopic.psc').read_text(encoding='utf8')
+        self.assertIn('RandomSavedOutfit(akSpeakerRef as Actor)',fragment)
 
-    def test_outfit_children_close_dialogue_and_dispatch_distinct_actions(self):
-        for tid,title,script in ((0x01000B10,'整套随机','CMRandomOutfitTopic'),(0x01000B12,'指定部位','CMOutfitPartTopic'),(0x01000B14,'保存当前套装','CMOutfitSaveTopic')):
-            topic=dict(subrecords(next(r for r in self.rows if r['form']==tid)['data']))
-            info=dict(subrecords(next(r for r in self.rows if r['form']==tid+1)['data']))
-            self.assertEqual(topic[b'FULL'].decode('utf8').rstrip('\0'),title)
-            self.assertEqual(info[b'TPIC'],struct.pack('<I',tid))
-            self.assertEqual(info[b'ENAM'],struct.pack('<HH',0xA01,0))
-            self.assertIn(script.encode(),info[b'VMAD'])
-            self.assertEqual(topic[b'BNAM'],struct.pack('<I',0x01000B00))
+    def test_outfit_menu_offers_only_the_three_fixed_choices(self):
+        slots=((30,'头部'),(31,'头发'),(32,'身体'),(33,'手部'),(34,'前臂'),(35,'项链'),(36,'戒指'),
+               (37,'脚部'),(38,'小腿'),(40,'尾部'),(41,'长发'),(42,'头环'),(43,'耳部'))
+        # The per-slot random dialogue entries were removed; no slot record, global gate or slot
+        # fragment may come back, because the panel's slot page already covers that ground.
+        self.assertFalse([r for r in self.rows if r['sig']==b'GLOB'])
+        self.assertEqual([r['form'] for r in self.rows if r['sig']==b'DIAL'],[0x01000B01,0x01000B10,0x01000B12])
+        titles=[v.decode('utf8').rstrip('\0') for r in self.rows if r['sig']==b'DIAL'
+                for k,v in subrecords(r['data']) if k==b'FULL']
+        self.assertEqual(titles,['随机套装','保存当前套装','调整穿搭'])
+        self.assertFalse([t for t in titles if t in [name for _,name in slots]])
+        self.assertFalse((ROOT/'source/papyrus/CMOutfitSlotTopic.psc').exists())
+        self.assertFalse((ROOT/'data/Scripts/CMOutfitSlotTopic.pex').exists())
+        self.assertNotIn('RandomOutfitPart',(ROOT/'source/papyrus/CMDialogue.psc').read_text(encoding='utf8'))
 
     def test_dialogue_quest_can_start_independently_on_existing_saves(self):
         dialogue=next(r for r in self.rows if edid(r)=='CMOutfitDialogueQuest')

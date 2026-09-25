@@ -33,12 +33,14 @@ test('removing a saved outfit leaves worn items and favorites unchanged',()=>{
  assert.equal(run(s,'removeNamedOutfit',{presetId:preset.id}).ok,false);
  assert.ok(parseSnapshot(s));
 });
-test('saved outfit skips missing instance without equipping another enchanted copy or clearing that slot',()=>{
- const s=fixture(),f=s.followers[0];run(s,'saveNamedOutfit',{name:'原装'});
- const p=f.outfits.presets.find(p=>p.name==='原装');
- const original=f.outfits.items[0];original.equipped=false;original.available=false;
- const replacement=f.outfits.items[1];replacement.equipped=true;
- assert.ok(run(s,'applyNamedOutfit',{presetId:p.id}).ok);assert.equal(replacement.equipped,true);assert.equal(original.equipped,false);
+test('saved outfit skips a missing instance instead of wearing another enchanted copy',()=>{
+  const s=fixture(),f=s.followers[0];run(s,'saveNamedOutfit',{name:'原装'});
+  const p=f.outfits.presets.find(p=>p.name==='原装');
+  const original=f.outfits.items[0];original.equipped=false;original.available=false;
+  const replacement=f.outfits.items[1];replacement.equipped=true;
+  assert.ok(run(s,'applyNamedOutfit',{presetId:p.id}).ok);
+  // The set names the missing instance, so neither it nor the stand-in copy stays on top of it.
+  assert.equal(original.equipped,false);assert.equal(replacement.equipped,false);
 });
 test('multi-slot clothes replace both body and feet; protection in either slot blocks them',()=>{
  const s=fixture(),d=s.followers[0].outfits,robe=d.items[2],boots=d.items[3];
@@ -62,9 +64,34 @@ test('unequip addresses the exact worn instance and supports hidden multi-slot c
  assert.equal(run(s,'unequipOutfitPart',{slot:32,itemKey:robe.key}).ok,false);
 });
 test('unequip rejects protected equipment, wrong slots and pending changes',()=>{
- const s=fixture(),d=s.followers[0].outfits,body=d.items[0];
- body.quest=true;assert.equal(run(s,'unequipOutfitPart',{slot:32,itemKey:body.key}).ok,false);
- body.quest=false;assert.equal(run(s,'unequipOutfitPart',{slot:37,itemKey:body.key}).ok,false);
- d.pending=true;assert.equal(run(s,'unequipOutfitPart',{slot:32,itemKey:body.key}).ok,false);
- assert.equal(body.equipped,true);
+  const s=fixture(),d=s.followers[0].outfits,body=d.items[0];
+  body.quest=true;assert.equal(run(s,'unequipOutfitPart',{slot:32,itemKey:body.key}).ok,false);
+  body.quest=false;assert.equal(run(s,'unequipOutfitPart',{slot:37,itemKey:body.key}).ok,false);
+  d.pending=true;assert.equal(run(s,'unequipOutfitPart',{slot:32,itemKey:body.key}).ok,false);
+  assert.equal(body.equipped,true);
+});
+test('random piece and whole-set changes draw on favorites only',()=>{
+  const s=fixture(),d=s.followers[0].outfits,spareBody=d.items[1],robe=d.items[2],spareFeet=d.items[4];
+  assert.equal(robe.favorite,false);
+  // The in-slot random button skips the unfavorited robe even though it covers the same slot.
+  assert.ok(run(s,'outfitPart',{slot:32}).ok);
+  assert.equal(spareBody.equipped,true);assert.equal(robe.equipped,false);
+  robe.equipped=false;spareBody.equipped=false;d.items[0].equipped=true;
+  spareBody.favorite=false;spareFeet.favorite=false;d.presets=[];
+  // Recombining without any spare favorite leaves the outfit alone instead of wearing raw stock.
+  assert.ok(run(s,'changeOutfit').ok);
+  assert.equal(robe.equipped,false);assert.equal(spareFeet.equipped,false);assert.equal(d.items[0].equipped,true);
+  assert.equal(run(s,'outfitPart',{slot:32,itemKey:robe.key}).ok,true); // explicit picks stay manual
+});
+test('applying a saved outfit takes off the pieces it does not name',()=>{
+  const s=fixture(),d=s.followers[0].outfits,body=d.items[0],robe=d.items[2],boots=d.items[3],necklace=d.items[5];
+  necklace.quest=true; // quest gear is protected and stays on
+  assert.ok(run(s,'applyNamedOutfit',{presetId:1}).ok);
+  assert.equal(robe.equipped,true);
+  assert.equal(body.equipped,false);assert.equal(boots.equipped,false); // not in the set: taken off
+  assert.equal(necklace.equipped,true);
+  // Saving what is worn now records exactly the mixed result the player sees.
+  assert.ok(run(s,'saveNamedOutfit',{name:'替换后'}).ok);
+  const saved=d.presets.find(p=>p.name==='替换后');
+  assert.deepEqual(saved.items.map(i=>i.key).sort(),[necklace.key,robe.key].sort());
 });

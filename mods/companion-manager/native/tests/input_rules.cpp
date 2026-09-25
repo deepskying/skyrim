@@ -2,18 +2,18 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include <cassert>
+#include "check.h"
 
 int main()
 {
     using companion::IsOpeningChord;
-    assert(IsOpeningChord(0x21, true, true, false, false, true, false));
-    assert(!IsOpeningChord(0x21, true, false, false, false, true, false)); // plain F
-    assert(!IsOpeningChord(0x21, false, true, false, false, true, false)); // repeat/release
-    assert(!IsOpeningChord(0x21, true, true, true, false, true, false));
-    assert(!IsOpeningChord(0x21, true, true, false, true, true, false));
-    assert(!IsOpeningChord(0x21, true, true, false, false, false, false)); // menus/loading
-    assert(!IsOpeningChord(0x21, true, true, false, false, true, true)); // another focused view
-    assert(!IsOpeningChord(0x1F, true, true, false, false, true, false)); // old Shift+S
-    assert(!IsOpeningChord(0x1E, true, true, false, false, true, false)); // old Shift+A
+    CHECK(IsOpeningChord(0x21, true, true, false, false, true, false));
+    CHECK(!IsOpeningChord(0x21, true, false, false, false, true, false)); // plain F
+    CHECK(!IsOpeningChord(0x21, false, true, false, false, true, false)); // repeat/release
+    CHECK(!IsOpeningChord(0x21, true, true, true, false, true, false));
+    CHECK(!IsOpeningChord(0x21, true, true, false, true, true, false));
+    CHECK(!IsOpeningChord(0x21, true, true, false, false, false, false)); // menus/loading
+    CHECK(!IsOpeningChord(0x21, true, true, false, false, true, true)); // another focused view
+    CHECK(!IsOpeningChord(0x1F, true, true, false, false, true, false)); // old Shift+S
+    CHECK(!IsOpeningChord(0x1E, true, true, false, false, true, false)); // old Shift+A
 }

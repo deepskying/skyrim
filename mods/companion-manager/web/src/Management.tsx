@@ -1,14 +1,21 @@
-import { useEffect,useState } from "react";
+import { useEffect,useLayoutEffect,useState } from "react";
 import type { Snapshot,GameFollower } from "./bridge";
 import { categories,defaultBehavior,selectionTotals,validBehavior,type BehaviorSettings } from "./behavior";
 import { inventoryCategories,itemCategory,inventoryMatches,categoryCounts,type InventoryCategory } from "./inventory";
 import { CompanionPicker } from "./CompanionPicker";
+import { pinnedCompanionId } from "./companion-selection";
 type Props={snapshot:Snapshot|null;enabled:boolean;wardrobe:boolean;initialActor:string;command:(op:string,data?:Record<string,unknown>)=>boolean};
 const jobNames:Record<string,string>={idle:"自由安排",loot:"搜集战利品",sell:"前往商家交易",carry:"准备交接物品",outfit:"征求穿搭建议"};
 export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Props) {
   const followers=s?.followers.filter(f=>f.managed)??[];
   const [actorId,setActorId]=useState(initialActor),[tab,setTab]=useState("通用设置");
-  const f=followers.find(f=>f.id===actorId)??(wardrobe?followers[0]:undefined);
+  // The snapshot is ordered by live distance, so the wardrobe target is pinned instead of being
+  // re-derived from the list; otherwise the page switches companions while the player edits.
+  const pinned=wardrobe?pinnedCompanionId(actorId,followers):actorId;
+  const f=followers.find(x=>x.id===(wardrobe?pinned:actorId));
+  useLayoutEffect(()=>{
+    if(pinned!==actorId)setActorId(pinned);
+  },[pinned,actorId]);
   const [query,setQuery]=useState(""),[filter,setFilter]=useState<InventoryCategory>("all"),[lockedOnly,setLockedOnly]=useState(false),[taking,setTaking]=useState(false),[selected,setSelected]=useState<Record<string,number>>({});
   useEffect(()=>{setActorId(initialActor);},[initialActor]);
   useEffect(()=>{setSelected({});setTaking(false);},[f?.id,s?.session]);
@@ -68,7 +75,7 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
       {tab==="通用设置"?<General f={f} followers={followers} enabled={enabled} command={command}/>:tab==="活动记录"?<div className="panel cm-activity-log">{s?.automation?.history?.length?s.automation.history.map((text,i)=><p key={i}>{text}</p>):<p>尚无活动记录。</p>}</div>:<div className="panel cm-auto-settings">
         {tab==="拾取行为"&&<>{toggle("loot","战后自动拾取","走近并朝向目标后拾取；遭遇敌袭立即取消。")}{toggle("corpses","敌方尸体","仅本次战斗中识别的敌人，不搜刮队友。")}{toggle("ground","地面物品","仅无主物品，排除玩家主动丢下的物品。")}{toggle("containers","无主容器","跳过有主、上锁和任务物品。")}{number("radius","搜索范围",5,60,"米")}{number("minValue","最低价值",0,10000,"金币")}{number("minRatio","最低价值重量比",0,1000,"")}<h3>物品筛选</h3><div className="cm-category-options">{categories.map(([bit,label])=><label key={bit}><input type="checkbox" disabled={!enabled} checked={!!(draft.categories&bit)} onChange={e=>setDraft({...draft,categories:e.target.checked?draft.categories|bit:draft.categories&~bit})}/>{label}</label>)}</div><p>拾取前重新核对负重；不能超载。金币、宝石和灵魂石不受价值门槛限制。</p></>}
         {tab==="售卖行为"&&<>{toggle("sell","到店自动售卖","伙伴靠近营业中的商家后交易，玩家正在交易时会等待。")}<p>未锁定物品按商家收购范围出售；锁定、穿戴中及任务物品受到保护。商家金币不足时部分出售，收入归伙伴所有。</p><p>成交价根据伙伴口才计算，不使用玩家专属交易加成。完成后显示金币收入。</p></>}
-        {tab==="自动穿搭"&&<>{toggle("outfits","自动调整穿搭","非战斗闲暇时，按全局概率选用已保存套装或从锁定服饰重新组合。")}{number("outfitHours","换装间隔",1,72,"游戏小时")}<p>重新组合时仅使用锁定服饰；武器、盾牌和弹药不参与穿搭。</p></>}
+        {tab==="自动穿搭"&&<>{toggle("outfits","自动调整穿搭","非战斗闲暇时，按全局概率选用已保存套装或从收藏服饰重新组合。")}{number("outfitHours","换装间隔",1,72,"游戏小时")}<p>随机整套与对话中的随机部位都只使用收藏服饰；武器、盾牌和弹药不参与穿搭。</p></>}
         {tab==="主动对话"&&<>{toggle("requests","主动征求建议与交接","负重接近上限且玩家有余量时请求交接；换装后可征求穿搭建议。") }<p>伙伴走近后以文字询问，选择「好的」打开对应伙伴的库存；「稍后再说」至少 5 分钟内不再打扰。语音暂未启用。</p></>}
         <div className="button-row"><button className="primary" disabled={!enabled||!validBehavior(draft)} onClick={()=>command(f?"behavior":"behaviorDefaults",{...(f?{actorId:f.id}:{}),settings:draft})}>{f?"保存个人规则":"保存全队默认"}</button>{f&&<button disabled={!enabled||!f.behaviorOverride} onClick={()=>act("behavior",{inherit:true})}>恢复沿用全队</button>}</div>
       </div>}

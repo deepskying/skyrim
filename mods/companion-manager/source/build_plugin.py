@@ -77,46 +77,38 @@ for alias_id in range(SLOTS*4):
 quest=dict(sig=b'QUST',form=QUEST,data=q)
 faction=dict(sig=b'FACT',form=FACTION,data=sub(b'EDID',Z('CMModeFaction'))+sub(b'DATA',U32(0)))
 # Bed aliases 192..255 remain empty for cleanup of the short-lived 1.6.0 test build.
-BRANCH, TOPIC, INFO, DIALOGUE_QUEST = 0x01000B00, 0x01000B01, 0x01000B02, 0x01000B03
+DIALOGUE_QUEST = 0x01000B03
 # Keep dialogue startup separate from the controller already persisted in older saves.
 # Has Dialogue Data (0x8000) is required in addition to Start Game Enabled.
 dialogue_quest=dict(sig=b'QUST',form=DIALOGUE_QUEST,data=sub(b'EDID',Z('CMOutfitDialogueQuest'))+
     sub(b'DNAM',struct.pack('<HBBII',0x8011,60,0,0,0))+sub(b'NEXT',b'')+sub(b'ANAM',U32(0)))
-branch=dict(sig=b'DLBR',form=BRANCH,data=sub(b'EDID',Z('CMRandomOutfitBranch'))+
-    sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'TNAM',U32(0))+sub(b'DNAM',U32(1))+sub(b'SNAM',U32(TOPIC)))
-topic=dict(sig=b'DIAL',form=TOPIC,data=sub(b'EDID',Z('CMRandomOutfitTopic'))+
-    sub(b'FULL',Z('穿搭调整'))+sub(b'PNAM',struct.pack('<f',50))+sub(b'BNAM',U32(BRANCH))+
-    sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'DATA',struct.pack('<BBH',0,0,0))+sub(b'SNAM',b'CUST')+sub(b'TIFC',U32(1)))
-# Parent stays in dialogue; only the linked child responses use Goodbye and a fragment.
-info=dict(sig=b'INFO',form=INFO,data=sub(b'EDID',Z('CMRandomOutfitResponse'))+
-    sub(b'ENAM',struct.pack('<HH',0xA00,0))+sub(b'TPIC',U32(TOPIC))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
-    b''.join(sub(b'TCLT',U32(t)) for t in (0x01000B10,0x01000B12,0x01000B14))+
-    sub(b'TRDT',struct.pack('<IIIB3sIB3s',0,0,0,1,b'\0'*3,0,0,b'\0'*3))+
-    sub(b'NAM1',Z('想让我换身什么衣服？'))+sub(b'NAM2',Z(''))+sub(b'NAM3',Z(''))+
-    cond(71,FACTION,1)+cond(453,0,1)+cond(46,0,0)+cond(289,0,0))
-info_bytes=encode(info)
-topic_children=struct.pack('<4sI4siHHHH',b'GRUP',24+len(info_bytes),U32(TOPIC),7,0,0,0,0)+info_bytes
-dialogue_bytes=encode(topic)+topic_children
-for i,(title,script,response) in enumerate((('整套随机','CMRandomOutfitTopic','好，我换一套。'),
-        ('指定部位','CMOutfitPartTopic','想调整哪个部位？'),('保存当前套装','CMOutfitSaveTopic','给这套穿搭起个名字吧。'))):
-    tid=0x01000B10+i*2
-    child=dict(sig=b'DIAL',form=tid,data=sub(b'EDID',Z(f'CMOutfitChoice{i}'))+
-        sub(b'FULL',Z(title))+sub(b'PNAM',struct.pack('<f',50-i))+sub(b'BNAM',U32(BRANCH))+
+# Three lines directly in the companion's dialogue menu. Each is its own top-level branch, so the
+# player picks one straight away instead of descending through a nested menu: the entry that used
+# to be the parent topic is gone.
+entries=[(0x01000B00,0x01000B01,0x01000B02,'AV0','随机套装','CMRandomOutfitTopic','好，我随机换一套。'),
+    (0x01000B04,0x01000B10,0x01000B11,'AV1','保存当前套装','CMOutfitSaveTopic','给这套穿搭起个名字吧。'),
+    (0x01000B08,0x01000B12,0x01000B13,'AV2','调整穿搭','CMOutfitPartTopic','想调整哪个部位？')]
+branches=[];dialogue_bytes=b''
+for index,(branch_id,topic_id,info_id,tag,title,script,response) in enumerate(entries):
+    branches.append(dict(sig=b'DLBR',form=branch_id,data=sub(b'EDID',Z(f'CMOutfitBranch{tag}'))+
+        sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'TNAM',U32(0))+sub(b'DNAM',U32(1))+sub(b'SNAM',U32(topic_id))))
+    topic=dict(sig=b'DIAL',form=topic_id,data=sub(b'EDID',Z(f'CMOutfitTopic{tag}'))+
+        sub(b'FULL',Z(title))+sub(b'PNAM',struct.pack('<f',50-index))+sub(b'BNAM',U32(branch_id))+
         sub(b'QNAM',U32(DIALOGUE_QUEST))+sub(b'DATA',struct.pack('<BBH',0,0,0))+sub(b'SNAM',b'CUST')+sub(b'TIFC',U32(1)))
     vm=struct.pack('<HHH',5,2,1)+wstring(script)+b'\0'+struct.pack('<H',0)
     vm+=bytes([2,1])+wstring(script)+b'\x01'+wstring(script)+wstring('Fragment_0')
-    response_record=dict(sig=b'INFO',form=tid+1,data=sub(b'EDID',Z(f'CMOutfitChoiceResponse{i}'))+sub(b'VMAD',vm)+
-        sub(b'ENAM',struct.pack('<HH',0xA01,0))+sub(b'TPIC',U32(tid))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
+    response_record=dict(sig=b'INFO',form=info_id,data=sub(b'EDID',Z(f'CMOutfitResponse{tag}'))+sub(b'VMAD',vm)+
+        sub(b'ENAM',struct.pack('<HH',0xA01,0))+sub(b'TPIC',U32(topic_id))+sub(b'PNAM',U32(0))+sub(b'CNAM',b'\0')+
         sub(b'TRDT',struct.pack('<IIIB3sIB3s',0,0,0,1,b'\0'*3,0,0,b'\0'*3))+
         sub(b'NAM1',Z(response))+sub(b'NAM2',Z(''))+sub(b'NAM3',Z(''))+
         cond(71,FACTION,1)+cond(453,0,1)+cond(46,0,0)+cond(289,0,0))
     encoded=encode(response_record)
-    dialogue_bytes+=encode(child)+struct.pack('<4sI4siHHHH',b'GRUP',24+len(encoded),U32(tid),7,0,0,0,0)+encoded
+    dialogue_bytes+=encode(topic)+struct.pack('<4sI4siHHHH',b'GRUP',24+len(encoded),U32(topic_id),7,0,0,0,0)+encoded
 dialogue_group=struct.pack('<4sI4siHHHH',b'GRUP',24+len(dialogue_bytes),b'DIAL',0,0,0,0,0)+dialogue_bytes
-count=len(packages)+12
+count=len(packages)+1+2+len(entries)*3
 header=dict(sig=b'TES4',form=0,flags=0x200,data=sub(b'HEDR',struct.pack('<fII',1.7,count,0xE00))+sub(b'CNAM',Z('linos'))+sub(b'MAST',Z('Skyrim.esm'))+sub(b'DATA',b'\0'*8))
 out=ROOT/'data/CompanionManager.esp';out.parent.mkdir(parents=True,exist_ok=True)
-out.write_bytes(encode(header)+group(b'FACT',[faction])+group(b'PACK',packages)+group(b'QUST',[quest,dialogue_quest])+group(b'DLBR',[branch])+dialogue_group)
+out.write_bytes(encode(header)+group(b'FACT',[faction])+group(b'PACK',packages)+group(b'QUST',[quest,dialogue_quest])+group(b'DLBR',branches)+dialogue_group)
 seq=ROOT/'data/SEQ/CompanionManager.seq';seq.parent.mkdir(parents=True,exist_ok=True)
 seq.write_bytes(U32(QUEST)+U32(DIALOGUE_QUEST))
 print(f'{out}: {count} records, {SLOTS} actor slots + {SLOTS} home + {SLOTS} activity targets')

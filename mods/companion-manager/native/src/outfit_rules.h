@@ -12,13 +12,26 @@ struct Candidate {
 constexpr bool UseSaved(std::size_t count,int chance,int roll) {
     return count>0&&roll>=0&&roll<100&&roll<chance;
 }
+constexpr std::uint32_t SlotBit(unsigned slot) {
+    return slot>=30&&slot<=61&&slot!=39 ? 1u<<(slot-30) : 0u;
+}
 constexpr bool EligiblePart(unsigned slot,std::uint32_t mask,std::uint32_t protectedSlots,bool protectedItem,bool worn) {
     return slot>=30&&slot<=61&&slot!=39&&!protectedItem&&!worn&&
         (mask&(1u<<(slot-30)))&&!(mask&protectedSlots);
 }
+// Random changes draw on favorited gear only, so one rule describes the whole pool. Multi-slot
+// pieces qualify for each slot they cover.
+constexpr bool EligibleFavoriteRow(std::uint32_t mask,std::uint32_t protectedSlots,bool protectedItem,bool worn,bool favorite) {
+    return favorite&&!protectedItem&&!worn&&mask!=0&&!(mask&protectedSlots);
+}
 inline bool CanUnlockReplacement(bool manual, bool worn, bool protectedItem,
                                  std::uint32_t mask, std::uint32_t replacing) {
     return manual && worn && !protectedItem && (mask & replacing) != 0;
+}
+// A whole-set request takes off every outfit piece the set does not name, so the companion ends up
+// wearing the set instead of a mix. Quest gear, the actor's skin and the named pieces stay on.
+constexpr bool StripBeforeWear(bool outfitPiece,bool protectedItem,bool namedBySet) {
+    return outfitPiece&&!protectedItem&&!namedBySet;
 }
 // Manual changes prefer unworn clothing, then locked clothing. Input is shuffled first.
 // Manual requests may fill uncovered slots with unlocked clothing.
@@ -36,8 +49,12 @@ inline std::vector<std::size_t> Select(std::vector<Candidate> candidates, std::u
     }
     return result;
 }
-enum class Result { Pending, Changed, Partial, NoCandidates, NoSelection, Unchanged, Unconfirmed };
+enum class Result { Pending, Changed, Partial, NoCandidates, NoSavedSets, NoSelection, Unchanged, Unconfirmed };
 inline bool Changed(Result result) { return result == Result::Changed || result == Result::Partial; }
+// The random-set dialogue line only ever uses a saved set; with none it reports back instead of
+// recombining the collection.
+constexpr bool HasSavedSet(std::size_t count) { return count > 0; }
+constexpr std::size_t SavedSetPick(std::size_t count, std::size_t roll) { return count ? roll % count : 0; }
 inline Result Confirmation(std::size_t requested, std::size_t confirmed) {
     if (!confirmed) return Result::Unconfirmed;
     return confirmed == requested ? Result::Changed : Result::Partial;
@@ -51,8 +68,9 @@ inline const char* Message(Result result) {
     case Result::Pending: return "正在确认换装，请稍候";
     case Result::Changed: return "已确认更换穿搭";
     case Result::Partial: return "已更换部分服饰，其余未确认穿上；请刷新检查";
-    case Result::NoCandidates: return "没有可用服饰：库存为空或服饰受到保护";
-    case Result::NoSelection: return "没有符合条件的服饰：请检查槽位冲突、物品保护及锁定设置";
+    case Result::NoCandidates: return "没有可用的收藏服饰：请先在库存中收藏要参与随机穿搭的服饰";
+    case Result::NoSavedSets: return "还没有保存的套装：请先在伙伴穿搭面板保存一套";
+    case Result::NoSelection: return "没有符合条件的服饰：请检查槽位冲突、物品保护及收藏状态";
     case Result::Unchanged: return "没有选出不同的服饰，当前可用搭配已穿戴";
     default: return "已尝试穿戴新服饰，但未确认成功；请刷新检查，诊断已记录";
     }

@@ -14,7 +14,7 @@ const assert=require('node:assert/strict');
   assert.match(await page.locator('dialog input').inputValue(),/^莱迪亚/);
   await page.locator('dialog input').fill('回归测试套装');
   await page.getByRole('button',{name:'保存并收藏',exact:true}).click();
-  await page.locator('dialog').waitFor({state:'hidden'});
+  await page.locator('dialog[open]').waitFor({state:'hidden'}); // two dialogs exist, only one opens
   await page.locator('.cm-companion-trigger').click();
   await page.getByRole('option',{name:/伊奥拉/}).click();
   assert.equal(await page.locator('dialog[open]').count(),0);

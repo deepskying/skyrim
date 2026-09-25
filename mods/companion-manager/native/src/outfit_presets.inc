@@ -9,6 +9,53 @@ std::uint32_t ProtectedOutfitSlots(RE::Actor* actor) {
         mask|=static_cast<std::uint32_t>(old.armor->GetSlotMask());
     return mask;
 }
+std::uint32_t PartMask(const WardrobeItem& row) {
+    auto* armor=row.item?row.item->As<RE::TESObjectARMO>():nullptr;
+    return armor?static_cast<std::uint32_t>(armor->GetSlotMask()):0;
+}
+const char* SlotLabel(unsigned slot) {
+    switch(slot) {
+    case 30: return "头部";
+    case 31: return "头发";
+    case 32: return "身体";
+    case 33: return "手部";
+    case 34: return "前臂";
+    case 35: return "项链";
+    case 36: return "戒指";
+    case 37: return "脚部";
+    case 38: return "小腿";
+    case 40: return "尾部";
+    case 41: return "长发";
+    case 42: return "头环";
+    case 43: return "耳部";
+    default: return "其他";
+    }
+}
+// Favorited, playable, unworn pieces that leave every protected slot alone. One pool answers both
+// the random piece change and the dialogue gate that offers that slot.
+std::vector<WardrobeItem> FavoritePartPool(RE::Actor* actor,json& r) {
+    std::vector<WardrobeItem> pool;
+    const auto protectedSlots=ProtectedOutfitSlots(actor);
+    for(const auto& row:Wardrobe(actor,r,true)) {
+        auto* armor=row.item?row.item->As<RE::TESObjectARMO>():nullptr;
+        if(!OutfitArmor(armor)||armor==actor->GetSkin()) continue;
+        if(!outfit::EligibleFavoriteRow(static_cast<std::uint32_t>(armor->GetSlotMask()),protectedSlots,row.quest,row.equipped,row.favorite)) continue;
+        pool.push_back(row);
+    }
+    return pool;
+}
+// Worn outfit pieces a whole-set request has to take off: everything the set does not name, never
+// quest gear and never the actor's skin. Weapons, shields and ammo are not outfit pieces.
+std::vector<WornArmorInstance> StripCandidates(RE::Actor* actor,const std::vector<WardrobeItem>& selected) {
+    std::vector<WornArmorInstance> strip;
+    for(const auto& old:RawWornArmor(actor)) {
+        const auto key=WardrobeKey(old.armor,old.extra);
+        const bool namedBySet=std::any_of(selected.begin(),selected.end(),[&](const auto& item){return item.key==key;});
+        if(!outfit::StripBeforeWear(OutfitArmor(old.armor),old.protectedItem,namedBySet)) continue;
+        strip.push_back(old);
+    }
+    return strip;
+}
 json OutfitItem(const WardrobeItem& row,bool hidden=false) {
     const auto* armor=row.item->As<RE::TESObjectARMO>();
     return {{"key",row.key},{"form",row.item->GetFormID()},{"name",row.name},
@@ -95,10 +142,13 @@ outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool
         occupied|=mask;selected.push_back(*row);
     }
     logger::info("Outfit preset actor={:08X} name={} missing={} selected={}",actor->GetFormID(),preset["name"].get<std::string>(),missing,selected.size());
-    if(missing&&manual) RE::DebugNotification("套装中有库存缺失物品，已跳过；多槽位冲突仍会替换相应部位");
+    if(missing&&manual) RE::DebugNotification("套装中有库存缺失物品，已跳过；当前其余服饰已换下");
     if(selected.empty()) return outfit::Result::NoSelection;
-    if(std::all_of(selected.begin(),selected.end(),[](const auto& x){return x.equipped;})) return outfit::Result::Unchanged;
-    return WearSet(actor,selected,manual);
+    // A saved set is a whole outfit: a request from the player or the dialogue replaces what the
+    // companion wears. The automatic timer keeps the old gear, because a stale preset must not
+    // leave somebody undressed unattended. WearSet reports Unchanged when the set is already on
+    // and there is nothing left to take off.
+    return WearSet(actor,selected,manual,manual?StripCandidates(actor,selected):std::vector<WornArmorInstance>{});
 }
 outfit::Result RandomNamedOutfit(RE::Actor* actor,json& r,bool manual=true) {
     const auto presets=r.value("outfitPresets",json::array());
@@ -106,6 +156,18 @@ outfit::Result RandomNamedOutfit(RE::Actor* actor,json& r,bool manual=true) {
     if(outfit::UseSaved(presets.size(),settings.value("savedOutfitChance",70),std::uniform_int_distribution<int>(0,99)(rng)))
         return ApplyNamedOutfit(actor,r,presets[std::uniform_int_distribution<std::size_t>(0,presets.size()-1)(rng)],manual);
     return ChangeOutfit(actor,r,manual);
+}
+// The dialogue line "随机套装": a saved set, never a recomposition, and a message when there is
+// nothing saved yet. The panel button and the timer keep using the configured mix above.
+outfit::Result RandomSavedOutfit(RE::Actor* actor,json& r,bool manual=true) {
+    if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
+    const auto presets=r.value("outfitPresets",json::array());
+    if(!outfit::HasSavedSet(presets.size())) return outfit::Result::NoSavedSets;
+    static std::mt19937 rng{std::random_device{}()};
+    const auto index=outfit::SavedSetPick(presets.size(),std::uniform_int_distribution<std::size_t>(0,presets.size()-1)(rng));
+    const auto& chosen=presets[index];
+    logger::info("Outfit saved set actor={:08X} name={} sets={}",actor->GetFormID(),chosen["name"].get<std::string>(),presets.size());
+    return ApplyNamedOutfit(actor,r,chosen,manual);
 }
 outfit::Result RemoveOutfitPart(RE::Actor* actor,const json& request) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
@@ -132,14 +194,22 @@ outfit::Result ChangeOutfitPart(RE::Actor* actor,json& r,const json& request) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
     if(!rules::Integer(request.at("slot"),30,61)||request["slot"]==39) throw std::runtime_error("此槽位不参与穿搭");
     const auto slot=request["slot"].get<unsigned>();
-    const auto protectedSlots=ProtectedOutfitSlots(actor);
     std::vector<WardrobeItem> candidates;
     const auto key=request.value("itemKey",std::string{});
-    for(const auto& row:Wardrobe(actor,r,true)) {
-        auto* armor=row.item->As<RE::TESObjectARMO>();
-        if(!OutfitArmor(armor)||armor==actor->GetSkin()||row.quest||row.equipped||(!key.empty()&&row.key!=key)) continue;
-        const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());
-        if(outfit::EligiblePart(slot,mask,protectedSlots,row.quest,row.equipped)) candidates.push_back(row);
+    if(key.empty()) {
+        // Random in-slot change: favorited gear only, exactly like the whole-outfit random.
+        for(const auto& row:FavoritePartPool(actor,r))
+            if(PartMask(row)&outfit::SlotBit(slot)) candidates.push_back(row);
+        logger::info("Outfit part random actor={:08X} slot={} name={} candidates={}",
+            actor->GetFormID(),slot,SlotLabel(slot),candidates.size());
+    } else {
+        // Naming one instance stays a direct manual pick, favorited or not.
+        const auto protectedSlots=ProtectedOutfitSlots(actor);
+        for(const auto& row:Wardrobe(actor,r,true)) {
+            auto* armor=row.item?row.item->As<RE::TESObjectARMO>():nullptr;
+            if(!OutfitArmor(armor)||armor==actor->GetSkin()||row.key!=key) continue;
+            if(outfit::EligiblePart(slot,PartMask(row),protectedSlots,row.quest,row.equipped)) candidates.push_back(row);
+        }
     }
     if(candidates.empty()) return outfit::Result::NoSelection;
     static std::mt19937 rng{std::random_device{}()};

@@ -2,7 +2,7 @@
 #ifdef NDEBUG
 #undef NDEBUG
 #endif
-#include <cassert>
+#include "check.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -38,7 +38,7 @@ bool accept = true;
 std::unique_ptr<RE::MessageBoxData> queued;
 namespace REL {
 template<class Fn> struct Relocation {
-    explicit Relocation(int id) { assert(id == 51422); }
+    explicit Relocation(int id) { CHECK(id == 51422); }
     bool operator()(RE::MessageBoxData* data) { if (accept) queued.reset(data); return accept; }
 };
 }
@@ -56,28 +56,28 @@ int main() {
     auto callback = [&] { return RE::BSTSmartPointer<RE::IMessageBoxCallback>(new Answer(result)); };
     for (const char* line : {"爱拉：我快拿不动了", "爱拉：可以给我一些服装上的建议吗？"}) {
         std::string temporary = line;
-        assert(companion::activity::QueuePrompt(temporary.c_str(), callback()));
+        CHECK(companion::activity::QueuePrompt(temporary.c_str(), callback()));
         temporary.clear();
-        assert(queued->bodyText == line); // message owns text after caller returns
-        assert((queued->buttonText == std::vector<std::string>{"好的", "稍后再说"}));
-        assert(queued->type == 4 && queued->menuDepth == 10);
-        assert(queued->cancelOptionIndex == 1 && queued->isCancellable);
-        assert(queued->optionIndexOffset == 0 && !queued->useHtml && !queued->verticalButtons);
-        assert(Answer::alive == 1 && RE::MessageBoxData::alive == 1);
-        queued->callback->Run(0); assert(result == 0);
-        queued->callback->Run(1); assert(result == 1);
-        queued.reset(); assert(Answer::alive == 0 && RE::MessageBoxData::alive == 0);
+        CHECK(queued->bodyText == line); // message owns text after caller returns
+        CHECK((queued->buttonText == std::vector<std::string>{"好的", "稍后再说"}));
+        CHECK(queued->type == 4 && queued->menuDepth == 10);
+        CHECK(queued->cancelOptionIndex == 1 && queued->isCancellable);
+        CHECK(queued->optionIndexOffset == 0 && !queued->useHtml && !queued->verticalButtons);
+        CHECK(Answer::alive == 1 && RE::MessageBoxData::alive == 1);
+        queued->callback->Run(0); CHECK(result == 0);
+        queued->callback->Run(1); CHECK(result == 1);
+        queued.reset(); CHECK(Answer::alive == 0 && RE::MessageBoxData::alive == 0);
     }
     accept = false;
-    assert(!companion::activity::QueuePrompt("rejected", callback()));
-    assert(Answer::alive == 0 && RE::MessageBoxData::alive == 0);
+    CHECK(!companion::activity::QueuePrompt("rejected", callback()));
+    CHECK(Answer::alive == 0 && RE::MessageBoxData::alive == 0);
     accept = true;
     RE::UIMessageQueue::allocation = false;
-    assert(!companion::activity::QueuePrompt("no data", callback()));
+    CHECK(!companion::activity::QueuePrompt("no data", callback()));
     RE::UIMessageQueue::available = false;
-    assert(!companion::activity::QueuePrompt("no queue", callback()));
+    CHECK(!companion::activity::QueuePrompt("no queue", callback()));
     RE::UIMessageQueue::available = true;
     RE::InterfaceStrings::available = false;
-    assert(!companion::activity::QueuePrompt("no strings", callback()));
-    assert(Answer::alive == 0 && RE::MessageBoxData::alive == 0);
+    CHECK(!companion::activity::QueuePrompt("no strings", callback()));
+    CHECK(Answer::alive == 0 && RE::MessageBoxData::alive == 0);
 }
