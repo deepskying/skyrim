@@ -239,3 +239,14 @@ L0  游戏集成层            SKSE 插件：数据→DTO、命令→动作、�
 - 本机运行日志：`MeridianUI.log`、`CompanionManager.log`（2026-09-25 会话）
 - 本次补丁：分支 `codex/game-device-nif-fallback`（commit `60c78fb`），
   归档 `MO2\companion-manager-backups\meridian-nif-fix-1.5.0\`
+
+---
+
+## 12. 决策记录
+
+| 日期 | 决策 | 说明 |
+| --- | --- | --- |
+| 2026-09-25 | **暂不自研下层平台** | 平台层继续用 Meridian（见 §5 的触发条件），精力放在上层：数据模型、交互、设计系统、桥接协议 |
+| 2026-09-25 | **平台源码并入本仓库管理** | 副本在 `mods/meridian-ui`（基础版本 `5707877` / 1.5.0），日常修改与构建以它为准；`Desktop\github\MeridianUI` 仅作为上游同步参照 |
+| 2026-09-25 | **不上报上游，仅自用** | 补丁与修改声明留在代码与文档里：`FORK-NOTES.md`（修改版声明、基础版本、日期、改动清单）、`patches/0001-*.patch`、以及被改文件的文件头 `[local modification]` 标记。GPL-3 的义务只在分发时触发，本仓库公开只是顺带满足"对应源码随附" |
+| 2026-09-25 | **清理范围收紧** | 只清理可再生的构建产物与历史包；在用模组、以及判断不了的目录（例如 `music-manager` 的迁移产出、`arcane-arsenal/build` 里被脚本当基线的 `before-*`）一律保留。`mods/*/native/build` 属于可再生物，按需重建而非长期保存 |

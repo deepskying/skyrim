@@ -1,3 +1,8 @@
+// [local modification] Relative to Meridian UI 1.5.0 this file is modified in this repository:
+// NifPreviewRenderer::InitializeGraphics falls back to game-device rendering when the private
+// device reports the cross-device shared-keyed transport as unusable. Keep the change and the
+// upstream-applicable patch in sync - see FORK-NOTES.md and patches/ at the tree root.
+
 #include "Render/NifPreviewRenderer.h"
 
 #include "Render/NifCameraMath.h"
