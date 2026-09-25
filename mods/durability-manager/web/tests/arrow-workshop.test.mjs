@@ -131,6 +131,12 @@ test('the charge section offers a potion-only filler beside fill charge', () => 
   assert.match(panel, /补足药水/);
   assert.match(panel, /fillCharge\(state, previous, true\)/);
   assert.match(panel, /plan\.materials\.some\(m => m\.kind === 'potion'\)/);
+  // Clearing lives in the same action row, and the stock and charge values are two badges.
+  assert.match(panel, /charge-clear/);
+  assert.match(panel, /清空材料/);
+  assert.match(panel, /craft-material-badges/);
+  assert.match(panel, /craft-charge-badge/);
+  assert.doesNotMatch(panel, /craft-material-meta/);
   const quantity = readFileSync(new URL('../src/arrows/quantity.ts', import.meta.url), 'utf8');
   assert.match(quantity, /potionsOnly && material\.kind !== 'potion'/);
 });
