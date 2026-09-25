@@ -68,16 +68,16 @@ test('fill charge uses compatible stock only and cannot exceed native stack limi
   assert.deepEqual(fillCharge(inventory, { spell: 101, bases: [], materials: [] }).materials, []);
   assert.deepEqual(fillCharge(inventory, { spell: 104, bases: [{ id: 10, count: 5 }], materials: [] }).materials, []);
 });
-test('potion-only fill never spends poisons or raw ingredients', () => {
+test('prepared-only fill spends potions and poisons but never raw ingredients', () => {
   const inventory = structuredClone(state);
   inventory.materials = [{ id: 201, name: 'Small potion', kind: 'potion', count: 1, charges: { fire: 10 } },
-    { id: 202, name: 'Big poison', kind: 'poison', count: 20, charges: { fire: 100 } },
+    { id: 202, name: 'Big poison', kind: 'poison', count: 1, charges: { fire: 100 } },
     { id: 203, name: 'Ingredient', kind: 'ingredient', count: 20, charges: { fire: 100 } }];
-  const selection = { spell: 101, bases: [{ id: 10, count: 2 }], materials: [] };
+  const selection = { spell: 101, bases: [{ id: 10, count: 12 }], materials: [] };
   const before = structuredClone(selection);
-  // The basket stops at the available potion stock instead of falling back on poison.
-  assert.deepEqual(fillCharge(inventory, selection, true).materials, [{ id: 201, count: 1 }]);
-  // The normal filler still prefers the potion and then tops up with poison.
-  assert.deepEqual(fillCharge(inventory, selection).materials, [{ id: 201, count: 1 }, { id: 202, count: 1 }]);
+  // Potion then poison cover 110 of the 120 charge; the prepared-only filler stops there
+  // instead of reaching for the ingredient the normal filler would use.
+  assert.deepEqual(fillCharge(inventory, selection, true).materials, [{ id: 201, count: 1 }, { id: 202, count: 1 }]);
+  assert.deepEqual(fillCharge(inventory, selection).materials, [{ id: 201, count: 1 }, { id: 202, count: 1 }, { id: 203, count: 1 }]);
   assert.deepEqual(selection, before);
 });

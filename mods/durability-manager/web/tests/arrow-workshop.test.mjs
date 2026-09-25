@@ -125,18 +125,22 @@ test('queued crafting gates the start button on the co-save and the per-spell ce
   assert.doesNotMatch(panel, /aria-label="制作队列"/);
 });
 
-test('the charge section offers a potion-only filler beside fill charge', () => {
+test('the charge section offers a prepared-only filler and a clear button', () => {
   const panel = readFileSync(new URL('../src/arrows/MagicCrafting.tsx', import.meta.url), 'utf8');
   assert.match(panel, /补足充能/);
-  assert.match(panel, /补足药水/);
+  assert.match(panel, /补足药剂/);
   assert.match(panel, /fillCharge\(state, previous, true\)/);
-  assert.match(panel, /plan\.materials\.some\(m => m\.kind === 'potion'\)/);
+  // Finished potions and poisons both fill it; raw ingredients never do.
+  assert.match(panel, /plan\.materials\.some\(m => m\.kind !== 'ingredient'\)/);
   // Clearing lives in the same action row, and the stock and charge values are two badges.
   assert.match(panel, /charge-clear/);
   assert.match(panel, /清空材料/);
   assert.match(panel, /craft-material-badges/);
   assert.match(panel, /craft-charge-badge/);
   assert.doesNotMatch(panel, /craft-material-meta/);
+  // The footer explains a disabled filler instead of leaving the buttons unexplained.
+  assert.match(panel, /fillHint/);
+  assert.match(panel, /先填写基材箭矢数量/);
   const quantity = readFileSync(new URL('../src/arrows/quantity.ts', import.meta.url), 'utf8');
-  assert.match(quantity, /potionsOnly && material\.kind !== 'potion'/);
+  assert.match(quantity, /preparedOnly && material\.kind === 'ingredient'/);
 });
