@@ -43,6 +43,8 @@ namespace
         HotkeyConfig hotkey{};
         std::uint32_t lowDurabilityThreshold = 30;
         float weaponDisplaySeconds = 3.0F;
+        float hudRightPercent = 100.0F;
+        float hudBottomPercent = 2.0F;
         bool enableLowDurabilityWarning = true;
         bool enableWorkshopSounds = true;
         int uiFontScale = 100;
@@ -198,9 +200,9 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "1.7.3";
+    constexpr std::string_view kPluginVersion = "2.0.0";
 #else
-    constexpr std::string_view kPluginVersion = "0.1.43";
+    constexpr std::string_view kPluginVersion = "0.1.45";
 #endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -322,6 +324,8 @@ namespace
         configFile << "\n\n[Display]\nLowDurabilityThreshold=" << g_settings.lowDurabilityThreshold
                    << "\nUIFontScale=" << g_settings.uiFontScale
                    << "\nUITransparency=" << g_settings.uiTransparency
+                   << "\nHUDRightPercent=" << g_settings.hudRightPercent
+                   << "\nHUDBottomPercent=" << g_settings.hudBottomPercent
                    << "\nWeaponDisplaySeconds=" << g_settings.weaponDisplaySeconds
                    << "\nEnableLowDurabilityWarning=" << (g_settings.enableLowDurabilityWarning ? "true" : "false")
                    << "\nEnableWorkshopSounds=" << (g_settings.enableWorkshopSounds ? "true" : "false");
@@ -381,6 +385,12 @@ namespace
                     if (key == "LOWDURABILITYTHRESHOLD") g_settings.lowDurabilityThreshold = std::clamp<std::uint32_t>(std::stoul(value), 1, 99);
                     else if (key == "UIFONTSCALE") g_settings.uiFontScale = std::clamp(std::stoi(value), 80, 130);
                     else if (key == "UITRANSPARENCY") g_settings.uiTransparency = std::clamp(std::stoi(value), 0, 60);
+                    else if (key == "HUDRIGHTPERCENT" || key == "HUDBOTTOMPERCENT") {
+                        const auto position = std::stof(value);
+                        if (std::isfinite(position)) {
+                            (key == "HUDRIGHTPERCENT" ? g_settings.hudRightPercent : g_settings.hudBottomPercent) = std::clamp(position, 0.0F, 100.0F);
+                        }
+                    }
                     else if (key == "WEAPONDISPLAYSECONDS") g_settings.weaponDisplaySeconds = std::clamp(std::stof(value), 0.5F, 10.0F);
                     else if (key == "ENABLELOWDURABILITYWARNING") g_settings.enableLowDurabilityWarning = ParseBool(value, g_settings.enableLowDurabilityWarning);
                     else if (key == "ENABLEWORKSHOPSOUNDS") g_settings.enableWorkshopSounds = ParseBool(value, g_settings.enableWorkshopSounds);
@@ -2887,13 +2897,44 @@ namespace
             if (!armor || entry.first <= 0 || !entry.second || !entry.second->extraLists) continue;
             for (auto* extra : *entry.second->extraLists) append(armor, extra, false, "低耐久");
         }
-        const auto payload = items.dump();
+        const auto itemsPayload = items.dump();
+        const auto positionPayload = json{{"hudRightPercent", g_settings.hudRightPercent}, {"hudBottomPercent", g_settings.hudBottomPercent}}.dump();
+        // Read on the game thread. Values are actor-sheet values, not damage mitigation.
+        const auto finiteValue = [](float value) -> json {
+            return std::isfinite(value) ? json(std::round(value * 10.0F) / 10.0F) : json(nullptr);
+        };
+        const auto actorValue = [&](RE::ActorValue value) { return finiteValue(player->AsActorValueOwner()->GetActorValue(value)); };
+        const auto* skills = player->GetPlayerRuntimeData().skills;
+        const auto* calendar = RE::Calendar::GetSingleton();
+        json playerState = {
+            {"level", player->GetLevel()},
+            {"experience", skills && skills->data ? finiteValue(skills->data->xp) : json(nullptr)},
+            {"experienceNext", skills && skills->data ? finiteValue(skills->data->levelThreshold) : json(nullptr)},
+            {"fire", actorValue(RE::ActorValue::kResistFire)}, {"frost", actorValue(RE::ActorValue::kResistFrost)},
+            {"shock", actorValue(RE::ActorValue::kResistShock)}, {"magic", actorValue(RE::ActorValue::kResistMagic)},
+            {"poison", actorValue(RE::ActorValue::kPoisonResist)}, {"disease", actorValue(RE::ActorValue::kResistDisease)},
+            {"armor", actorValue(RE::ActorValue::kDamageResist)}, {"speed", actorValue(RE::ActorValue::kSpeedMult)},
+            {"gold", PlayerGoldCount(player)}, {"weight", finiteValue(player->GetWeightInContainer())},
+            {"carryWeight", finiteValue(player->GetTotalCarryWeight())}, {"gameMinutes", nullptr}
+        };
+        if (calendar && calendar->gameHour && std::isfinite(calendar->gameHour->value)) {
+            const auto hour = std::fmod((std::max)(0.0F, calendar->gameHour->value), 24.0F);
+            playerState["gameMinutes"] = static_cast<int>(hour * 60.0F);
+        }
+        const auto playerPayload = playerState.dump();
+#ifdef UNIFIED_WORKSHOP
+        // Queued crafting progress rides the same snapshot, so it clears with the rest.
+        const auto craftPayload = unified_workshop::CraftOrderJson();
+#else
+        const auto craftPayload = std::string(R"({"entries":[],"paused":false,"reason":""})");
+#endif
+        const auto payload = itemsPayload + positionPayload + playerPayload + craftPayload;
         if (payload != g_equippedHudPayload) {
-            if (g_equippedHudPayload.empty() || g_equippedHudVisible != !items.empty())
+            if (g_equippedHudPayload.empty())
                 logger::info("Equipped HUD snapshot: {} item(s).", items.size());
             g_equippedHudPayload = payload;
-            g_equippedHudVisible = !items.empty();
-            const auto script = "window.DurabilityManager?.updateEquippedHud(" + payload + ");";
+            g_equippedHudVisible = true; // Player stats remain visible even with empty hands.
+            const auto script = "window.DurabilityManager?.updateHudPosition?.(" + positionPayload + ");window.DurabilityManager?.updateEquippedHud(" + itemsPayload + ");window.DurabilityManager?.updatePlayerHud?.(" + playerPayload + ");window.DurabilityManager?.updateCraftOrders?.(" + craftPayload + ");";
             g_prisma->Invoke(g_view, script.c_str());
             if (g_equippedHudVisible) g_prisma->Show(g_view);
         }
@@ -3423,6 +3464,8 @@ namespace
                 { "uiFontScale", g_settings.uiFontScale },
                 { "uiTransparency", g_settings.uiTransparency },
                 { "weaponDisplaySeconds", g_settings.weaponDisplaySeconds },
+                { "hudRightPercent", g_settings.hudRightPercent },
+                { "hudBottomPercent", g_settings.hudBottomPercent },
                 { "enableLowDurabilityWarning", g_settings.enableLowDurabilityWarning },
                 { "enableWorkshopSounds", g_settings.enableWorkshopSounds },
                 { "allowEnchantedItemsToBreak", g_settings.allowEnchantedItemsToBreak }
@@ -3620,6 +3663,11 @@ namespace
                 WriteConfig();
                 SendState("通用设置已保存。");
             } else if (type == "saveSettings") {
+                const auto right = request.value("hudRightPercent", g_settings.hudRightPercent);
+                const auto bottom = request.value("hudBottomPercent", g_settings.hudBottomPercent);
+                if (!std::isfinite(right) || !std::isfinite(bottom)) throw std::runtime_error("浮窗位置无效");
+                g_settings.hudRightPercent = std::clamp(right, 0.0F, 100.0F);
+                g_settings.hudBottomPercent = std::clamp(bottom, 0.0F, 100.0F);
                 g_settings.lowDurabilityThreshold = std::clamp(request.value("lowDurabilityThreshold", g_settings.lowDurabilityThreshold), 1U, 99U);
                 g_settings.weaponDisplaySeconds = std::clamp(request.value("weaponDisplaySeconds", g_settings.weaponDisplaySeconds), 0.5F, 10.0F);
                 g_settings.enableLowDurabilityWarning = request.value("enableLowDurabilityWarning", g_settings.enableLowDurabilityWarning);

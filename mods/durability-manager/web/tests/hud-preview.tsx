@@ -29,6 +29,20 @@ function show(index: number) {
   window.DurabilityManager?.setPanelVisible(false);
   window.DurabilityManager?.showHud({ ...examples[index], id: ++id, durationMilliseconds: 10000 });
 }
+const orders = [
+  { spell: 1, name: '奥术箭·火球术', family: 'fire', total: 12, remaining: 12, label: '12' },
+  { spell: 2, name: '奥术箭·冰锥术', family: 'ice', total: 4500, remaining: 1500, label: '1.5K' },
+  { spell: 3, name: '奥术箭·闪电术', family: 'shock', total: 6, remaining: 6, label: '6' },
+];
+const longOrders = Array.from({ length: 9 }, (_, index) => {
+  const remaining = 10000 - index * 1250;
+  const family = ['fire', 'ice', 'shock', 'poison', 'blood', 'holy', 'wind', 'water', 'earth'][index];
+  return { spell: 100 + index, name: `奥术箭·示例法术${index + 1}`, family, total: 10000, remaining, label: `${remaining / 1000}K` };
+});
+function showOrders(paused = false, entries = orders) {
+  window.DurabilityManager?.setPanelVisible(false);
+  window.DurabilityManager?.updateCraftOrders({ paused, reason: paused ? '战斗中暂停' : '', entries });
+}
 function Preview() {
   useEffect(() => { showEquipped(); }, []);
   return <>
@@ -43,6 +57,9 @@ function Preview() {
       <button onClick={() => showEquipped(equipped.slice(0, 2))}>修复护甲与靴子</button>
       <button onClick={() => showEquipped([])}>卸下全部装备</button>
       <button onClick={() => window.DurabilityManager?.clearHud()}>模拟读档清空</button>
+      <button onClick={() => showOrders()}>制作队列</button>
+      <button onClick={() => showOrders(true)}>队列暂停</button>
+      <button onClick={() => showOrders(false, longOrders)}>长队列</button>
       {['普通耐久', '低耐久警告', '损坏提示', '长名称'].map((label, index) => <button key={label} onClick={() => show(index)}>{label}</button>)}
     </div>
     <App />

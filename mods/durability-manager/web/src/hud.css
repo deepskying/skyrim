@@ -1,5 +1,5 @@
 /* Floating game HUD: neutral glass, fine rules, and consistent sans-serif numerals. */
-.durability-hud-stack { position: fixed; right: 4.5vw; bottom: 18vh; z-index: 10; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; max-width: 91vw; pointer-events: none; }
+.durability-hud-stack { position: fixed; bottom: 2vh; z-index: 10; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: 98vw; max-height: 96vh; border-left: 16px solid transparent; overflow: hidden; pointer-events: none; }
 .durability-hud {
   display: flex;
   align-items: flex-start;
@@ -30,12 +30,90 @@
 .durability-hud.warning .hud-track { border-color: #ffc18c; box-shadow: 0 0 4px rgba(255, 171, 102, .2); }
 .durability-hud.warning .hud-track i { background: #d1a282; }
 
-.equipped-hud-grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 300px); gap: 6px; max-width: 91vw; }
-.equipped-hud-item { width: 100%; min-width: 0; padding: 10px 14px; }
+.equipped-hud-grid { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.equipped-hud-item { width: 100%; min-width: 0; padding: 9px 14px; background: transparent; box-shadow: none; border: 0; border-top: 1px solid rgba(255,255,255,.12); }
 .equipped-hud-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.equipped-hud-heading .hud-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.equipped-hud-heading .hud-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .equipped-hud-heading > span { color: #b9b7b3; font-size: 12px; flex-shrink: 0; }
 .equipped-hud-item .hud-value { margin-top: 3px; }
 .equipped-hud-item .hud-value strong { font-size: 17px; }
 .equipped-hud-item .hud-value small, .equipped-hud-item .hud-value > span { font-size: 13px; }
 .equipped-hud-item .hud-track { margin-top: 4px; }
+.equipped-hud-heading strong { flex-shrink: 0; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.equipped-hud-heading strong small { color: #bab8b4; font-size: 12px; }
+.equipped-hud-item .hud-track { height: 4px; padding: 0; border: 0; box-shadow: none; background: rgba(255,255,255,.13); }
+.equipped-hud-remaining { display: block; padding: 5px 14px 8px; border-top: 1px solid rgba(255,255,255,.12); color: #b9b7b3; font-size: 12px; }
+.character-hud-panel { width: min(600px, calc(98vw - 16px)); border: 1px solid rgba(236,231,217,.2); border-radius: 2px; background: rgba(9,12,13,.64); color: #ecebea; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; text-shadow: 0 1px 3px #000; }
+.player-hud { display: flex; align-items: center; gap: 18px; padding: 14px 16px 12px 12px; font-variant-numeric: tabular-nums; }
+.player-level { flex: 0 0 84px; text-align: center; }
+.level-diamond { display: block; width: 78px; height: 78px; margin: 0 auto; overflow: visible; }
+.level-fill { fill: rgba(0,0,0,.6); }
+.level-inner { fill: none; stroke: #918b7c; stroke-width: .9; }
+.level-track { fill: none; stroke: rgba(235,229,213,.23); stroke-width: 2.5; }
+.level-progress { fill: none; stroke: #e5d5ae; stroke-width: 2.5; stroke-linecap: butt; }
+.level-diamond text { fill: #f3eee3; font-size: 34px; font-weight: 400; }
+.level-experience { display: block; margin-top: 5px; color: #ccc7bc; font-size: 12px; white-space: nowrap; }
+.player-readouts { flex: 1; min-width: 0; }
+.player-combat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 15px; border-bottom: 1px solid rgba(235,229,213,.15); }
+.player-stat { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 16px; line-height: 1.3; }
+.player-stat svg { flex: 0 0 19px; width: 19px; height: 21px; color: #d7d3c8; }
+.player-stat small { font-size: 12px; color: #bbb8af; }
+.player-utility-row { display: flex; justify-content: space-between; gap: 8px; padding-top: 15px; }
+.player-utility-row .player-stat { gap: 8px; font-size: 16px; }
+.player-utility-row .player-stat small { font-size: 13px; }
+.player-stat.overloaded, .player-stat.overloaded small, .player-stat.overloaded svg { color: #e7af88; }
+@media (max-width: 720px) {
+  .player-hud { gap: 8px; padding: 10px 8px; }
+  .player-level { flex-basis: 64px; }
+  .level-diamond { width: 62px; height: 62px; }
+  .player-combat-row { gap: 4px; }
+  .player-utility-row { gap: 8px; flex-wrap: wrap; }
+  .player-utility-row .player-stat { font-size: 13px; gap: 4px; }
+}
+@media (max-width: 540px) {
+  .player-combat-row .player-stat { flex-direction: column; font-size: 12px; gap: 2px; }
+  .player-combat-row .player-stat small { font-size: 11px; }
+}
+
+/* Queued crafting: one diamond per spell, ring = arrows still to craft, tinted by family. */
+.craft-order-hud { padding: 10px 16px 13px; border-top: 1px solid rgba(235,229,213,.15); }
+.craft-order-hud header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.craft-order-hud header > span { color: #c6c0ac; font-size: 12px; letter-spacing: 2px; }
+.craft-order-hud header > small { color: #b9b7b3; font-size: 12px; }
+.craft-order-hud.paused header > small { color: #e0b46a; }
+.craft-order-diamonds { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; margin-top: 9px; }
+.craft-order-diamonds article { width: 72px; min-width: 0; text-align: center; }
+.order-diamond { display: block; width: 54px; height: 54px; margin: 0 auto; overflow: visible; }
+.order-fill { fill: rgba(0,0,0,.55); }
+.order-track { fill: none; stroke: rgba(235,229,213,.22); stroke-width: 3.5; }
+.order-progress { fill: none; stroke: var(--order-edge,#e5d5ae); stroke-width: 3.5; stroke-linecap: butt; }
+.order-diamond text { fill: #f3eee3; font-size: 26px; font-weight: 400; }
+.order-name { display: block; margin-top: 4px; color: #cfc9bb; font-size: 11px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.craft-order-more { align-self: center; color: #b9b7b3; font-size: 12px; }
+.craft-order-diamonds article.fire { --order-edge: #ff974d; }
+.craft-order-diamonds article.ice { --order-edge: #bbe8f7; }
+.craft-order-diamonds article.shock { --order-edge: #628bfa; }
+.craft-order-diamonds article.poison { --order-edge: #b2db50; }
+.craft-order-diamonds article.blood { --order-edge: #e55555; }
+.craft-order-diamonds article.holy { --order-edge: #ead875; }
+.craft-order-diamonds article.wind { --order-edge: #68d59d; }
+.craft-order-diamonds article.water { --order-edge: #39bec8; }
+.craft-order-diamonds article.earth { --order-edge: #ad895d; }
+.craft-order-diamonds article.dark { --order-edge: #8b94a8; }
+.craft-order-diamonds article.soul { --order-edge: #aa79ff; }
+.craft-order-diamonds article.arcane { --order-edge: #f277ce; }
+@media (max-width: 720px) {
+  .craft-order-hud { padding: 9px 8px 11px; }
+  .craft-order-diamonds { gap: 9px; }
+  .craft-order-diamonds article { width: 64px; }
+  .order-diamond { width: 48px; height: 48px; }
+}
+
+.hud-position-preview { padding: 18px; border: 1px solid rgba(185,168,134,.24); background: rgba(0,0,0,.16); }
+.hud-position-preview h3 { margin: 0 0 14px; }
+.hud-position-preview p { color: #b9b7b3; font-size: 13px; line-height: 1.7; }
+.hud-preview-screen { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: linear-gradient(165deg,#25323b,#10171c); border: 1px solid #65645e; }
+.hud-preview-screen > span { position: absolute; left: 10px; top: 8px; color: #9eabb4; font-size: 12px; }
+.hud-preview-item { position: absolute; width: 28.75%; height: 22.222%; min-height: 0; padding: 3px 5px; background: #141719; border: 1px solid #92918b; color: #eee; display: flex; flex-direction: column; justify-content: space-around; font-size: 9px; box-sizing: border-box; }
+.hud-preview-item b { font-weight: 500; white-space: nowrap; }
+.hud-preview-item i { display: block; width: 80%; height: 3px; background: #9ee7f2; }

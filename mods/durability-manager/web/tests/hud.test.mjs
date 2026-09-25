@@ -6,7 +6,18 @@ import { runInNewContext } from 'node:vm';
 
 const source = readFileSync(new URL('../src/hud.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
-const { normalizeHudMessage, createHudReceiver, normalizeEquippedHud } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { normalizeHudMessage, createHudReceiver, normalizeEquippedHud, normalizeHudPosition, hudOffsets } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+test('HUD position defaults survive old settings and malformed input', () => {
+  assert.deepEqual(normalizeHudPosition(undefined), { hudRightPercent: 100, hudBottomPercent: 2 });
+  assert.deepEqual(normalizeHudPosition({ hudRightPercent: NaN, hudBottomPercent: '20' }), normalizeHudPosition({}));
+  assert.deepEqual(normalizeHudPosition({ hudRightPercent: -10, hudBottomPercent: 150 }), { hudRightPercent: 0, hudBottomPercent: 100 });
+});
+test('HUD placement preserves default margins and keeps larger stacks on screen', () => {
+  assert.deepEqual(hudOffsets(normalizeHudPosition({}), 1920, 1080, 300, 88), { right: 1620, bottom: 21.6 });
+  const corner = normalizeHudPosition({ hudRightPercent: 100, hudBottomPercent: 100 });
+  assert.deepEqual(hudOffsets(corner, 800, 600, 600, 500), { right: 200, bottom: 100 });
+  assert.deepEqual(hudOffsets(corner, 320, 180, 600, 500), { right: 0, bottom: 0 });
+});
 const normal = { id: 10, kind: 'weapon', title: '钢弓', detail: '耐久', durationMilliseconds: 1500, current: 50, maximum: 100 };
 
 test('native HUD readiness probe recovers when page mounts before bridge injection', () => {

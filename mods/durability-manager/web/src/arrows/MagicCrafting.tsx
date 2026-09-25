@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WorkshopAction } from '../bridge';
 import type { ArrowState, Quote, Selection } from './types';
-import { craftingAccessError, planCraft } from './rules';
+import { craftBatchMax, craftInputMax, craftingAccessError, materialHighlight, planCraft } from './rules';
 import { allocateBases, fillCharge, reconcileSelection, replaceStack } from './quantity';
 import { QuantityInput } from './QuantityInput';
 import { ResourceMeter } from './ResourceMeter';
@@ -34,16 +34,20 @@ export function MagicCrafting({ state, action, active }: { state: ArrowState; ac
       <section className="craft-spell-section arrow-card" aria-label="选择法术">
         <header className="craft-section-heading"><div><small>法术配方</small><h2>{plan.spell?.name ?? '选择要封存的法术'}</h2></div><input aria-label="搜索法术" placeholder="搜索法术或来源…" value={search} onChange={e => setSearch(e.target.value)} /></header>
         <div className="craft-spell-filters">{[['candidate', '可制作'], ['review', '待适配'], ['excluded', '暂不支持']].map(([id, label]) => <button key={id} disabled={busy} aria-pressed={filter === id} className={filter === id ? 'active' : ''} onClick={() => setFilter(id)}>{label}</button>)}</div>
-        <div className="craft-spell-shelf">{spells.map(s => <button key={s.id} disabled={busy} aria-pressed={s.id === selection.spell} className={s.id === selection.spell ? 'selected' : ''} onClick={() => setSelection(previous => reconcileSelection(state, { ...previous, spell: s.id }))}><span>✧</span><div><b>{s.name}</b><small>{s.source}</small></div>{s.id === selection.spell && <i>✓</i>}</button>)}{!spells.length && <p className="arrow-muted">没有符合条件的已学法术。</p>}</div>
+        <div className="craft-spell-shelf">{spells.map(s => {
+          const highlight = materialHighlight(state.materials, s);
+          return <button key={s.id} disabled={busy} aria-pressed={s.id === selection.spell} className={[s.id === selection.spell && 'selected', highlight && `material-${highlight}`].filter(Boolean).join(' ')} onClick={() => setSelection(previous => reconcileSelection(state, { ...previous, spell: s.id }))}><span>✧</span><div><b>{s.name}</b><small>{s.source}</small></div>{s.id === selection.spell && <i>✓</i>}</button>;
+        })}{!spells.length && <p className="arrow-muted">没有符合条件的已学法术。</p>}</div>
         {plan.spell && <p className="craft-spell-description">{plan.spell.eligibility?.reasons.join('；') || '选择基材和充能材料后，即可确认制作。'}</p>}
+        {!!state.orders?.entries.length && <ul className="craft-order-queue" aria-label="制作队列">{state.orders.entries.map(entry => <li key={entry.spell} className={entry.family ?? ''}><b>{entry.name}</b><span>剩余 {entry.label} / {entry.total}</span>{state.orders?.paused && <i>{state.orders.reason || '已暂停'}</i>}</li>)}</ul>}
       </section>
       <div className="craft-ingredients">
         <section className="craft-stock-card arrow-card" aria-label="箭矢用量">
-          <header className="craft-section-heading"><div><small>基材</small><h2>箭矢用量</h2></div><span className="craft-selection-total">{plan.target}<small> / 100 支</small></span></header>
+          <header className="craft-section-heading"><div><small>基材</small><h2>箭矢用量</h2></div><span className="craft-selection-total">{plan.target}<small> / {craftBatchMax} 支</small></span></header>
           <p className="craft-stock-hint">直接输入数量，可混用多种箭矢。</p>
           <div className="craft-stock-list">{plan.spell?.craftable ? plan.base.map(a => {
             const count = selection.bases.find(b => b.id === a.id)?.count ?? 0;
-            const maximum = Math.max(0, Math.min(a.count, 100 - selection.bases.filter(b => b.id !== a.id).reduce((n, b) => n + b.count, 0)));
+            const maximum = Math.max(0, Math.min(a.count, craftInputMax, craftBatchMax - selection.bases.filter(b => b.id !== a.id).reduce((n, b) => n + b.count, 0)));
             return <article key={a.id} className={count ? 'selected' : ''}><div className="craft-item-info"><b>➶ {a.name}</b><small className="craft-stock-badge">库存 {a.count}</small></div><QuantityInput name={a.name} count={count} maximum={maximum} disabled={busy} onChange={n => changeQuantity('bases', a.id, n)} /></article>;
           }) : <p className="craft-empty">先在上方选择可制作的法术。</p>}{plan.spell?.craftable && !plan.base.length && <p className="craft-empty">背包中没有适用的箭矢。</p>}</div>
           <footer><button disabled={busy || !selection.bases.length} onClick={() => setSelection(previous => ({ ...previous, bases: [] }))}>清空箭矢</button><span>0 表示不使用</span></footer>
@@ -54,7 +58,7 @@ export function MagicCrafting({ state, action, active }: { state: ArrowState; ac
           <div className="craft-stock-list">{plan.spell?.craftable ? plan.materials.map(m => {
             const count = selection.materials.find(x => x.id === m.id)?.count ?? 0;
             const kind = m.kind === 'potion' ? '药水' : m.kind === 'poison' ? '毒药' : '原材料';
-            return <article key={m.id} className={count ? 'selected' : ''}><div className="craft-item-info"><b>{m.name}</b><small className="craft-stock-badge">库存 {m.count}</small><div className="craft-material-meta"><span className={m.kind}>{kind}</span><span>每份 +{m.units} 充能</span></div></div><QuantityInput name={m.name} count={count} maximum={Math.min(10000, m.count)} disabled={busy} onChange={n => changeQuantity('materials', m.id, n)} /></article>;
+            return <article key={m.id} className={count ? 'selected' : ''}><div className="craft-item-info"><b>{m.name}</b><small className="craft-stock-badge">库存 {m.count}</small><div className="craft-material-meta"><span className={m.kind}>{kind}</span><span>每份 +{m.units} 充能</span></div></div><QuantityInput name={m.name} count={count} maximum={Math.min(craftInputMax, m.count)} disabled={busy} onChange={n => changeQuantity('materials', m.id, n)} /></article>;
           }) : <p className="craft-empty">选定法术后显示匹配的充能材料。</p>}{plan.spell?.craftable && !plan.materials.length && <p className="craft-empty">没有匹配的药水或材料。</p>}</div>
           <footer><button disabled={busy || !selection.materials.length} onClick={() => setSelection(previous => ({ ...previous, materials: [] }))}>清空材料</button><span>补足时优先使用药水</span></footer>
         </section>
@@ -75,7 +79,7 @@ export function MagicCrafting({ state, action, active }: { state: ArrowState; ac
         <p className="arrow-muted">已选材料提供充能 · 计划需要 {plan.target * plan.charge}{plan.energy < plan.target * plan.charge ? `，还差 ${plan.target * plan.charge - plan.energy}` : ''}。{excess > 0 ? '多余充能不会保留。' : ''}</p>
         <section className="craft-receipt"><header><h3>消耗材料清单</h3><small>{quote ? '已核对' : '预估'}</small></header>{baseUse.map(b => <div key={`base-${b.id}`}><span>{state.arrows.find(a => a.id === b.id)?.name ?? '箭矢'}</span><b>×{b.count}</b></div>)}{ingredients.map((m, index) => <div key={`material-${index}`}><span>{m.name}</span><b>×{m.count}</b></div>)}{!baseUse.length && !ingredients.length && <p>选择箭矢和充能材料后，清单将在这里显示。</p>}</section>
       </div>
-      <footer><p role="status">{accessError || error || plan.error || (quoting ? '正在核对库存与费用…' : quote ? '清单已核对，可以确认制作。' : '请重新核对清单。')}</p><button className="arrow-primary" disabled={!quote || busy || quoting || !!plan.error} onClick={tx.commit}>{busy ? '正在制作…' : `确认制作 ${total} 支`}</button><button className="recheck-quote" disabled={busy || !!plan.error || !!accessError} onClick={tx.refresh}>重新核对清单</button></footer>
+      <footer><p role="status">{accessError || error || plan.error || (quoting ? '正在核对库存与费用…' : quote ? '清单已核对，可以开始制作；开始后离开附魔台也会继续。' : '请重新核对清单。')}</p><button className="arrow-primary" disabled={!quote || busy || quoting || !!plan.error} onClick={tx.commit}>{busy ? '正在加入队列…' : `开始制作 ${total} 支`}</button><button className="recheck-quote" disabled={busy || !!plan.error || !!accessError} onClick={tx.refresh}>重新核对清单</button></footer>
     </aside>
   </div>;
 }

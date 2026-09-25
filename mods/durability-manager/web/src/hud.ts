@@ -5,6 +5,19 @@ export type HudMessage = {
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 
+export function normalizeHudPosition(value: unknown) {
+  const row = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const percent = (v: unknown, fallback: number) => finite(v) ? Math.max(0, Math.min(100, v)) : fallback;
+  return { hudRightPercent: percent(row.hudRightPercent, 100), hudBottomPercent: percent(row.hudBottomPercent, 2) };
+}
+
+export function hudOffsets(position: ReturnType<typeof normalizeHudPosition>, width: number, height: number, itemWidth: number, itemHeight: number) {
+  return {
+    right: Math.max(0, Math.min(width * position.hudRightPercent / 100, width - itemWidth)),
+    bottom: Math.max(0, Math.min(height * position.hudBottomPercent / 100, height - itemHeight)),
+  };
+}
+
 export type EquippedHudItem = {
   id: string; kind: 'weapon' | 'warning'; title: string; detail: string;
   current: number; maximum: number;

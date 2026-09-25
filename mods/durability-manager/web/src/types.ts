@@ -71,6 +71,8 @@ export type Settings = {
   hotkey: { key: string; keyCode: number; shift: boolean; ctrl: boolean; alt: boolean };
   lowDurabilityThreshold: number;
   weaponDisplaySeconds: number;
+  hudRightPercent?: number;
+  hudBottomPercent?: number;
   enableLowDurabilityWarning: boolean;
   enableWorkshopSounds: boolean;
   allowEnchantedItemsToBreak: boolean;

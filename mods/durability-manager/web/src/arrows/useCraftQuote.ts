@@ -7,7 +7,8 @@ import { craftingAccessError, matchesCraftReply } from './rules';
 /** Correlates native receipts; changing a selection invalidates its previous token. */
 export function useCraftQuote<T extends Quote | NormalQuote>(state: ArrowState, action: WorkshopAction, normal: boolean, selection: Record<string, unknown>, active: boolean) {
   active = active && !craftingAccessError(state, normal);
-  const key = JSON.stringify(selection), quoteType = normal ? 'normalQuote' : 'quote', craftType = normal ? 'normalCraft' : 'craft';
+  // Magic arrows are queued, not crafted on the spot: the same selection starts an order.
+  const key = JSON.stringify(selection), quoteType = normal ? 'normalQuote' : 'quote', craftType = normal ? 'normalCraft' : 'orderStart';
   const [accepted, setAccepted] = useState<{ key: string; quote: T }>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -35,7 +36,8 @@ export function useCraftQuote<T extends Quote | NormalQuote>(state: ArrowState, 
       if (reply.ok && quote) { setAccepted({ key, quote }); setError(''); }
       else { setAccepted(undefined); setError(reply.error || '无法计算制作清单'); }
     } else {
-      setAccepted(undefined); setError(reply.ok ? '制作完成，成品已加入背包。' : reply.error || '制作未完成，请重新核对清单');
+      setAccepted(undefined);
+      setError(reply.ok ? (normal ? '制作完成，成品已加入背包。' : '已加入制作队列，离开附魔台后继续制作。') : reply.error || '制作未完成，请重新核对清单');
     }
   }, [state.workshopReply, state.quote, state.normalQuote, key, normal, quoteType]);
   const quote = active && accepted?.key === key ? accepted.quote : undefined;
@@ -43,7 +45,10 @@ export function useCraftQuote<T extends Quote | NormalQuote>(state: ArrowState, 
     if (!quote || busy || submitted.current || quoting) return;
     submitted.current = true; setBusy(true);
     const id = nextArrowRequest(); pending.current = { id, key, type: craftType };
-    action(craftType, { token: quote.token, runtime: 'runtime' in quote && !!quote.runtime, requestID: id });
+    const payload = normal
+      ? { token: quote.token, requestID: id }
+      : { ...JSON.parse(key), runtime: 'runtime' in quote && !!quote.runtime, requestID: id };
+    action(craftType, payload);
   };
   return { quote, error, busy, quoting, commit, refresh: () => setRetry(n => n + 1) };
 }

@@ -1,5 +1,5 @@
 import type { ArrowState, Selection, Stack } from './types';
-import { matchingMaterials } from './rules';
+import { craftBatchMax, craftInputMax, matchingMaterials } from './rules';
 
 export function clampQuantity(value: number, maximum: number) {
   return Math.max(0, Math.min(Math.max(0, Math.floor(maximum)), Number.isFinite(value) ? Math.floor(value) : 0));
@@ -16,12 +16,12 @@ export function reconcileSelection(state: ArrowState, selection: Selection): Sel
   const spell = state.spells.find(s => s.id === selection.spell);
   if (!spell?.craftable) return { spell: selection.spell, bases: [], materials: [] };
   const stock = state.arrows.filter(a => a.usable !== false && (spell.adapter?.runtime ? a.runtimeBase : a.fireballBase));
-  let remaining = 100;
+  let remaining = craftBatchMax;
   const seen = new Set<number>();
   const bases = selection.bases.flatMap(b => {
     if (seen.has(b.id) || seen.size >= 32) return [];
     seen.add(b.id);
-    const count = clampQuantity(b.count, Math.min(remaining, stock.find(a => a.id === b.id)?.count ?? 0));
+    const count = clampQuantity(b.count, Math.min(remaining, craftInputMax, stock.find(a => a.id === b.id)?.count ?? 0));
     remaining -= count;
     return count > 0 ? [{ id: b.id, count }] : [];
   });
@@ -30,7 +30,7 @@ export function reconcileSelection(state: ArrowState, selection: Selection): Sel
   const materials = selection.materials.flatMap(m => {
     if (seen.has(m.id) || seen.size >= 128) return [];
     seen.add(m.id);
-    const count = clampQuantity(m.count, Math.min(10000, available.find(a => a.id === m.id)?.count ?? 0));
+    const count = clampQuantity(m.count, Math.min(craftInputMax, available.find(a => a.id === m.id)?.count ?? 0));
     return count > 0 ? [{ id: m.id, count }] : [];
   });
   return { spell: selection.spell, bases, materials };
@@ -58,7 +58,7 @@ export function fillCharge(state: ArrowState, selection: Selection): Selection {
     if (missing <= 0) break;
     const count = next.materials.find(m => m.id === material.id)?.count ?? 0;
     if (!count && next.materials.length >= 128) continue;
-    const add = clampQuantity(Math.ceil(missing / material.units), Math.min(10000, material.count) - count);
+    const add = clampQuantity(Math.ceil(missing / material.units), Math.min(craftInputMax, material.count) - count);
     if (add > 0) { next.materials = replaceStack(next.materials, material.id, count + add); missing -= add * material.units; }
   }
   return next;

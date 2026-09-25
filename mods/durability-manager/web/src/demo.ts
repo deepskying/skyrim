@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '1.7.3',
+  version: '2.0.0',
   unified: true,
   capturingHotkey: false,
   message: '可随时查看强化方案；强化和刷新需靠近附魔台或锻造设备。',

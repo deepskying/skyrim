@@ -16,7 +16,13 @@ import { EnhancementPage, MaterialList } from './EnhancementPage';
 import { normalizeCards } from './enhancement';
 import { createHudReceiver, normalizeEquippedHud, type EquippedHudItem, type HudMessage } from './hud';
 import { EquippedHud } from './EquippedHud';
+import { CraftOrderHud } from './CraftOrderHud';
+import { normalizeCraftOrders, type CraftOrderSnapshot } from './craft-hud';
+import { PlayerHud } from './PlayerHud';
+import { normalizePlayerHud, type PlayerHudSnapshot } from './player-hud';
 import './hud.css';
+import { HudFrame } from './HudFrame';
+import { normalizeHudPosition } from './hud';
 import { EquippedBadge } from './EquippedBadge';
 import { formatDurability } from './format';
 import { equippedFirst, maintenanceOrder } from './equipment';
@@ -31,7 +37,10 @@ declare global {
       setPanelVisible: (visible: boolean) => void;
       showHud: (message: unknown) => void;
       updateEquippedHud: (items: unknown) => void;
+      updatePlayerHud: (state: unknown) => void;
+      updateCraftOrders: (orders: unknown) => void;
       clearHud: () => void;
+      updateHudPosition: (position: unknown) => void;
       reportReady: () => void;
       escape: () => void;
       openArrows: () => void;
@@ -42,7 +51,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '1.7.3',
+  version: '2.0.0',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'A', keyCode: 0x1E, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, enableWorkshopSounds: true, allowEnchantedItemsToBreak: true },
@@ -164,6 +173,7 @@ function normalizeState(value: unknown): PanelState {
       },
       uiFontScale: Math.max(80, Math.min(130, finiteNumber(rawSettings.uiFontScale, 100))),
       uiTransparency: Math.max(0, Math.min(60, finiteNumber(rawSettings.uiTransparency, 16))),
+      ...normalizeHudPosition(rawSettings),
       lowDurabilityThreshold: finiteNumber(rawSettings.lowDurabilityThreshold, emptyState.settings.lowDurabilityThreshold),
       weaponDisplaySeconds: finiteNumber(rawSettings.weaponDisplaySeconds, emptyState.settings.weaponDisplaySeconds),
       enableLowDurabilityWarning: flag(rawSettings.enableLowDurabilityWarning, emptyState.settings.enableLowDurabilityWarning),
@@ -202,7 +212,25 @@ export function App() {
   const [draft, setDraft] = useState<Settings>(state.settings);
   const [panelVisible, setPanelVisible] = useState(import.meta.env.DEV);
   const [hud, setHud] = useState<HudMessage>();
+  const [hudPosition, setHudPosition] = useState(() => normalizeHudPosition({}));
   const [equippedHud, setEquippedHud] = useState<EquippedHudItem[]>([]);
+  const [playerHud, setPlayerHud] = useState<PlayerHudSnapshot>();
+  const [craftOrders, setCraftOrders] = useState<CraftOrderSnapshot>();
+  useEffect(() => {
+    if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has('hud-preview')) return;
+    setPanelVisible(false);
+    setPlayerHud(normalizePlayerHud({ level: 21, experience: 321, experienceNext: 600,
+      fire: 0, frost: 50, shock: 0, magic: 25, poison: 0, disease: 0, armor: 1875, speed: 100,
+      gold: 44735, weight: 851, carryWeight: 800, gameMinutes: 953 }));
+    setEquippedHud([
+      { id: 'preview:right', kind: 'warning', title: '寒汐·处女', detail: '右手', current: 27, maximum: 100 },
+      { id: 'preview:left', kind: 'weapon', title: '月光之刃', detail: '左手', current: 86, maximum: 100 },
+    ]);
+    setCraftOrders(normalizeCraftOrders({ paused: false, entries: [
+      { spell: 1, name: '奥术箭·火球术', family: 'fire', total: 12, remaining: 12, label: '12' },
+      { spell: 2, name: '奥术箭·冰锥术', family: 'ice', total: 4500, remaining: 1500, label: '1.5K' },
+    ] }));
+  }, []);
   const escapeAction = useRef<() => void>(() => {});
   const navigateAction = useRef<(direction: number) => boolean>(() => false);
   const focusSelection = useRef(false);
@@ -224,14 +252,18 @@ export function App() {
         setState((previous) => ({ ...normalized, refreshResult: normalized.refreshResult ?? previous.refreshResult }));
         setRevision((previous) => previous + 1);
         setDraft(normalized.settings);
+        setHudPosition(normalizeHudPosition(normalized.settings));
       },
       setPanelVisible: (visible) => {
         setPanelVisible(visible);
         if (!visible) setEnhancingId(undefined);
       },
       showHud: hudReceiver.receive,
+      updateHudPosition: position => setHudPosition(normalizeHudPosition(position)),
       updateEquippedHud: (items) => { const next = normalizeEquippedHud(items); if (next) setEquippedHud(next); },
-      clearHud: () => { hudReceiver.clear(); setEquippedHud([]); },
+      updatePlayerHud: value => { const next = normalizePlayerHud(value); if (next) setPlayerHud(next); },
+      updateCraftOrders: value => { const next = normalizeCraftOrders(value); if (next) setCraftOrders(next); },
+      clearHud: () => { hudReceiver.clear(); setEquippedHud([]); setPlayerHud(undefined); setCraftOrders(undefined); },
       reportReady: () => send('ready', { version: emptyState.version }),
       escape: () => escapeAction.current(),
       openArrows: () => { setTab('arrows'); setEnhancingId(undefined); },
@@ -245,7 +277,12 @@ export function App() {
     if (!import.meta.env.DEV) return;
     window.durabilityManagerAction = (raw) => {
       const q = JSON.parse(raw);
+      if (q.type === 'saveSettings') setHudPosition(normalizeHudPosition(q));
       setState((prev) => {
+        if (q.type === 'saveSettings') {
+          const position = normalizeHudPosition(q);
+          return { ...prev, settings: { ...prev.settings, ...position, lowDurabilityThreshold: q.lowDurabilityThreshold, weaponDisplaySeconds: q.weaponDisplaySeconds, enableLowDurabilityWarning: q.enableLowDurabilityWarning }, message: '装备养护设置已保存。' };
+        }
         if (q.type === 'saveGeneralSettings') return { ...prev, settings: { ...prev.settings, uiFontScale: q.uiFontScale, uiTransparency: q.uiTransparency, enableWorkshopSounds: q.enableWorkshopSounds }, message: '通用设置已保存。' };
         if (q.type === 'beginHotkeyCapture') return { ...prev, capturingHotkey: true, capturingRecyclingHotkey: false };
         if (q.type === 'beginRecyclingHotkeyCapture') return { ...prev, capturingHotkey: false, capturingRecyclingHotkey: true };
@@ -345,7 +382,7 @@ export function App() {
 
   const hudPercentage = hud?.maximum && hud.current !== undefined ? Math.max(0, Math.min(100, hud.current / hud.maximum * 100)) : undefined;
 
-  return <>{!panelVisible && <div className="durability-hud-stack">{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite">
+  return <>{!panelVisible && <HudFrame position={hudPosition}>{hud && <aside className={`durability-hud ${hud.kind}`} aria-live="polite">
     <svg className="hud-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {hud.kind === 'warning'
         ? <><path d="m12 3 10 18H2L12 3Z" /><path d="M12 9v5m0 3v.1" /></>
@@ -364,7 +401,7 @@ export function App() {
       </>}
       {hud.detail && <span className="hud-detail">{hud.detail}</span>}
     </div>
-  </aside>}<EquippedHud items={equippedHud} /></div>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
+  </aside>}{(playerHud || !!craftOrders?.entries.length || equippedHud.length > 0) && <div className="character-hud-panel">{playerHud && <PlayerHud state={playerHud} />}<CraftOrderHud orders={craftOrders} /><EquippedHud items={equippedHud} hasNotification={!!hud} /></div>}</HudFrame>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
     <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'enhancement' ? 'ENHANCEMENT WORKSHOP' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'arrows' ? '魔法箭工坊' : tab === 'enhancement' ? '装备强化' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : tab === 'enhancement' ? '选择一件装备，查看属于它的强化方案。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${(tab === 'enhancement' || enhancing ? canEnhance : state.forge.active) ? 'active' : ''}`}>{tab === 'enhancement' || enhancing ? (canEnhance ? '附魔台／锻造设备可用' : '需靠近附魔台或锻造设备') : state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 

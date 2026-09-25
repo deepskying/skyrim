@@ -32,7 +32,18 @@ export function useArrowBridge() {
       if (type === 'cancelCraft') return { ...next, quote: null, normalQuote: null };
       if (type === 'followerSettings') return { ...next, followers: { available: true, consumeMagicArrows: !!data.consumeMagicArrows } };
       if (type === 'queueEdit') return { ...next, ammoQueue: { ...prev.ammoQueue!, ids: data.ids as number[], enabled: !!data.enabled } };
-      if (type === 'equip' || type === 'queueStart') return { ...next, arrows: prev.arrows.map(a => ({ ...a, equipped: a.id === (type === 'equip' ? data.id : prev.ammoQueue?.ids[0]) })) };
+      if (type === 'equip' || type === 'queueStart') {
+        const id = type === 'equip' ? Number(data.id) : prev.ammoQueue?.ids[0];
+        const arrow = prev.arrows.find(a => a.id === id);
+        if (!arrow || arrow.usable === false || arrow.count <= 0) return next;
+        let queue = prev.ammoQueue;
+        if (type === 'equip' && !arrow.bolt) {
+          if (!queue?.available) return { ...next, message: '队列保存组件不可用，无法将箭矢设为队首' };
+          const ids = queue.ids.filter(x => prev.arrows.some(a => a.id === x && a.count > 0 && a.usable !== false));
+          queue = { ...queue, ids: [arrow.id, ...ids.filter(x => x !== arrow.id)].slice(0, queue.limit), enabled: true, finished: false };
+        } else if (type === 'queueStart' && queue) queue = { ...queue, enabled: true, finished: false };
+        return { ...next, ammoQueue: queue, arrows: prev.arrows.map(a => ({ ...a, equipped: a.id === id })) };
+      }
       const requestID = Number(data.requestID);
       if (type === 'quote') {
         const selection = { spell: data.spell, bases: data.bases, materials: data.materials } as Selection;
