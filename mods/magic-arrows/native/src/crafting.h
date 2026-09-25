@@ -18,7 +18,7 @@ inline bool IsOutput(RE::TESAmmo* a){return ForAmmo(a)!=nullptr;}
 inline float Alchemy(RE::PlayerCharacter* p){return p?p->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kAlchemy):0.f;}
 inline float Enchanting(RE::PlayerCharacter* p){return p?p->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kEnchanting):0.f;}
 inline Costs RecipeCosts(const Adapter& a,RE::PlayerCharacter* p){return WithEnchanting(WithAlchemy({a.gold,a.mana,a.charge},Alchemy(p)),Enchanting(p));}
-inline json Info(const Adapter& a,RE::PlayerCharacter* p=nullptr){auto costs=RecipeCosts(a,p);return {{"family",a.family},{"material",a.material},{"damage",a.damage},{"radius",a.radius},{"gold",a.gold},{"mana",costs.mana},{"charge",costs.charge},{"baseCharge",a.charge}};}
+inline json Info(const Adapter& a,RE::PlayerCharacter* p=nullptr){auto costs=RecipeCosts(a,p);return {{"family",a.family},{"material",FamilyMaterialName(a.familyIndex)},{"damage",a.damage},{"radius",a.radius},{"gold",a.gold},{"mana",costs.mana},{"charge",costs.charge},{"baseCharge",a.charge}};}
 inline std::string Name(RE::TESForm* f){return f&&f->GetName()?f->GetName():"未命名";}
 inline MaterialKind Kind(RE::TESBoundObject* item){
     if(!item)return MaterialKind::unsupported;
@@ -29,19 +29,23 @@ inline MaterialKind Kind(RE::TESBoundObject* item){
 inline const char* KindName(RE::TESBoundObject* item){
     switch(Kind(item)){case MaterialKind::ingredient:return "ingredient";case MaterialKind::potion:return "potion";case MaterialKind::poison:return "poison";default:return "unsupported";}
 }
-inline int Units(RE::TESBoundObject* item,RE::ActorValue resist=RE::ActorValue::kResistFire){
+// Charge of one bottle, poison or ingredient for one arrow family. Matching owns every
+// rule (family actor values, utility exclusions, the generic fallback), so this only
+// collects the game's effect data.
+inline int Units(RE::TESBoundObject* item,int family){
     const auto kind=Kind(item);
     if(kind!=MaterialKind::ingredient&&kind!=MaterialKind::potion&&kind!=MaterialKind::poison)return 0;
     auto* ingredient=item->As<RE::IngredientItem>();
     auto* magic=ingredient?static_cast<RE::MagicItem*>(ingredient):static_cast<RE::MagicItem*>(item->As<RE::AlchemyItem>());
-    std::vector<ChargeEffect> effects;
+    if(!magic)return 0;
+    std::vector<EffectSample> effects;
     for(std::uint32_t i=0;i<magic->effects.size()&&(!ingredient||i<4);++i){
         auto* e=magic->effects[i];if(!e||!e->baseEffect)continue;
-        auto* effect=e->baseEffect;auto a=effect->GetArchetype();
-        const bool matching=effect->data.primaryAV==resist&&(a==RE::EffectArchetype::kValueModifier||a==RE::EffectArchetype::kPeakValueModifier);
-        effects.push_back({!ingredient||bool(ingredient->gamedata.knownEffectFlags&(1u<<i)),matching,e->effectItem.magnitude,e->effectItem.duration});
+        auto* effect=e->baseEffect;
+        effects.push_back({!ingredient||bool(ingredient->gamedata.knownEffectFlags&(1u<<i)),static_cast<int>(effect->GetArchetype()),
+            static_cast<int>(effect->data.primaryAV),static_cast<int>(effect->data.secondaryAV),e->effectItem.magnitude,e->effectItem.duration});
     }
-    return MaterialUnits(kind,effects);
+    return MaterialUnits(kind,effects,family,GenericPercent);
 }
 inline int Count(RE::PlayerCharacter* p,RE::TESBoundObject* item){auto inv=p->GetInventory();auto it=inv.find(item);return it==inv.end()?0:std::max(0,it->second.first);}
 inline void Sync(){
@@ -68,7 +72,7 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& request){
     std::unordered_set<RE::FormID> seen;
     for(auto selected:request.materials){auto id=selected.id;
         if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");
-        auto* ingredient=RE::TESForm::LookupByID<RE::TESBoundObject>(id);int units=Units(ingredient,a->resist);
+        auto* ingredient=RE::TESForm::LookupByID<RE::TESBoundObject>(id);int units=Units(ingredient,a->familyIndex);
         auto found=inventory.find(ingredient);
         if(units<=0||selected.count<1||found==inventory.end()||!found->second.second||found->second.second->IsQuestObject()||found->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");
         ingredients.push_back({id,selected.count,units});

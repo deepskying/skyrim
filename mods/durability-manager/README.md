@@ -4,6 +4,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- Version 0.1.46 / Equipment Workshop 2.1.0 expands magic arrow charging: each arrow family now accepts a set of actor values (recovery rates, resistances, carry weight, armour, spell schools, speed), `DualValueModifier` effects read both actor values, and numeric effects that belong to no family charge at `MagicArrows.ini` `[Crafting] GenericMaterialPercent` (default 50, 0 disables, 100 full). Utility effects such as water breathing, night eye and cure disease never charge. Both panels now show the accepted effect list for the selected spell. Native and browser rules tests pass; in-game validation remains pending.
+
 - Version 0.1.45 / Equipment Workshop 2.0.0 adds the queued magic arrow crafting row to the bottom-left HUD: one diamond per queued spell, the remaining count inside, the ring tracing the share still to craft, a title-row pause reason and the arrow family colour. Shorter screens show fewer diamonds and count the rest. The queue itself is paid, saved and advanced by the unified workshop, so the standalone build never shows the row. In-game validation remains pending.
 
 - Version 0.1.44 / Equipment Workshop 1.8.0 adds the bottom-left player HUD: SVG diamond level/XP, one combat-stat row, one gold/weight/game-time row, and compact durability rows below. Actor values are sheet values, not effective mitigation; missing values show a dash. Player stats share the existing game-thread snapshot and menu/load visibility lifecycle. Existing custom positions are retained; restore the default HUD position to move an old installation to the bottom-left. In-game validation remains pending.

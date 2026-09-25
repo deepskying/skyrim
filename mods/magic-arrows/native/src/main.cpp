@@ -49,6 +49,7 @@ void LoadConfig() {
     auto path=ConfigPath();wchar_t text[32]{};
     follower_ammo::consume=GetPrivateProfileIntW(L"Followers",L"ConsumeMagicArrows",1,path.c_str())!=0;
     craft_order::pauseInCombat=GetPrivateProfileIntW(L"Crafting",L"PauseInCombat",1,path.c_str())!=0;
+    crafting::GenericPercent=std::clamp(static_cast<int>(GetPrivateProfileIntW(L"Crafting",L"GenericMaterialPercent",50,path.c_str())),0,100);
     GetPrivateProfileStringW(L"Hotkey",L"Key",L"W",text,32,path.c_str());
     std::string key;for(auto* ch=text;*ch;++ch){if(*ch>127){key.clear();break;}key.push_back(static_cast<char>(*ch));}
     std::transform(key.begin(),key.end(),key.begin(),[](unsigned char c){return static_cast<char>(std::toupper(c));});
@@ -91,7 +92,7 @@ json SpellEligibility(RE::SpellItem* s,bool craftable,bool dynamic,const std::st
     std::string why=reason.empty()?(runtime_binding::ready?"法术费用无效，无法计算材料":"运行时封存组件未就绪，请重新读档"):reason;
     return {{"status",excluded?"excluded":"review"},{"releaseMode",sustained?"sustained":"instant"},{"reasons",json::array({why})}};
 }
-json MaterialCharges(RE::TESBoundObject* item){json result=json::object();for(int f=0;f<12;++f)result[runtime_rules::families[f]]=crafting::Units(item,runtime_binding::MaterialAV(f));return result;}
+json MaterialCharges(RE::TESBoundObject* item){json result=json::object();for(int f=0;f<12;++f)result[runtime_rules::families[f]]=crafting::Units(item,f);return result;}
 json State(std::string message={}) {
     auto* p=RE::PlayerCharacter::GetSingleton();
     json arrows=json::array(),spells=json::array(),materials=json::array(),recipes=json::array();
@@ -133,8 +134,9 @@ json State(std::string message={}) {
     auto sort=[](json& xs){std::sort(xs.begin(),xs.end(),[](const json& a,const json& b){return a["name"].get<std::string>()<b["name"].get<std::string>();});};
     sort(arrows);sort(spells);sort(materials);sort(recipes);
     const auto access = loaded ? crafting_access::Nearby(p) : crafting_access::Access{};
-    return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","1.0.0"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
+    return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","1.1.0"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
         {"orders",craft_order::State()},
+        {"materialGenericPercent",crafting::GenericPercent},
         {"hotkey",{{"key",binding.key},{"shift",binding.shift},{"ctrl",binding.ctrl},{"alt",binding.alt}}},
         {"loaded",loaded},{"powerAvailable",RE::TESDataHandler::GetSingleton()&&RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(0x840,"MagicArrows.esp")!=nullptr}};
 }
@@ -359,7 +361,7 @@ void Message(SKSE::MessagingInterface::Message* m){
     api->RegisterJSListener(view,"magicArrowsAction",Action);api->Hide(view);
     if(auto* device=RE::BSInputDeviceManager::GetSingleton())device->AddEventSink(&input);
 #endif
-    logger::info("MagicArrows 1.0.0 loaded; ability local ID 840; key {}",binding.key);
+    logger::info("MagicArrows 1.1.0 loaded; ability local ID 840; key {}",binding.key);
 }
 }
 #ifdef UNIFIED_WORKSHOP

@@ -202,7 +202,7 @@ namespace
 #ifdef UNIFIED_WORKSHOP
     constexpr std::string_view kPluginVersion = "2.0.0";
 #else
-    constexpr std::string_view kPluginVersion = "0.1.45";
+    constexpr std::string_view kPluginVersion = "0.1.46";
 #endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)

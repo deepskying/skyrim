@@ -93,7 +93,7 @@ inline json Start(const json& q) {
         if(!row.at("count").is_number_integer()||row.at("count")<1||row.at("count")>crafting::inputCountMax)throw std::runtime_error("材料数量必须为 1–999 的整数");
         const auto id=row.at("id").get<RE::FormID>();
         if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");
-        auto* item=Form(id);const int units=crafting::Units(item,runtime_binding::MaterialAV(family));
+        auto* item=Form(id);const int units=crafting::Units(item,family);
         auto it=inventory.find(item);
         if(units<=0||it==inventory.end()||!it->second.second||it->second.second->IsQuestObject()||it->second.first<row.at("count").get<int>())
             throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");

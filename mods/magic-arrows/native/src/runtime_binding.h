@@ -17,8 +17,8 @@ inline RE::TESObjectSTAT* canonicalMarker=nullptr;
 inline bool initialized=false,ready=false,hookReady=false,sustainedReady=false;
 inline std::atomic<std::uint64_t> generation{0};
 inline const std::array<const char*,12> names{"火焰箭","霜晶箭","雷棱箭","蛇牙箭","嗜血箭","圣辉箭","旋翼箭","碧波箭","岩锥箭","影镰箭","星魂箭","奥术箭"};
-inline RE::ActorValue MaterialAV(int f){using A=RE::ActorValue;switch(f){case 0:return A::kResistFire;case 1:return A::kResistFrost;case 2:return A::kResistShock;case 3:return A::kPoisonResist;case 4:case 5:return A::kHealth;case 6:case 7:case 8:return A::kStamina;default:return A::kMagicka;}}
-inline const char* MaterialName(int f){switch(f){case 0:return "抗火／弱火";case 1:return "抗冰／弱冰";case 2:return "抗电／弱电";case 3:return "抗毒／弱毒";case 4:case 5:return "恢复／伤害生命";case 6:case 7:case 8:return "恢复／伤害耐力";default:return "恢复／伤害魔法值";}}
+// Family material names and the accepted actor values live in crafting::material_charge so
+// the standalone panel, the unified workshop and the queue all share one rule set.
 inline int Index(RE::TESAmmo* a){if(!a)return -1;auto it=slotIDs.find(a->GetFormID());return it==slotIDs.end()?-1:it->second;}
 inline const Binding* Bound(RE::TESAmmo* a){int i=Index(a);return ready&&i>=0&&slots[i].active?&slots[i]:nullptr;}
 inline bool Base(RE::TESAmmo* a){if(!a||!a->GetPlayable()||a->IsBolt()||a->IsDeleted()||Index(a)>=0||!a->GetFile(0))return false;auto* p=a->GetRuntimeData().data.projectile;return p&&!p->data.explosionType;}
@@ -70,7 +70,7 @@ inline int Classify(RE::SpellItem* s){
     }
     return runtime_rules::Dominant(score);
 }
-inline json Info(RE::SpellItem* s,RE::PlayerCharacter* p){int f=Classify(s);auto c=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p),crafting::Enchanting(p));return {{"runtime",true},{"castRoute",RouteName(s)},{"releaseMode",Sustained(s)?"sustained":"instant"},{"seconds",Sustained(s)?sustained_rules::seconds:0.f},{"family",runtime_rules::families[f]},{"material",MaterialName(f)},{"gold",c.gold},{"mana",c.mana},{"charge",c.charge}};}
+inline json Info(RE::SpellItem* s,RE::PlayerCharacter* p){int f=Classify(s);auto c=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p),crafting::Enchanting(p));return {{"runtime",true},{"castRoute",RouteName(s)},{"releaseMode",Sustained(s)?"sustained":"instant"},{"seconds",Sustained(s)?sustained_rules::seconds:0.f},{"family",runtime_rules::families[f]},{"material",crafting::FamilyMaterialName(f)},{"gold",c.gold},{"mana",c.mana},{"charge",c.charge}};}
 inline std::string OutputName(RE::SpellItem* s,RE::TESAmmo*){return std::string(names[Classify(s)])+"·"+crafting::Name(s);}
 inline void Neutral(Binding& b){
     b.spell=nullptr;b.base=nullptr;b.active=false;b.canonical=false;b.family=11;
@@ -156,7 +156,7 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& q){
     for(auto& [obj,v]:inv)if(obj&&v.second&&!v.second->IsQuestObject()&&!v.second->IsEnchanted())if(auto* a=obj->As<RE::TESAmmo>();Base(a))stock.push_back({a->GetFormID(),v.first,0});
     int f=Classify(s);std::unordered_set<RE::FormID> seen;
     for(auto selected:q.materials){auto id=selected.id;if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");auto* i=RE::TESForm::LookupByID<RE::TESBoundObject>(id);auto it=inv.find(i);
-        int units=crafting::Units(i,MaterialAV(f));if(units<=0||it==inv.end()||!it->second.second||it->second.second->IsQuestObject()||selected.count<1||it->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");ingredients.push_back({id,selected.count,units});}
+        int units=crafting::Units(i,f);if(units<=0||it==inv.end()||!it->second.second||it->second.second->IsQuestObject()||selected.count<1||it->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");ingredients.push_back({id,selected.count,units});}
     auto costs=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p),crafting::Enchanting(p));auto result=crafting::MakeChargedPlan(q.bases,stock,ingredients,crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),costs,false);
     auto* existing=Existing(s);int needed=existing?0:1;
     if(existing&&!arrow_identity::Fits(crafting::Count(p,existing->ammo),result.total))throw std::runtime_error("成品库存数量超限");
