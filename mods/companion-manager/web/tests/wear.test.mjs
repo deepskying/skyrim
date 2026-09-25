@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture,simulate} from '../src/preview-data.mjs';
 import {parseSnapshot,readSnapshot} from '../src/bridge.ts';
-import {canToggle,nextSelection,previewLabel,searchWear,wearOutcome,wearRows,wearSlotNames} from '../src/wear.ts';
+import {canToggle,nextSelection,previewLabel,searchWear,wearGlyphs,wearIcon,wearOutcome,wearRows,wearSlotNames} from '../src/wear.ts';
 const run=(s,command,data={})=>simulate(s,{session:s.session,actorId:s.followers[0].id,command,...data});
 
 test('every preview state has exactly one message the player can act on',()=>{
@@ -38,6 +38,25 @@ test('search matches names case-insensitively and ignores padding',()=>{
  assert.deepEqual(searchWear(rows,' 皮甲 ').map(r=>r.name),['皮甲','皮甲（火焰抗性）']);
  assert.deepEqual(searchWear(rows,'铁').map(r=>r.name).sort(),['铁盾','铁质护腕'].sort());
  assert.equal(searchWear(rows,'不存在').length,0);
+});
+
+test('every row gets an icon that matches its equipment kind',()=>{
+ const rows=wearRows(fixture().followers[0].wardrobe),byName=name=>rows.find(r=>r.name===name);
+ // Slot first: shield, helmet and gloves are kinds of their own even when the material is armour.
+ assert.deepEqual(wearIcon(byName('铁盾')),{glyph:wearGlyphs.shield,tone:'other'});
+ assert.deepEqual(wearIcon(byName('银项链')),{glyph:wearGlyphs.necklace,tone:'jewelry'});
+ assert.deepEqual(wearIcon(byName('铁质护腕')),{glyph:wearGlyphs.gloves,tone:'heavy'});
+ assert.deepEqual(wearIcon(byName('皮甲')),{glyph:wearGlyphs.armor,tone:'light'});
+ assert.deepEqual(wearIcon(byName('皮甲（火焰抗性）')),{glyph:wearGlyphs.armor,tone:'light'});
+ assert.deepEqual(wearIcon(byName('精致服装')),{glyph:wearGlyphs.robe,tone:'clothing'});
+ // Material decides the rest: a heavy body piece, a ring by type, and anything unknown.
+ const base={...byName('皮甲'),mask:4};
+ assert.deepEqual(wearIcon({...base,armorType:'heavy'}),{glyph:wearGlyphs.armor,tone:'heavy'});
+ assert.deepEqual(wearIcon({...base,mask:64,armorType:'jewelry'}),{glyph:wearGlyphs.ring,tone:'jewelry'});
+ assert.deepEqual(wearIcon({...base,mask:0x20000,armorType:undefined}),{glyph:wearGlyphs.box,tone:'other'});
+ assert.deepEqual(wearIcon({...base,mask:32,armorType:undefined}),{glyph:wearGlyphs.necklace,tone:'jewelry'});
+ // The glyphs are the codepoints shipped in the shared icon font.
+ assert.deepEqual(wearGlyphs,{shield:'\uE83A',armor:'\uE61D',robe:'\uEC54',necklace:'\uEA3F',ring:'\uE636',helmet:'\uE971',gloves:'\uE6C3',box:'\uE65F'});
 });
 
 test('arrow navigation stays inside the list and starts at the first row',()=>{

@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useRef,useState,type KeyboardEvent as ReactKeyboardEvent} from "react";
 import type {GameFollower} from "./bridge";
 import {armorTypeNames} from "./behavior";
-import {canToggle,nextSelection,searchWear,wearOutcome,wearRows,wearSlotNames,type WearRow} from "./wear";
+import {canToggle,nextSelection,searchWear,wearIcon,wearOutcome,wearRows,wearSlotNames,type WearRow} from "./wear";
 import {ModelPreview} from "./ModelPreview";
 import "./outfits.css";
 
@@ -60,12 +60,12 @@ export function WearPanel({f,enabled,pending,command}:Props){
       </div>
       <div className="cm-wear-list" role="listbox" aria-label="随从装备" tabIndex={0} ref={list} onKeyDown={onKey} onMouseLeave={()=>setHovered("")}>
         <div className="cm-wear-head" aria-hidden="true"><span>名称</span><span>数量</span><span>重量</span><span>价值</span></div>
-        {shown.map(row=><div key={row.key} role="option" aria-selected={row.key===selectedKey} aria-disabled={blocked(row)}
+        {shown.map(row=>{const icon=wearIcon(row);return <div key={row.key} role="option" aria-selected={row.key===selectedKey} aria-disabled={blocked(row)}
           className={`cm-wear-row${row.equipped?" is-worn":""}${row.favorite?" is-favorite":""}${preview?.key===row.key?" is-preview":""}`}
           onMouseEnter={()=>setHovered(row.key)} onClick={()=>{setSelectedKey(row.key);toggle(row);}}>
-          <span className="cm-wear-name"><strong>{row.name}</strong>{(row.equipped||row.quest||row.favorite)&&<small className="cm-wear-tags">{row.equipped&&<span>已穿戴</span>}{row.quest&&<span>任务</span>}{row.favorite&&<span>★</span>}</small>}</span>
+          <span className="cm-wear-name"><span className="cm-wear-line"><i className={`cm-wear-icon is-${icon.tone}`} aria-hidden="true">{icon.glyph}</i><strong>{row.name}</strong></span>{(row.equipped||row.quest||row.favorite)&&<small className="cm-wear-tags">{row.equipped&&<span>已穿戴</span>}{row.quest&&<span>任务</span>}{row.favorite&&<span>★</span>}</small>}</span>
           <span>{row.count}</span><span>{row.weight.toFixed(1)}</span><span>{row.value}</span>
-        </div>)}
+        </div>;})}
       </div>
       {!rows.length&&<div className="cm-empty">{f.wardrobe?"这位伙伴没有可穿脱的服饰。":"正在获取伙伴库存数据。"}</div>}
       {!!rows.length&&!shown.length&&<div className="cm-empty">没有匹配「{query.trim()}」的服饰。</div>}
@@ -73,7 +73,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
     <div className="cm-wear-detail">
       <ModelPreview actorId={f.id} id={modelId}/>
       {preview&&outcome?<>
-        <div className="cm-wear-title"><h3>{preview.name}</h3><small className={preview.equipped?"is-worn":""}>{preview.equipped?"已穿戴":"库存中"}{preview.quest?" · 任务装备":""}{preview.favorite?" · ★ 已收藏":""}</small></div>
+        <div className="cm-wear-title"><h3><i className={`cm-wear-icon is-${wearIcon(preview).tone}`} aria-hidden="true">{wearIcon(preview).glyph}</i><span className="cm-wear-title-name">{preview.name}</span></h3><small className={preview.equipped?"is-worn":""}>{preview.equipped?"已穿戴":"库存中"}{preview.quest?" · 任务装备":""}{preview.favorite?" · ★ 已收藏":""}</small></div>
         <div className="cm-wear-stats">
           <div className={delta>0?"up":delta<0?"down":""}><small>{outcome.action==="wear"?"穿上后护甲":"卸下后护甲"}</small>
             <strong>{outcome.next}{delta!==0&&<span>{delta>0?` (+${delta})`:` (${delta})`}</span>}</strong></div>

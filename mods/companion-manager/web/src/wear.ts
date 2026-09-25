@@ -21,6 +21,35 @@ export function searchWear(rows: WearRow[], query: string): WearRow[] {
 export const wearSlots = (row: WearRow) => outfitSlots(row.mask);
 export const wearSlotNames = (row: WearRow) => wearSlots(row).map(slotName);
 
+// Icon shown in front of every wear row. The glyphs come from the shared Skyrim icon font (the same
+// one the inventory panel embeds); the mapping is slot first - a shield, a helmet and gloves are
+// recognisable equipment kinds of their own - and the armour material otherwise.
+export type WearTone = "heavy" | "light" | "clothing" | "jewelry" | "other";
+export type WearIcon = { glyph: string; tone: WearTone };
+export const wearGlyphs = {
+  shield: "\uE83A",
+  armor: "\uE61D",
+  robe: "\uEC54",
+  necklace: "\uEA3F",
+  ring: "\uE636",
+  helmet: "\uE971",
+  gloves: "\uE6C3",
+  box: "\uE65F",
+} as const;
+const slotBit = (row: WearRow, slot: number) => (row.mask & 2 ** (slot - 30)) !== 0;
+export function wearIcon(row: WearRow): WearIcon {
+  if (slotBit(row, 39)) return { glyph: wearGlyphs.shield, tone: "other" };
+  if (slotBit(row, 30)) return { glyph: wearGlyphs.helmet, tone: row.armorType === "heavy" ? "heavy" : "light" };
+  if (slotBit(row, 33)) return { glyph: wearGlyphs.gloves, tone: row.armorType === "heavy" ? "heavy" : "light" };
+  if (slotBit(row, 35)) return { glyph: wearGlyphs.necklace, tone: "jewelry" };
+  if (slotBit(row, 36)) return { glyph: wearGlyphs.ring, tone: "jewelry" };
+  if (row.armorType === "clothing") return { glyph: wearGlyphs.robe, tone: "clothing" };
+  if (row.armorType === "jewelry") return { glyph: wearGlyphs.ring, tone: "jewelry" };
+  if (row.armorType === "heavy") return { glyph: wearGlyphs.armor, tone: "heavy" };
+  if (row.armorType === "light") return { glyph: wearGlyphs.armor, tone: "light" };
+  return { glyph: wearGlyphs.box, tone: "other" };
+}
+
 export const clampIndex = (index: number, length: number) => {
   if (length <= 0) return -1;
   return Math.max(0, Math.min(length - 1, index));

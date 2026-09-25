@@ -55,9 +55,16 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.cm-wear-row.is-favorite').count(),2);
   assert.match(await page.locator('.cm-wear-row.is-favorite').first().evaluate(e=>getComputedStyle(e).backgroundColor),/122, 176, 226/);
   assert.ok(await page.locator('.cm-wear-list').evaluate(e=>e.getBoundingClientRect().height)>=400);
+  // Every row carries a type icon from the shared icon font, and the font really loads.
+  const wearIcons=page.locator('.cm-wear-row .cm-wear-icon');
+  assert.equal(await wearIcons.count(),6);
+  assert.equal(await page.locator('.cm-wear-title .cm-wear-icon').count(),1);
+  assert.match(await wearIcons.first().evaluate(e=>getComputedStyle(e).fontFamily),/cm-iconfont/);
+  assert.equal(await page.locator('.cm-wear-row').filter({hasText:'铁盾'}).locator('.cm-wear-icon').textContent(),'\uE83A');
+  assert.equal(await page.evaluate(()=>document.fonts.ready.then(()=>document.fonts.check('16px cm-iconfont'))),true);
   const armorStat=page.locator('.cm-wear-stats > div').first();
   await wearRows.nth(1).hover();
-  assert.equal(await page.locator('.cm-wear-detail h3').innerText(),'皮甲（火焰抗性）');
+  assert.equal(await page.locator('.cm-wear-title-name').innerText(),'皮甲（火焰抗性）');
   assert.equal((await armorStat.innerText()).includes('36'),true);
   assert.equal(await page.locator('.cm-wear-facts div').last().locator('dd').innerText(),'皮甲');
   await wearRows.nth(5).hover(); // shield: +20 armor, nothing replaced
