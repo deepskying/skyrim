@@ -45,7 +45,7 @@ export function OutfitBrowser({self,followers,session,selected,onSelect,onBack,e
     <div className="cm-management-bar"><div><h2>每位伙伴的独立衣橱</h2><p>先选一位伙伴（或你自己），再保存、换上一整套穿搭。</p></div><input aria-label="搜索伙伴" placeholder="搜索伙伴…" value={query} onChange={e=>setQuery(e.target.value)}/></div>
     <div className="cm-outfit-grid">{cards.map(card=>{
       const unopened=!card.self&&card.away;
-      return <button type="button" key={card.id} className={`cm-outfit-card${card.self?" self":""}${unopened?" away":""}`} aria-label={`查看${card.name}的套装`} onClick={()=>onSelect(card.id)}>
+      return <button type="button" key={card.id} className={`cm-outfit-card ${card.tone}${card.self?" self":""}${unopened?" away":""}`} aria-label={`查看${card.name}的套装`} onClick={()=>onSelect(card.id)}>
         <span className="cm-outfit-card-top"><strong title={card.name}>{card.name}</strong>{card.level>0&&<span className="cm-level">Lv. {card.level}</span>}{card.self&&<span className="cm-outfit-tag">你</span>}</span>
         <span className="cm-outfit-home" title={card.home?`居所：${card.home}`:card.meta}>{card.home?`居所：${card.home}`:"武器、盾牌与弹药不入套装"}</span>
         <span className="cm-outfit-card-foot"><span className="cm-outfit-card-meta">{card.meta}</span><span className="cm-outfit-hint">点击查看穿搭</span></span>
