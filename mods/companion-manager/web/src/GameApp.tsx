@@ -12,6 +12,8 @@ import { CompanionPicker } from "./CompanionPicker";
 import { recruitmentCandidates, recruitmentBlock } from "./recruitment";
 import {Management} from "./Management";
 import {OutfitPanel} from "./OutfitPanel";
+import {OutfitBrowser} from "./OutfitBrowser";
+import type {OutfitTarget} from "./OutfitPanel";
 import {WearPanel} from "./WearPanel";
 
 type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe" | "magic" | "outfits";
@@ -100,6 +102,14 @@ export function GameApp() {
     if (entryWaiting) return;
     if (pinned !== managementActor) setManagementActor(pinned);
   }, [entryWaiting, pinned, managementActor]);
+  // The wardrobe page browses companions and the player: the player card merges the self payload
+  // that the native side sends beside the follower rows.
+  const selfCard = s?.self;
+  const outfitTarget: OutfitTarget | undefined = managementActor
+    ? selfCard && managementActor === selfCard.id
+      ? { ...selfCard, self: true, group: "party" }
+      : f
+    : undefined;
   const enabled = !!s?.ready && !!s.managerAvailable && !game.busy;
   // The compact overlay is an item panel too: keep only its companion's payload in the snapshot.
   useEffect(() => {
@@ -329,7 +339,7 @@ export function GameApp() {
               </button>
             </div>
           </header>
-          {section === "outfits" ? <section className="cm-management cm-management-outfits"><div className="cm-management-bar"><div><h2>每位伙伴的独立衣橱</h2><p>保存喜欢的整套穿搭，点卡片一键换上；逐件穿脱请用对话里的「调整穿搭」。</p></div><CompanionPicker followers={magicFollowers} value={f?.id??""} onChange={id=>{setManagementActor(id);setWardrobeEntry(old=>({...old,mode:"inventory",actorId:id}));}} label="选择穿搭伙伴"/></div>{f?<OutfitPanel key={`${s?.session}-${f.id}-${wardrobeEntry.sequence}`} f={f} enabled={enabled} chance={prefs.savedOutfitChance??70} mode={wardrobeEntry.actorId===f.id?wardrobeEntry.mode:"inventory"} onEntryConsumed={()=>setWardrobeEntry(old=>old.actorId===f.id?{...old,mode:"all"}:old)} notice={game.notice} command={game.command}/>:<div className="cm-empty">{managementActor?"等待目标伙伴的数据，请刷新或重新选择伙伴。":"先招募一位伙伴，即可调整穿搭。"}</div>}</section> : section === "behavior" || section === "wardrobe" ? <Management key={`${section}-${wardrobeEntry.sequence}`} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "magic" ? (
+          {section === "outfits" ? <section className="cm-management cm-management-outfits"><OutfitBrowser self={selfCard} followers={magicFollowers} session={s?.session} selected={outfitTarget} onSelect={id=>{setManagementActor(id);setWardrobeEntry(old=>({...old,mode:"inventory",actorId:id}));}} onBack={()=>setManagementActor("")} enabled={enabled} chance={prefs.savedOutfitChance??70} mode={wardrobeEntry.actorId===(outfitTarget?.id??"")?wardrobeEntry.mode:"inventory"} onEntryConsumed={()=>setWardrobeEntry(old=>old.actorId===(outfitTarget?.id??"")?{...old,mode:"all"}:old)} notice={game.notice} command={game.command}/>{managementActor&&!outfitTarget&&<div className="cm-empty">等待目标伙伴的数据，请刷新或重新选择伙伴。</div>}</section> : section === "behavior" || section === "wardrobe" ? <Management key={`${section}-${wardrobeEntry.sequence}`} snapshot={s} enabled={enabled} wardrobe={section==="wardrobe"} initialActor={managementActor} command={game.command}/> : section === "magic" ? (
             <section className="cm-management cm-magic-page">
               <div className="cm-management-bar"><div><h2>管理伙伴的法术</h2><p>查看已知法术、调整使用权限，或传授背包中的法术书。</p></div>
                 <CompanionPicker key={s?.session} followers={magicFollowers} value={f?.id ?? ""} onChange={setManagementActor} label="选择魔法管理伙伴" />

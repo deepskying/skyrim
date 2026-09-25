@@ -29,6 +29,10 @@ RE::FormID lastOutfitSpeaker = 0;
 RE::TESFaction *modeFaction = nullptr;
 std::recursive_mutex lock;
 std::unordered_map<RE::FormID, json> members;
+// The player's own outfit collection uses the same set shape as a companion's but lives in its
+// own record: the player has no slot, no AI package and no member entry, so nothing here may make
+// the companion registry treat the player as a follower.
+json playerOutfits = {{"outfitPresets", json::array()}, {"favorites", json::array()}};
 json settings = {{"opacity", 82}, {"font", 16}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
 std::atomic_bool ready = false, tickQueued = false;
 bool commandPending = false;
@@ -735,7 +739,7 @@ void RegisterSerialization()
         }
         json retired=json::array();
         for(const auto& [id,penalties]:retiredNeeds)retired.push_back({{"actor",id},{"penalties",penalties}});
-        const auto bytes = json{{"members",rows},{"settings",settings},{"ignoredDrops",droppedReferences},{"needsActors",retired}}.dump();
+        const auto bytes = json{{"members",rows},{"player",playerOutfits},{"settings",settings},{"ignoredDrops",droppedReferences},{"needsActors",retired}}.dump();
         if (bytes.size() > 4 * 1024 * 1024 || !s->OpenRecord(0x44415441, rules::StateRecordVersion) ||
             !s->WriteRecordData(bytes.data(), static_cast<std::uint32_t>(bytes.size())))
             logger::error("Could not save Companion Manager state.");
@@ -759,6 +763,7 @@ void RegisterSerialization()
             }
         }
         members.clear();
+        playerOutfits = {{"outfitPresets", json::array()}, {"favorites", json::array()}};
         retiredNeeds.clear();
         droppedReferences.clear();
         settings = {{"opacity", 82}, {"font", 16}, {"notifications", true}, {"sandbox", true}, {"distance", 1}};
@@ -828,8 +833,17 @@ void RegisterSerialization()
                 }
                 auto retired=ReadRetiredNeeds(data,s);
                 prefs.erase("needs");
+                // The player's collection is optional: older saves simply have none yet.
+                json loadedPlayer = {{"outfitPresets", json::array()}, {"favorites", json::array()}};
+                if(data.contains("player")) {
+                    auto record=data.at("player");
+                    if(!record.is_object()) throw std::runtime_error("Invalid player outfits");
+                    RemapWardrobe(record,s);
+                    loadedPlayer=std::move(record);
+                }
                 retiredNeeds=std::move(retired);
                 members = std::move(loaded);
+                playerOutfits = std::move(loadedPlayer);
                 settings = std::move(prefs);
                 droppedReferences=std::move(loadedDrops);
             }
@@ -839,6 +853,29 @@ void RegisterSerialization()
             }
         }
     });
+}
+
+// The wardrobe page shows one card per companion plus the player's own card. The player has no
+// member entry, so the card carries its own outfit payload and the same focus gate.
+json DescribePlayer()
+{
+    std::scoped_lock guard(lock);
+    auto *player = RE::PlayerCharacter::GetSingleton();
+    if (!player)
+        return json::object();
+    const auto *name = player->GetDisplayFullName();
+    json row = {{"id", ID(player->GetFormID())},
+                {"name", name && *name ? name : "你"},
+                {"self", true},
+                {"group", "self"},
+                {"managed", true},
+                {"dead", player->IsDead()},
+                {"unavailable", player->IsDisabled() || player->GetCurrentScene() != nullptr},
+                {"inCombat", Fighting(player)},
+                {"presetCount", playerOutfits.value("outfitPresets", json::array()).size()}};
+    if (!wardrobeFocus || wardrobeFocus == player->GetFormID())
+        row["outfits"] = OutfitSnapshot(player, playerOutfits);
+    return row;
 }
 
 void DescribeActor(RE::Actor *actor, json &row)
@@ -997,6 +1034,20 @@ void ExecuteCommand(const json &request, Completion complete)
         }
         const auto id = ParseID(request, "actorId");
         auto *actor = Actor(id);
+        // The player owns the same outfit commands as a companion but has no member record, slot or
+        // AI package: only the outfit commands apply, and they run against the player's own record.
+        if (actor && actor == RE::PlayerCharacter::GetSingleton())
+        {
+            if (op != "saveNamedOutfit" && op != "removeNamedOutfit" && op != "applyNamedOutfit")
+                throw std::runtime_error("该操作只适用于同伴");
+            if (!ActivityCommand(op, actor, playerOutfits, request))
+                throw std::runtime_error("玩家穿搭操作未能执行");
+            complete(true, op == "saveNamedOutfit" ? "套装已保存，当前服饰已全部收藏"
+                           : op == "removeNamedOutfit" ? "已移除保存的套装，当前穿戴和收藏未改变"
+                           : outfitChecks.contains(id) ? "换装请求已发送，正在确认实际穿戴"
+                                                       : "设置或库存操作已完成");
+            return;
+        }
         if (op == "forget" && actor && members.contains(id))
         {
         }

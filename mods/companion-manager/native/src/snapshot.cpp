@@ -234,6 +234,7 @@ json CollectSnapshot()
     result["location"] = Text(location ? location->GetFullName() : player->GetParentCell()->GetFullName(), "当前位置");
     result["ready"] = true;
     result["inventory"] = PlayerInventory();
+    result["self"] = DescribePlayer();
     std::vector<RE::Actor *> candidates;
     std::unordered_set<RE::FormID> seen;
     const auto registered = RegisteredActors();

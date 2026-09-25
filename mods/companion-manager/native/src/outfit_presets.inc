@@ -114,7 +114,9 @@ void SaveNamedOutfit(RE::Actor* actor,json& r,const std::string& name) {
     // Stay below the co-save record cap, including all other companions' collections.
     auto replacement=r;replacement["outfitPresets"]=presets;replacement["favorites"]=favorites;
     std::size_t bytes=settings.dump().size();
-    for(const auto& [id,member]:members) bytes+=(id==actor->GetFormID()?replacement:member).dump().size();
+    const bool self=actor==RE::PlayerCharacter::GetSingleton();
+    for(const auto& [id,member]:members) bytes+=(!self&&id==actor->GetFormID()?replacement:member).dump().size();
+    bytes+=(self?replacement:playerOutfits).dump().size();
     if(bytes>3*1024*1024) throw std::runtime_error("当前存档的穿搭记录已达容量上限，未保存新套装");
     r["outfitPresets"]=std::move(presets);r["favorites"]=std::move(favorites);
 }

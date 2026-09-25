@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture,simulate} from '../src/preview-data.mjs';
-import {parseSnapshot} from '../src/bridge.ts';
+import {parseSnapshot,readSnapshot} from '../src/bridge.ts';
 import {outfitSlots,validOutfits} from '../src/outfits.ts';
 const run=(s,command,data={})=>simulate(s,{session:s.session,actorId:s.followers[0].id,command,...data});
 test('outfit snapshot accepts slot 61 and rejects malformed saved items and duplicate presets',()=>{
@@ -9,6 +9,15 @@ test('outfit snapshot accepts slot 61 and rejects malformed saved items and dupl
  assert.deepEqual(outfitSlots(0x80000004),[32,61]);
  for(const bad of [-1,0,0x100000000,1.5]){const d=structuredClone(s.followers[0].outfits);d.items[0].mask=bad;assert.equal(validOutfits(d),false);}
  s.followers[0].outfits.presets.push(structuredClone(s.followers[0].outfits.presets[0]));assert.equal(parseSnapshot(s),null);
+});
+test('the player card carries its own outfit payload and survives repair',()=>{
+  const s=fixture();
+  s.self={id:'00000014',name:'抓根宝',outfits:structuredClone(s.followers[0].outfits),presetCount:1};
+  assert.ok(parseSnapshot(s));
+  const bad=structuredClone(s);bad.self.outfits.items[0].mask=-1;assert.equal(parseSnapshot(bad),null);
+  const repaired=readSnapshot({...structuredClone(s),self:{id:'nope',name:'x'}});
+  assert.equal(repaired.snapshot.self,undefined);
+  assert.ok(repaired.issues.some(text=>text.includes('玩家穿搭')));
 });
 test('named save captures current instances, favorites them and isolates the companion',()=>{
  const s=fixture(),f=s.followers[0],other=structuredClone(s.followers[1]);

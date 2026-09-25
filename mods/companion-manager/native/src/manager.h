@@ -15,6 +15,8 @@ void SetGameReady(bool ready);
 bool Fighting(RE::Actor *actor);
 void ExecuteCommand(const json &command, Completion complete);
 void DescribeActor(RE::Actor *actor, json &row);
+// The player's wardrobe card: same outfit payload as a companion row, without a member record.
+json DescribePlayer();
 std::vector<RE::FormID> RegisteredActors();
 std::vector<RE::FormID> DisabledSpells(RE::FormID actor);
 json PlayerInventory();

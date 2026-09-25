@@ -54,8 +54,19 @@ export type Snapshot = {
   mode: "game";
   ready: boolean;
   followers: GameFollower[];
+  // The player's own wardrobe card: a companion-shaped outfit payload without a member entry.
+  self?: SelfCard;
   location: string;
   truncated: boolean;
+};
+export type SelfCard = {
+  id: string;
+  name: string;
+  outfits?: Outfits;
+  dead?: boolean;
+  unavailable?: boolean;
+  inCombat?: boolean;
+  presetCount?: number;
 };
 
 declare global {
@@ -247,6 +258,11 @@ export function parseSnapshot(value: unknown): Snapshot | null {
   if(value.automation!==undefined) {
     const a=value.automation;
     if(!record(a)||!validBehavior(a.defaults)||!number(a.playerCarried)||!number(a.playerCapacity)||!Array.isArray(a.history)||a.history.length>40||a.history.some(x=>typeof x!=="string"))return null;
+  }
+  if(value.self!==undefined) {
+    const selfRow=value.self;
+    if(!record(selfRow)||!formID(selfRow.id)||typeof selfRow.name!=="string"||
+       (selfRow.outfits!==undefined&&!validOutfits(selfRow.outfits)))return null;
   }
   return value as unknown as Snapshot;
 }
@@ -535,6 +551,28 @@ function repairSnapshot(value: unknown, note: (text: string) => void): unknown {
       notifications: raw.notifications === true,
       sandbox: raw.sandbox !== false,
     };
+  }
+  if (out.self !== undefined) {
+    const row = out.self;
+    if (!record(row) || !formID(row.id)) {
+      delete out.self;
+      note("玩家穿搭数据异常，已隐藏玩家卡片。");
+    } else {
+      const fixed: Record<string, unknown> = {
+        ...row,
+        name: text(row.name, "你"),
+        dead: row.dead === true,
+        unavailable: row.unavailable === true,
+        inCombat: row.inCombat === true,
+        presetCount: wholeNumber(row.presetCount),
+      };
+      if (row.outfits !== undefined) {
+        const outfits = repairOutfits(row.outfits, note);
+        if (outfits === undefined) delete fixed.outfits;
+        else fixed.outfits = outfits;
+      }
+      out.self = fixed;
+    }
   }
   if (Array.isArray(out.followers)) {
     const before = out.followers;

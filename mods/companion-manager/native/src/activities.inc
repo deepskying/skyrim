@@ -812,10 +812,13 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         return true;
     }
     if(op=="changeOutfit"||op=="saveNamedOutfit"||op=="removeNamedOutfit"||op=="applyNamedOutfit"||op=="outfitPart"||op=="unequipOutfitPart"||op=="toggleWear") {
-        if(!actor||!r.value("active",false)||!actor->IsPlayerTeammate()||actor->IsDead()||actor->IsDisabled()||
+        // The player wears sets under the same rest/combat rules, but is neither a teammate nor
+        // something the panel has to walk to.
+        const bool self=actor&&actor==RE::PlayerCharacter::GetSingleton();
+        if(!actor||(!self&&!r.value("active",false))||(!self&&!actor->IsPlayerTeammate())||actor->IsDead()||actor->IsDisabled()||
            !actor->Is3DLoaded()||actor->GetCurrentScene()||Fighting(actor)||Fighting(RE::PlayerCharacter::GetSingleton()))
-            throw std::runtime_error("请在同伴闲暇且未战斗时换装");
-        if(!Nearby(actor,RE::PlayerCharacter::GetSingleton(),600)) throw std::runtime_error("请先靠近同伴再调整穿搭");
+            throw std::runtime_error(self?"请在非战斗且未参与剧情场景时调整穿搭":"请在同伴闲暇且未战斗时换装");
+        if(!self&&!Nearby(actor,RE::PlayerCharacter::GetSingleton(),600)) throw std::runtime_error("请先靠近同伴再调整穿搭");
         CancelActivity();
         if(op=="saveNamedOutfit") {SaveNamedOutfit(actor,r,request.at("name").get<std::string>());return true;}
         if(op=="removeNamedOutfit") {RemoveNamedOutfit(r,request.at("presetId"));return true;}
