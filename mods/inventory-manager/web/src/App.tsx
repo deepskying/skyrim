@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { demoState } from './demo';
 import { Icon } from './icon';
+import { ModelPreview } from './ModelPreview';
 import type { HotkeyAction, HotkeyBinding, InventoryItem, ItemCategory, MagicCategory, MagicItem, Page, PanelState } from './types';
 
 type Row = InventoryItem | MagicItem;
@@ -58,7 +59,7 @@ function hotkeyLabel(binding: HotkeyBinding) {
 
 function matchesHotkey(event: KeyboardEvent, binding: HotkeyBinding | undefined) {
   if (!binding || event.ctrlKey !== binding.ctrl || event.shiftKey !== binding.shift || event.altKey !== binding.alt) return false;
-  return directInputCodes[event.code] === binding.keyCode;
+  return (event.code === 'AltRight' ? 0x38 : directInputCodes[event.code]) === binding.keyCode;
 }
 
 function send(type: string, data: Record<string, unknown> = {}) {
@@ -121,7 +122,7 @@ function VirtualRows({
 }
 
 export function App() {
-  const [state, setState] = useState<PanelState>(import.meta.env.DEV ? demoState : { version: '0.1.5', inventory: [], magic: [], player: { gold: 0, weight: 0, weightMax: 0 }, hotkeys: [] });
+  const [state, setState] = useState<PanelState>(import.meta.env.DEV ? demoState : { version: '0.2.0-meridian', inventory: [], magic: [], player: { gold: 0, weight: 0, weightMax: 0 }, hotkeys: [] });
   const [page, setPage] = useState<Page>('inventory');
   const [inventoryCategory, setInventoryCategory] = useState<ItemCategory>('all');
   const [magicCategory, setMagicCategory] = useState<MagicCategory>('all');
@@ -215,10 +216,18 @@ export function App() {
 
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
-      if (event.repeat || state.capturingAction) return;
+      if (event.repeat) return;
+      if (state.capturingAction) {
+        event.preventDefault();
+        if (event.key === 'Escape') send('cancelHotkeyCapture');
+        else if (directInputCodes[event.code] !== undefined) send('captureHotkey', { keyCode: directInputCodes[event.code], shift: event.shiftKey, ctrl: event.ctrlKey, alt: event.altKey });
+        return;
+      }
+      if (matchesHotkey(event, hotkey('open'))) { event.preventDefault(); send('close'); return; }
       const typing = event.target instanceof HTMLInputElement;
       if (event.key === 'Escape') { event.preventDefault(); send('close'); return; }
       if (typing) return;
+      if (event.key === 'Enter' && event.target instanceof HTMLButtonElement && !event.target.classList.contains('list-row')) return;
       if (page === 'hotkeys') return;
       if (event.key === 'ArrowLeft' || event.code === 'KeyA') { event.preventDefault(); cycleCategory(-1); }
       else if (event.key === 'ArrowRight' || event.code === 'KeyD') { event.preventDefault(); cycleCategory(1); }
@@ -306,7 +315,8 @@ export function App() {
 
         <aside className="details">
           {selected ? <>
-            <div className="detail-icon"><Icon name={selected.icon} /></div>
+            {page === 'inventory' && (selected.category === 'weapons' || selected.category === 'armor') ? <ModelPreview id={selected.id} icon={selected.icon} enabled={!!state.modelPreview} /> : <div className="detail-icon"><Icon name={selected.icon} /></div>}
+            <div className="detail-scroll">
             <p className="detail-kicker">{page === 'inventory' ? '物品详情' : '魔法详情'}</p>
             <h3>{selected.name}</h3>
             {!selectedEnchantments?.length && <p className="detail-description">{'description' in selected && selected.description ? selected.description : '选择项目后可使用 Enter 执行默认动作，按 F 切换收藏。'}</p>}
@@ -320,6 +330,7 @@ export function App() {
             </div>
             {(page === 'inventory' || canManageMagic(selected as MagicItem)) && <div className="detail-actions"><button onClick={() => send('favorite', { id: selected.id, page })} type="button"><Icon name="favorite" /> {selected.favorited ? '取消收藏' : '收藏'} (F)</button>{(page === 'inventory' ? canActivateInventory(selected) : canManageMagic(selected as MagicItem)) && <button className="primary" onClick={() => send('activate', { id: selected.id, page })} type="button">{page === 'magic' ? '装备' : selected.category === 'potions' || selected.category === 'food' ? '使用' : '装备'} (Enter)</button>}</div>}
             {page === 'inventory' && canDismantle(selected) && (dismantleConfirmId === selected.id ? <div className="dismantle-confirm"><p>确定分解一件{'enchanted' in selected && selected.enchanted ? '附魔' : ''}物品吗？将返还部分锻造材料。</p><div><button className="danger" onClick={() => { send('dismantle', { id: selected.id }); setDismantleConfirmId(undefined); }} type="button">确认分解</button><button onClick={() => setDismantleConfirmId(undefined)} type="button">取消</button></div></div> : <button className="dismantle" onClick={() => setDismantleConfirmId(selected.id)} type="button">分解一件物品</button>)}
+            </div>
           </> : <p className="empty">选择一项以查看详细信息。</p>}
         </aside>
         </>}

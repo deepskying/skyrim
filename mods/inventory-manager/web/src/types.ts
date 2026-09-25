@@ -52,6 +52,7 @@ export type MagicItem = {
 };
 
 export type PanelState = {
+  modelPreview?: boolean;
   version: string;
   inventory: InventoryItem[];
   magic: MagicItem[];

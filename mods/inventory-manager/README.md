@@ -1,6 +1,10 @@
 # Inventory Manager
 
-The Inventory Manager is a lightweight PrismaUI panel for the player inventory and magic lists.
+Inventory Manager 0.2.0-meridian is an experimental Meridian UI panel for the player inventory and magic lists, targeting Skyrim SE 1.5.97.
+
+Requires Meridian UI 1.5.0, matching SKSE64, and Address Library. Other mods may continue to require PrismaUI; keep it installed for those mods. This plugin queries PrismaUI only to avoid opening while an existing Prisma panel owns focus.
+
+This is the first migration prototype, not a claim of completed in-game validation. See [TESTING.md](TESTING.md).
 
 ## Current controls
 
@@ -26,22 +30,24 @@ The final package must place files at these locations:
 ```text
 Data/SKSE/Plugins/InventoryManager.dll
 Data/SKSE/Plugins/InventoryManager.ini
-Data/PrismaUI/views/InventoryManager/index.html
+Data/MeridianUI/inventorymanager/index.html
 ```
 
-The compiled `web/dist` contents belong in `Data/PrismaUI/views/InventoryManager/`.
+The compiled `web/dist` contents belong in `Data/MeridianUI/inventorymanager/`.
 
 ## Build and package
 
 From `web`, run `pnpm install` once and then `pnpm run build`. From `native`, run `xmake f --skyrim_vr=n -m release` followed by `xmake build -y`.
 
-After both builds, run this from the repository root to create an install-ready `packaging/release/Data` tree:
+After both builds, run this from the repository root to create an install-ready `packaging/release/meridian/Data` tree:
 
 ```powershell
-.\modules\inventory-manager\packaging\package.ps1
+.\mods\inventory-manager\packaging\package.ps1
 ```
 
-The generated `release` directory can be installed as one mod in MO2 or Vortex.
+The generated `InventoryManager-0.2.0-meridian.zip` can be installed in MO2 or Vortex. Disable the older InventoryManager package in the chosen profile, because both versions use the same DLL/ESP names.
+
+For this workspace's MO2 installation, `packaging/install-local.ps1` creates a separate `物品清单-Meridian测试` profile and a separate test mod. It keeps the source profile and older mod folders unchanged, enables Meridian, disables old InventoryManager entries only in the test profile, and copies the latest local save/co-save for isolated testing. It refuses to overwrite an existing test profile or mod.
 
 ## First implementation scope
 
@@ -54,3 +60,14 @@ The generated `release` directory can be installed as one mod in MO2 or Vortex.
 启用随包提供的 `InventoryManager.esp`（ESL 标记），进入新游戏或成功读档后自动获得「打开物品管理」。在魔法菜单的能力分类中装备，按能力键释放；可以加入收藏。能力零消耗、无每日次数限制，与现有快捷键打开同一个面板。各模组独立安装，无需额外 Papyrus 脚本。
 
 如只使用快捷键，将 `SKSE/Plugins/InventoryManager.ini` 的 `[PanelPower] Enabled=0`，下次读档会移除该能力；改回 `1` 后读档可恢复。更新安装时请同时更新 DLL 和 ESP，并在 MO2 右侧插件列表启用 ESP。
+
+## Model preview prototype
+
+- Weapon and armor selections show their world/inventory NIF in the right-hand viewport. Armor uses the player's sex-specific world model, with the other sex as fallback; this is not actor try-on.
+- Drag with the left mouse button to rotate, use the wheel to zoom, and choose 重置视角 to reset.
+- Loading, failed, missing and unsupported models keep a readable icon fallback. Magic and other categories retain their existing details.
+- Geometry comes from Meridian's separate native GPU surface, positioned over a reserved HTML rectangle. The surface does not intercept input; Chromium owns the pointer controls. The remaining details scroll independently.
+- All CEF requests are copied and queued onto Skyrim's task thread. Closing the panel or beginning a load clears the model, invalidating pending native loads. Reopening requests a fresh preview.
+- The migration uses `Meridian.View/1`, `Meridian.RenderLayer/1`, and `Meridian.NifView/1`. Public headers are pinned under `native/src/MeridianUIAPI`.
+- Inventory rows still aggregate by base FormID. Instance-specific enchantments/tempering and complete actor rendering are outside this prototype. Base record texture-swap fidelity also requires further work; the first preview passes a NIF path.
+- Meridian focus coordination covers Meridian consumers. The one-way Prisma focus check here does not establish shared focus ownership across the two frameworks; test coexistence in game.

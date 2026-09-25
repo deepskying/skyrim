@@ -1,7 +1,7 @@
 import type { PanelState } from './types';
 
 export const demoState: PanelState = {
-  version: '0.1.5',
+  version: '0.2.0-meridian',
   player: { gold: 2847, weight: 263, weightMax: 320 },
   message: 'Shift+D opens this panel. Alt changes between inventory and magic.',
   inventory: [

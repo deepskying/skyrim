@@ -1,6 +1,8 @@
 #include "../../../../shared/panel-power/panel_power.h"
 #include "PrismaUI_API.h"
 #include "input_handler.h"
+#include "MeridianUIAPI/ViewDllLoader.h"
+#include "model_preview.h"
 
 #include <nlohmann/json.hpp>
 
@@ -8,8 +10,10 @@ namespace
 {
     using json = nlohmann::json;
 
-    PRISMA_UI_API::IVPrismaUI1* g_prisma = nullptr;
-    PrismaView g_view = 0;
+    Meridian::UI::View::IViewAPI* g_views = nullptr;
+    Meridian::UI::View::ViewHandle g_view = 0;
+    PRISMA_UI_API::IVPrismaUI1* g_otherPrisma = nullptr;
+    ModelPreview g_preview;
 
     struct HotkeySettings
     {
@@ -441,7 +445,8 @@ namespace
         const auto currentWeight = player ? player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kInventoryWeight) : 0.0F;
         const auto maxWeight = player ? player->AsActorValueOwner()->GetActorValue(RE::ActorValue::kCarryWeight) : 0.0F;
         return {
-            { "version", "0.1.5" },
+            { "version", "0.2.0-meridian" },
+            { "modelPreview", g_preview.Available() },
             { "inventory", CollectInventory() },
             { "magic", CollectMagic() },
             { "player", {
@@ -463,10 +468,10 @@ namespace
 
     void SendState(std::string_view a_message = {})
     {
-        if (!g_prisma || !g_view) return;
+        if (!g_views || !g_view) return;
         const auto payload = CollectState(a_message).dump();
         const auto script = "window.InventoryManager && window.InventoryManager.receiveState(" + payload + ");";
-        g_prisma->Invoke(g_view, script.c_str());
+        g_views->ExecuteJavaScript(g_view, script.c_str());
     }
 
     void SendStateNextFrame(std::string a_message = {})
@@ -480,65 +485,30 @@ namespace
 
     void ClosePanel()
     {
-        if (!g_prisma || !g_view) return;
-        g_prisma->Unfocus(g_view);
-        g_prisma->Hide(g_view);
-    }
-
-    [[nodiscard]] bool CloseFocusedPanel()
-    {
-        if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
-        ClosePanel();
-        return true;
+        g_preview.Clear();
+        g_capturingAction.reset();
+        if (!g_views || !g_view) return;
+        g_views->Unfocus(g_view);
+        g_views->Hide(g_view);
     }
 
     void TogglePanel()
     {
-        if (!g_prisma || !g_view) return;
-        if (g_prisma->HasFocus(g_view)) {
+        if (!g_views || !g_view) return;
+        if (g_views->HasFocus(g_view)) {
             ClosePanel();
             return;
         }
-        g_prisma->Show(g_view);
-        g_prisma->Focus(g_view, true);
-        SendState();
-    }
-
-    [[nodiscard]] bool InvokeFocusedView(const char* a_functionName)
-    {
-        if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
-        const auto script = std::string("window.InventoryManager && window.InventoryManager.") + a_functionName + "();";
-        g_prisma->Invoke(g_view, script.c_str());
-        return true;
-    }
-
-    [[nodiscard]] bool NavigateFocusedView(const std::uint32_t a_key)
-    {
-        const char* direction = nullptr;
-        switch (a_key) {
-        case 0x1E:  // A
-        case 0xCB:  // Left arrow
-            direction = "left";
-            break;
-        case 0x20:  // D
-        case 0xCD:  // Right arrow
-            direction = "right";
-            break;
-        case 0x11:  // W
-        case 0xC8:  // Up arrow
-            direction = "up";
-            break;
-        case 0x1F:  // S
-        case 0xD0:  // Down arrow
-            direction = "down";
-            break;
-        default:
-            return false;
+        if (g_otherPrisma && g_otherPrisma->HasAnyActiveFocus()) return;
+        g_views->Show(g_view);
+        const auto focus = g_views->TryFocus(g_view, Meridian::UI::View::FocusMode::PauseGame);
+        if (focus != Meridian::UI::View::FocusResult::Granted && focus != Meridian::UI::View::FocusResult::AlreadyFocused) {
+            g_views->Hide(g_view);
+            logger::warn("Inventory Manager focus unavailable: {}", static_cast<unsigned>(focus));
+            return;
         }
-        if (!g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
-        const auto script = std::string("window.InventoryManager && window.InventoryManager.navigate(\"") + direction + "\");";
-        g_prisma->Invoke(g_view, script.c_str());
-        return true;
+        SendState();
+        g_views->ExecuteJavaScript(g_view, "window.dispatchEvent(new Event('inventory-preview-refresh'));");
     }
 
     [[nodiscard]] HotkeyConfig* FindHotkey(const std::string_view a_action)
@@ -553,7 +523,7 @@ namespace
 
     [[nodiscard]] bool CaptureHotkey(const std::uint32_t a_key, const bool a_shift, const bool a_ctrl, const bool a_alt)
     {
-        if (!g_capturingAction || !g_prisma || !g_view || !g_prisma->HasFocus(g_view)) return false;
+        if (!g_capturingAction || !g_views || !g_view || !g_views->HasFocus(g_view)) return false;
         const auto action = *g_capturingAction;
         const auto hotkey = FindHotkey(action);
         if (!hotkey) {
@@ -717,7 +687,22 @@ namespace
             const auto request = json::parse(a_data ? a_data : "{}");
             const auto type = request.value("type", "");
             if (type == "close") ClosePanel();
-            else if (type == "ready") return;
+            else if (type == "ready") { if (g_views && g_views->HasFocus(g_view)) SendState(); }
+            else if (type.starts_with("preview")) {
+                if (!g_views || !g_view) return;
+                if (type == "previewClear") { g_preview.Clear(); return; }
+                if (!g_views->HasFocus(g_view)) { g_preview.Clear(); return; }
+                const auto id = request.value("id", RE::FormID{ 0 });
+                if (type == "previewSelect") g_preview.Select(id);
+                else if (type == "previewLayout") g_preview.Layout(request);
+                else if (type == "previewCamera") g_preview.Camera(request);
+                else if (type == "previewStatus") {
+                    const json status{{ "id", id }, { "token", request.value("token", 0) }, { "status", g_preview.Status(id, true) }};
+                    const auto script = "window.dispatchEvent(new CustomEvent('inventory-preview-status',{detail:" + status.dump() + "}));";
+                    g_views->ExecuteJavaScript(g_view, script.c_str());
+                }
+            }
+            else if (type == "captureHotkey") (void)CaptureHotkey(request.value("keyCode", 0u), request.value("shift", false), request.value("ctrl", false), request.value("alt", false));
             else if (type == "beginHotkeyCapture") {
                 const auto action = request.value("action", "");
                 if (!FindHotkey(action)) {
@@ -755,39 +740,48 @@ namespace
     }
 
     panel_power::Power g_panelPower("InventoryManager.esp", [] {
-        if (g_prisma && g_view && !g_prisma->HasAnyActiveFocus()) TogglePanel();
+        if (g_views && g_view && !g_views->HasAnyFocus()) TogglePanel();
     });
 
     void OnSKSEMessage(SKSE::MessagingInterface::Message* a_message)
     {
         g_panelPower.OnMessage(a_message);
+        if (a_message->type == SKSE::MessagingInterface::kInputLoaded) {
+            Meridian::UI::Settings settings{};
+            g_views = Meridian::UI::View::Query(&settings, "InventoryManager");
+            if (g_views) g_preview.Initialize(settings);
+            return;
+        }
+        if (a_message->type == SKSE::MessagingInterface::kPreLoadGame ||
+            a_message->type == SKSE::MessagingInterface::kNewGame) ClosePanel();
         if (a_message->type != SKSE::MessagingInterface::kDataLoaded) return;
-        g_prisma = PRISMA_UI_API::RequestPluginAPI();
-        if (!g_prisma) {
-            logger::critical("Prisma UI v1 is unavailable; Inventory Manager will remain disabled.");
+        g_otherPrisma = PRISMA_UI_API::RequestPluginAPI();
+        if (!g_views) {
+            logger::critical("Meridian.View/1 unavailable; Inventory Manager UI disabled.");
             return;
         }
-        g_view = g_prisma->CreateView("InventoryManager/index.html", [](PrismaView view) {
-            logger::info("Inventory Manager view is ready: {}", view);
-        });
+        Meridian::UI::View::ViewCreateInfo info{};
+        info.ownerName = "inventorymanager";
+        info.viewName = "main";
+        info.startUrl = "mod://inventorymanager/index.html";
+        g_view = g_views->CreateView(&info);
         if (!g_view) {
-            logger::critical("Inventory Manager Prisma view could not be created.");
+            logger::critical("Inventory Manager Meridian view could not be created.");
             return;
         }
-        g_prisma->RegisterJSListener(g_view, "inventoryManagerAction", HandleUIAction);
-        g_prisma->Hide(g_view);
+        g_views->RegisterListener(g_view, "inventoryManagerAction", [](const char* payload) {
+            // CEF owns payload only during this callback; copy before queuing.
+            const std::string copy = payload ? payload : "{}";
+            if (auto* tasks = SKSE::GetTaskInterface()) tasks->AddTask([copy] { HandleUIAction(copy.c_str()); });
+        });
+        g_views->Hide(g_view);
 
         const auto input = InputHandler::GetSingleton();
         g_hotkeys = LoadHotkeySettings();
         input->SetHotkey(g_hotkeys.openPanel);
         input->SetPageToggleHotkey(g_hotkeys.pageToggle);
         input->SetSearchHotkey(g_hotkeys.search);
-        input->SetToggleCallback(TogglePanel);
-        input->SetEscapeCallback(CloseFocusedPanel);
-        input->SetPageToggleCallback([] { return InvokeFocusedView("togglePage"); });
-        input->SetSearchCallback([] { return InvokeFocusedView("focusSearch"); });
-        input->SetNavigationCallback(NavigateFocusedView);
-        input->SetCaptureCallback(CaptureHotkey);
+        input->SetToggleCallback([] { if (g_views && !g_views->HasAnyFocus()) TogglePanel(); });
         input->RegisterSink();
         logger::info("Inventory Manager loaded.");
     }

@@ -1,8 +1,10 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot "release"),
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot "release\meridian"),
     [string]$Version
 )
+
+$ErrorActionPreference = "Stop"
 
 $moduleRoot = Split-Path -Parent $PSScriptRoot
 $packageManifestPath = Join-Path $moduleRoot "web\package.json"
@@ -25,7 +27,7 @@ foreach ($requiredPath in @($powerPath, $dllPath, $viewSource, $iniPath)) {
 }
 
 $pluginDestination = Join-Path $OutputDirectory "Data\SKSE\Plugins"
-$viewDestination = Join-Path $OutputDirectory "Data\PrismaUI\views\InventoryManager"
+$viewDestination = Join-Path $OutputDirectory "Data\MeridianUI\inventorymanager"
 New-Item -ItemType Directory -Force -Path $pluginDestination, $viewDestination | Out-Null
 
 Copy-Item -LiteralPath $powerPath -Destination (Join-Path $OutputDirectory "Data") -Force

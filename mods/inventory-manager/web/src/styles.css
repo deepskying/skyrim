@@ -155,3 +155,26 @@ footer { display: flex; align-items: center; justify-content: space-between; gap
   .content.inventory:not(.weapons):not(.armor) .columns,
   .content.inventory:not(.weapons):not(.armor) .list-row { grid-template-columns: 34px minmax(120px, 1fr) 62px 68px 48px; }
 }
+
+/* Keep the native viewport outside the scrolling details to avoid overlay clipping. */
+.details { display: flex; flex-direction: column; overflow: hidden; padding: 20px; }
+.detail-scroll { min-height: 0; overflow-y: auto; flex: 1; }
+.model-preview { flex: 0 0 auto; margin-bottom: 18px; }
+.model-viewport { height: clamp(140px, 27vh, 320px); display: grid; place-items: center; background: rgba(3, 12, 22, .7); touch-action: none; cursor: grab; }
+.model-viewport:active { cursor: grabbing; }
+.model-viewport > .icon { font-size: 64px; color: #80bed6; }
+.preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 10px; color: #92b6c6; font: 12px Arial, sans-serif; }
+.preview-toolbar button { border: 1px solid #416b80; padding: 6px 10px; background: #132d3d; }
+.preview-toolbar button:disabled { opacity: .4; cursor: default; }
+.app-shell { min-height: 0; }
+
+@media (max-width: 1200px) {
+  .topbar { gap: 10px; padding: 12px 18px; }
+  .brand { flex-shrink: 0; }
+  h1 { font-size: 23px; white-space: nowrap; }
+  .brand p { letter-spacing: .08em; }
+  .page-tabs { margin-left: 0; height: 48px; }
+  .page-tabs button { padding: 0 10px; font-size: 16px; white-space: nowrap; }
+  .global-stats { gap: 12px; font-size: 14px; }
+  .carry-stat { width: 155px; }
+}
