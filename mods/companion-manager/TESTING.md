@@ -1,3 +1,10 @@
+## 1.9.11（2026-09-25）伙伴收藏 + 交付装备保护
+
+- 原生：`Wardrobe()` 增加 `filterBase` / `apparelOnly` 过滤；`WardrobeSnapshot` 只发护甲；新增 `ProtectedItems()`（按 key 解析保护清单，来源含 套装／玩家交付／手动锁定）与 `collect` 载荷；`LockPlayerGift` 改为只解析该 base FormID 并走整份库存，同时记录 `giftLocks` 来源；新增 `unprotect` 指令；`RemapWardrobe` 一并迁移 `giftLocks`；`favorite` 指令改用整份库存解析。
+- 前端：`GameFollower.collect` 类型与修复函数（异常行丢弃并提示）；「伙伴库存」页改为「伙伴收藏」（受保护装备 + 来源标签 + 解除保护 + 交换物资）；侧栏标签同步改名。
+- 验证：原生 Release DLL 构建通过，8 个测试目标 exit=0；网页 60 项测试通过（新增保护清单来源/解除、异常行丢弃 2 项）；`pnpm build`（含 `tsc --noEmit`）通过。
+- 待办：换装页分页拉取；装备工坊回收保护需要跨模组判据。
+
 ## 1.9.10（2026-09-25）换装不再被面板的行数上限截断
 
 - 原生：`Wardrobe()` 增加 `limit` 参数（默认 `rules::WardrobeRowLimit` = 512，面板行为不变）；`ApplyNamedOutfit` 与 `CheckOutfits` 改用 `rules::WardrobeResolveLimit` = 8192 并按整份库存解析，且换装路径不再 materialize 实例身份（只读已有列表）。日志证据：`Outfit preset ... wardrobeRows=512` 且缺失件 `sameBaseRows=0`。

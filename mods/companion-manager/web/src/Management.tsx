@@ -31,46 +31,41 @@ export function Management({snapshot:s,enabled,wardrobe,initialActor,command}:Pr
   const counts=categoryCounts(items,query,lockedOnly);
   const totals=selectionTotals(items,selected),room=(s?.automation?.playerCapacity??0)-(s?.automation?.playerCarried??0);
   const invalidSelection=Object.entries(selected).some(([key,count])=>!Number.isInteger(count)||count<1||!items.some(i=>i.key===key&&i.count>=count&&!i.quest&&!i.equipped));
+  // The protected list is what replaced the inventory browser: saved outfits, player gifts and
+  // manual pins, resolved natively so it never depends on a capped inventory payload.
+  const protect=f?.collect??{items:[],missing:0};
   const toggle=(key:keyof BehaviorSettings,label:string,note:string)=><label className="cm-auto-switch"><span><strong>{label}</strong><small>{note}</small></span><input type="checkbox" checked={!!draft[key]} disabled={!enabled} onChange={e=>setDraft({...draft,[key]:e.target.checked})}/></label>;
   const number=(key:keyof BehaviorSettings,label:string,min:number,max:number,unit:string)=><label className="cm-auto-number">{label}<span><input type="number" aria-label={label} min={min} max={max} disabled={!enabled} value={Number(draft[key])} onChange={e=>setDraft({...draft,[key]:Number(e.target.value)})}/>{unit}</span></label>;
   return <section className="cm-management">
-    <div className="cm-management-bar"><div><h2>{wardrobe?"每位伙伴的随身库存":"让同伴按自己的习惯行动"}</h2><p>{wardrobe?(taking?"点击物品卡片选择或取消取走，右上角显示选中状态。":"点击卡片切换锁定。★ 锁定物品不会出售，锁定服饰可参与自动穿搭。"):"全队规则统一设置，也可以为伙伴保留个人偏好。"}</p></div>
+    <div className="cm-management-bar"><div><h2>{wardrobe?"伙伴收藏 · 受保护装备":"让同伴按自己的习惯行动"}</h2><p>{wardrobe?"这些装备不会被自动出售：来自已保存套装、你交付给伙伴的装备，或手动钉住的装备。★ 后面是保护来源。":"全队规则统一设置，也可以为伙伴保留个人偏好。"}</p></div>
       {wardrobe?<CompanionPicker key={s?.session} followers={followers} value={f?.id??""} onChange={setActorId}/>:<select aria-label="选择管理伙伴" value={f?.id??""} onChange={e=>setActorId(e.target.value)}>
         {!wardrobe&&<option value="">全队默认</option>}{followers.map(a=><option key={a.id} value={a.id}>{a.name}{a.group==="registry"?" · 已离队":""}</option>)}
       </select>}
     </div>
     {f&&<div className="cm-management-summary"><strong>{f.name}</strong><span>负重 {(f.carried??0).toFixed(1)} / {(f.capacity??0).toFixed(0)}</span><span>{jobNames[f.activity??"idle"]}</span><span>{f.behaviorOverride?"个人规则":"沿用全队规则"}</span></div>}
     {wardrobe?<>
-      {!f?<div className="cm-empty">先招募一位伙伴，即可查看库存。</div>:<>
-      <nav className="cm-inventory-categories" aria-label="库存分类">{inventoryCategories.map(c=><button key={c.id} className={filter===c.id?"active":""} aria-pressed={filter===c.id} onClick={()=>setFilter(c.id)}><span aria-hidden="true">{c.icon}</span><span>{c.label}</span><small aria-label={`${counts[c.id]}组物品`}>{counts[c.id]}</small></button>)}</nav>
-      <div className="cm-wardrobe-toolbar"><input aria-label="搜索库存" placeholder="搜索装备或物品…" value={query} onChange={e=>setQuery(e.target.value)}/><button className={lockedOnly?"cm-locked-filter active":"cm-locked-filter"} aria-pressed={lockedOnly} onClick={()=>setLockedOnly(!lockedOnly)}>★ 仅看已锁定</button>
-        <button disabled={!usable||f.inCombat} onClick={()=>act("exchangeSupplies")}>交换物资</button><button disabled={!usable} onClick={()=>{setTaking(!taking);setSelected({});}}>{taking?"取消取物":"挑选物品取走"}</button>
+      {!f?<div className="cm-empty">先招募一位伙伴，即可查看收藏。</div>:<>
+      <div className="cm-wardrobe-toolbar"><p>这里的装备不会进入自动出售：来自已保存套装、你亲手交付给伙伴，或手动钉住的装备。要取回或交换，用右侧的交换物资。</p>
+        <button disabled={!usable||f.inCombat} onClick={()=>act("exchangeSupplies")}>交换物资</button>
       </div>
       {f.request&&<div className="cm-management-summary">{f.request==="carry"?"伙伴希望你帮忙分担物品。":"伙伴想听听你的穿搭建议。"}<button disabled={!usable} onClick={()=>act("deferRequest")}>稍后再说</button></div>}
-      <p className="cm-inventory-result">{inventoryCategories.find(c=>c.id===filter)?.label} · {shown.length} 组物品{taking&&" · 切换分类会保留已选物品"}</p>
-      <div className="cm-wardrobe-grid">{shown.map(i=>{
-        const category=inventoryCategories.find(c=>c.id===itemCategory(i))!;
-        const takeable=!i.quest&&!i.equipped&&i.count>0;
-        const picked=takeable&&!!selected[i.key];
-        const togglePick=()=>setSelected(old=>{const next={...old};if(next[i.key])delete next[i.key];else next[i.key]=1;return next;});
-        return <article className={`cm-wardrobe-card ${i.favorite?"favorite":""} ${i.equipped?"equipped":""} ${taking&&picked?"selected":""} ${taking&&!takeable?"unavailable":""}`} key={i.key}>
-          <button className="cm-wardrobe-main" disabled={!usable||(taking&&!takeable)}
-            aria-label={taking?(takeable?`${picked?"取消选择":"选择取走"}${i.name}`:`${i.name}，不可取走`):`${i.favorite?"取消锁定":"锁定"}${i.name}`}
-            aria-pressed={taking?(takeable?picked:undefined):i.favorite}
-            title={taking?(takeable?"点击卡片选择或取消取走":"正在穿戴或受保护，无法取走"):"点击切换锁定；堆叠物品按整组保护，不会自动出售"}
-            onClick={()=>taking?togglePick():act("favorite",{itemKey:i.key,value:!i.favorite})}>
-            <div className="cm-wardrobe-emblem">{category.icon}
-              {taking?(takeable&&<span className={`cm-take-mark ${picked?"checked":""}`} aria-hidden="true">{picked?"✓":""}</span>):<span className="cm-favorite-mark" aria-label={i.favorite?"已锁定":"未锁定"}>{i.favorite?"★":"☆"}</span>}
-            </div>
+      <p className="cm-inventory-result">受保护 {protect.items.length} 件{protect.missing>0&&` · 其中 ${protect.missing} 件已不在背包`}</p>
+      <div className="cm-wardrobe-grid">{protect.items.map(i=>{
+        const category=inventoryCategories.find(c=>c.id===i.inventoryCategory)??inventoryCategories[inventoryCategories.length-1];
+        const fromSet=i.reasons.includes("套装");
+        return <article className={`cm-wardrobe-card favorite ${i.equipped?"equipped":""}`} key={i.key}>
+          <button className="cm-wardrobe-main" disabled={!usable||fromSet}
+            aria-label={fromSet?`${i.name}，来自套装，请在套装里调整`:`解除${i.name}的保护`}
+            title={fromSet?"来自已保存套装：要取消保护，请编辑对应套装":"点击解除保护；解除之后它才可能被自动出售"}
+            onClick={()=>act("unprotect",{itemKey:i.key})}>
+            <div className="cm-wardrobe-emblem">{category.icon}<span className="cm-favorite-mark" aria-label="受保护">★</span></div>
             <h3>{i.name}{i.equipped&&<> <span className="cm-equipped-badge">已装备</span></>}</h3><p>{category.label} · ×{i.count}</p>
-            <div className="cm-wardrobe-stats"><span>价值 {i.value}</span><span>重量 {i.weight.toFixed(1)}</span></div>
-            <div className="cm-wardrobe-tags">{i.quest&&<span>受保护</span>}{i.favorite&&<span>★ 已锁定 · 不出售</span>}{taking&&!takeable&&<span>不可取走</span>}</div>
+            <div className="cm-wardrobe-stats"><span>价值 {i.value}</span></div>
+            <div className="cm-wardrobe-tags">{i.reasons.map(reason=><span key={reason}>★ {reason}</span>)}{fromSet&&<span>编辑套装可解除</span>}</div>
           </button>
-          {taking&&picked&&i.count>1&&<label className="cm-wardrobe-take">取走数量<input type="number" aria-label={`${i.name}取走数量`} min={1} max={i.count} disabled={!usable} value={selected[i.key]} onChange={e=>setSelected({...selected,[i.key]:Number(e.target.value)})}/></label>}
         </article>;
       })}</div>
-      {!shown.length&&<div className="cm-empty">没有符合条件的物品。</div>}
-      {taking&&<div className="cm-take-summary"><div>已选 {totals.count} 件 · 总价值 {totals.value} · 重量 {totals.weight.toFixed(1)}<p>玩家负重：{(s?.automation?.playerCarried??0).toFixed(1)} → {((s?.automation?.playerCarried??0)+totals.weight).toFixed(1)} / {s?.automation?.playerCapacity??0}</p></div><button className="primary" disabled={!usable||!totals.count||invalidSelection||totals.weight>room} onClick={()=>{if(act("wardrobeTake",{items:Object.entries(selected).map(([key,count])=>({key,count}))}))setSelected({});}}>{totals.weight>room?"剩余负重不足":"确认取走"}</button></div>}
+      {!protect.items.length&&<div className="cm-empty">这位伙伴还没有受保护的装备：交给他一件武器，或保存一套穿搭即可。</div>}
       </>}
     </>:<>
       <div className="tabs cm-management-tabs">{["通用设置","拾取行为","售卖行为","自动穿搭","主动对话","活动记录"].map(t=><button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{t}</button>)}</div>

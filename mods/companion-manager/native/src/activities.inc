@@ -84,8 +84,12 @@ std::unordered_set<std::string> ReferencedOutfitKeys() {
     for(const auto& [id,r]:members) { static_cast<void>(id); collect(r); }
     return keys;
 }
+// filterBase restricts the walk to one base form, which is how the gift lock addresses the exact
+// equipment the player handed over without dragging the whole inventory through a capped list.
+// apparelOnly keeps other categories from spending the row budget the wear page needs.
 std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool identify=false,
-                                   std::size_t limit=rules::WardrobeRowLimit) {
+                                   std::size_t limit=rules::WardrobeRowLimit,RE::FormID filterBase=0,
+                                   bool apparelOnly=false) {
     std::vector<WardrobeItem> rows;
     std::unordered_map<RE::FormID,std::unordered_set<std::uint16_t>> usedIDs;
     std::unordered_map<std::string,std::size_t> rowByKey;
@@ -125,6 +129,8 @@ std::vector<WardrobeItem> Wardrobe(RE::TESObjectREFR* owner,const json& r,bool i
     };
     for (auto& [item,entry]:owner->GetInventory()) {
         if (!item||entry.first<=0||!entry.second||!Category(item)) continue;
+        if (filterBase&&item->GetFormID()!=filterBase) continue;
+        if (apparelOnly&&!item->As<RE::TESObjectARMO>()) continue;
         auto add=[&](RE::ExtraDataList* extra,int count) {
             if (count<=0||rows.size()>=limit) return;
             if (extra && !extra->GetByType<RE::ExtraUniqueID>() && identify) {
@@ -650,6 +656,18 @@ outfit::Result ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {
     if(std::all_of(selected.begin(),selected.end(),[](const auto& row){return row.equipped;})) return finish(outfit::Result::Unchanged);
     return finish(WearSet(actor,selected,fallback));
 }
+// The outfit/protection payloads label a piece by what kind of item it is, so the category map has
+// to exist before the include below shows it to the protected-list builder.
+const char* InventoryCategory(RE::TESBoundObject* item) {
+    if(item->As<RE::TESObjectWEAP>()||item->As<RE::TESAmmo>()) return "weapons";
+    if(item->As<RE::TESObjectARMO>()) return "apparel";
+    if(auto* alchemy=item->As<RE::AlchemyItem>()) return alchemy->IsFood()?"food":"potions";
+    if(item->As<RE::ScrollItem>()) return "scrolls";
+    if(item->As<RE::IngredientItem>()) return "ingredients";
+    if(item->As<RE::TESObjectBOOK>()) return "books";
+    if(item->As<RE::TESKey>()) return "keys";
+    return "misc";
+}
 #include "outfit_presets.inc"
 class ActivityAnswer final:public RE::IMessageBoxCallback {
     RE::FormID actor; std::uint64_t session;
@@ -768,16 +786,6 @@ void TickActivities() {
     }
     if(chosen) StartActivity(chosen,target,"loot");
 }
-const char* InventoryCategory(RE::TESBoundObject* item) {
-    if(item->As<RE::TESObjectWEAP>()||item->As<RE::TESAmmo>()) return "weapons";
-    if(item->As<RE::TESObjectARMO>()) return "apparel";
-    if(auto* alchemy=item->As<RE::AlchemyItem>()) return alchemy->IsFood()?"food":"potions";
-    if(item->As<RE::ScrollItem>()) return "scrolls";
-    if(item->As<RE::IngredientItem>()) return "ingredients";
-    if(item->As<RE::TESObjectBOOK>()) return "books";
-    if(item->As<RE::TESKey>()) return "keys";
-    return "misc";
-}
 // Armor material keyword, so the wear page can label a piece without guessing from its name.
 const char* ArmorType(RE::TESObjectARMO* armor) {
     if(!armor) return "";
@@ -789,7 +797,9 @@ const char* ArmorType(RE::TESObjectARMO* armor) {
 }
 json WardrobeSnapshot(RE::Actor* actor,const json& r) {
     json rows=json::array();
-    for(auto& item:Wardrobe(actor,r,true)) {
+    // The wear page only ever acts on armor, so the payload carries armor only: weapons, potions,
+    // ingredients and the rest used to spend the row budget without ever being shown.
+    for(auto& item:Wardrobe(actor,r,true,rules::WardrobeRowLimit,0,true)) {
         json row={{"key",item.key},{"id",ID(item.item->GetFormID())},
             {"name",item.name},{"count",item.count},{"value",item.value},{"weight",item.weight},{"category",item.category},
             {"inventoryCategory",InventoryCategory(item.item)},
@@ -811,7 +821,9 @@ json WardrobeSnapshot(RE::Actor* actor,const json& r) {
 bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& request) {
     if(op=="favorite") {
         const auto key=request.at("itemKey").get<std::string>();
-        auto rows=Wardrobe(actor,r,true);
+        // Resolve just this base form against the whole inventory: the panel's row list is capped.
+        const auto base=rules::FormIDFromHex(std::string_view(key).substr(0,8));
+        auto rows=Wardrobe(actor,r,true,rules::WardrobeResolveLimit,base);
         auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& i){return i.key==key;});
         if(found==rows.end()) throw std::runtime_error("物品已变化，请刷新伙伴库存");
         if(!r.contains("favorites")) r["favorites"]=json::array();
@@ -819,6 +831,21 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
         auto old=std::find(list.begin(),list.end(),key);
         if(value&&old==list.end()) { if(list.size()>=512) throw std::runtime_error("锁定数量已达上限");list.push_back(key); }
         else if(!value&&old!=list.end()) list.erase(old);
+        return true;
+    }
+    if(op=="unprotect") {
+        const auto key=request.at("itemKey").get<std::string>();
+        bool removed=false;
+        for(const auto* field:{"favorites","giftLocks"}) if(r.contains(field)&&r[field].is_array()) {
+            auto& list=r[field];
+            const auto before=list.size();
+            list.erase(std::remove_if(list.begin(),list.end(),[&](const json& value){
+                return value.is_string()&&value.get<std::string>()==key;
+            }),list.end());
+            if(list.size()!=before) removed=true;
+        }
+        if(!removed) throw std::runtime_error("这件装备不在保护清单中，请刷新后重试");
+        ActivityLog(std::format("{}：已解除一件装备的保护",actor->GetName()),false);
         return true;
     }
     if(op=="behavior") {
@@ -880,7 +907,10 @@ void LockPlayerGift(RE::FormID recipient,RE::FormID base,std::uint16_t uniqueID)
     auto* actor=Actor(recipient);
     if(!actor||!members.contains(recipient)) return;
     auto& r=members[recipient];
-    auto rows=Wardrobe(actor,r,true);
+    // Only this base form is resolved, and against the whole inventory: the panel's row list is
+    // capped, and a capped walk would both miss the delivered instance and fail the completeness
+    // check below on a wardrobe that is large for reasons that have nothing to do with this gift.
+    auto rows=Wardrobe(actor,r,true,rules::WardrobeResolveLimit,base);
     // Some transfers have no instance ID. Protect all same-base copies rather than guess.
     const auto exact=[&](const WardrobeItem& row){
         auto* uid=row.extra?row.extra->GetByType<RE::ExtraUniqueID>():nullptr;
@@ -893,10 +923,15 @@ void LockPlayerGift(RE::FormID recipient,RE::FormID base,std::uint16_t uniqueID)
         if(item&&represented<Count(actor,item)) throw std::runtime_error("同伴库存过大，交付装备未能完整识别");
     }
     if(!r.contains("favorites")) r["favorites"]=json::array();
-    auto& favorites=r["favorites"];
+    if(!r.contains("giftLocks")) r["giftLocks"]=json::array();
+    auto& favorites=r["favorites"];auto& giftLocks=r["giftLocks"];
     unsigned added=0;
     for(const auto& row:rows) {
         if(!row.equipment||row.item->GetFormID()!=base||(hasExact&&!exact(row))) continue;
+        // Player-delivered gear is recorded as its own protection source, so the collection page
+        // can say why a piece is kept instead of only showing a lock.
+        if(std::find(giftLocks.begin(),giftLocks.end(),row.key)==giftLocks.end()&&giftLocks.size()<512)
+            giftLocks.push_back(row.key);
         if(std::find(favorites.begin(),favorites.end(),row.key)!=favorites.end()) continue;
         if(favorites.size()>=512) throw std::runtime_error("锁定数量已达上限，请整理同伴锁定物品后重试");
         favorites.push_back(row.key);++added;
@@ -967,7 +1002,8 @@ void RemapWardrobe(json& r,SKSE::SerializationInterface* s) {
     if(r.contains("outfitPresets")) {
         outfit::RemapPresets(r["outfitPresets"],[s](std::uint32_t old,std::uint32_t& mapped){return s->ResolveFormID(old,mapped);});
     }
-    for(auto field:{"favorites"}) if(r.contains(field)) {
+    // Gear the player handed over is protected the same way, so its form IDs are remapped too.
+    for(auto field:{"favorites","giftLocks"}) if(r.contains(field)) {
         if(!r[field].is_array()||r[field].size()>512) throw std::runtime_error("Invalid wardrobe records");
         json mapped=json::array();
         for(const auto& value:r[field]) {

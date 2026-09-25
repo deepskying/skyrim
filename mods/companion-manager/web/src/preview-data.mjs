@@ -11,7 +11,10 @@ function demoOutfits(){
  return {items,pending:false,presets:[{id:1,name:"月下长袍",items:[structuredClone(items[2]),{key:"000877AA:00000014:0008",name:"翡翠戒指",mask:64,equipped:false,favorite:true,available:false,form:0x877aa}]}]};
 }
 export function fixture() {
-  const actor = (id, name, group, managed) => ({
+  // The protection list mirrors native: what a saved outfit names, what the player handed over, and
+  // what was pinned by hand. The fixture reads it off the wardrobe's locked rows.
+  const collectOf=wardrobe=>({missing:0,items:wardrobe.filter(i=>i.favorite).map(i=>({key:i.key,form:parseInt(i.id,16),name:i.name,count:i.count,value:i.value,inventoryCategory:i.inventoryCategory,equipped:i.equipped,quest:i.quest,reasons:["手动锁定"]}))});
+  const actorRow = (id, name, group, managed) => ({
     id,
     name,
     en: id,
@@ -92,7 +95,7 @@ export function fixture() {
         enabled: true,
       },
     ],
-    gear: [
+   gear: [
       {
         id: "00012EB7",
         name: "铁剑",
@@ -111,6 +114,7 @@ export function fixture() {
       },
     ],
   });
+  const actor=(id,name,group,managed)=>{const row=actorRow(id,name,group,managed);return {...row,collect:collectOf(row.wardrobe)};};
   return {
     version: 4,
     automation:{defaults:{...defaultBehavior},history:[],playerCarried:220,playerCapacity:300},
@@ -265,6 +269,15 @@ export function simulate(s, r) {
       const item=f.wardrobe.find(i=>i.key===r.itemKey);
       if(!item)return {ok:false,message:"物品已变化"};
       item.favorite=r.value;break;
+    }
+    case "unprotect": {
+      // The protection list is what the collection page edits: dropping the entry is what lets the
+      // piece be sold again, exactly like the native command.
+      const item=f.wardrobe.find(i=>i.key===r.itemKey);
+      if(!item)return {ok:false,message:"这件装备不在保护清单中，请刷新后重试"};
+      item.favorite=false;item.locked=false;
+      if(f.collect)f.collect={...f.collect,items:f.collect.items.filter(i=>i.key!==r.itemKey)};
+      break;
     }
     case "behavior":
       f.behaviorOverride=!r.inherit;f.behavior=structuredClone(r.inherit?s.automation.defaults:r.settings);break;

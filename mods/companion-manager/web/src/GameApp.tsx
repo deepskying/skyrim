@@ -21,7 +21,7 @@ const sections: [Section, string, string][] = [
   ["party", "我的队伍", "♧"],
   ["registry", "随从名册", "▤"],
   ["behavior", "行为管理", "⚙"],
-  ["wardrobe", "伙伴库存", "◇"],
+  ["wardrobe", "伙伴收藏", "◇"],
   ["outfits", "伙伴穿搭", "♧"],
   ["magic", "魔法管理", "✧"],
   ["settings", "全局设置", "⚙"],

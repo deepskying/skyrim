@@ -15,8 +15,13 @@ export type InventoryItem = {
   spellId: string;
   spellName: string;
 };
+// One row of a companion's protection list: gear kept off the market because a saved outfit names
+// it, the player handed it over, or it was pinned by hand.
+export type ProtectedItem = {key:string;form:number;name:string;count:number;value:number;inventoryCategory:string;equipped:boolean;quest:boolean;reasons:string[]};
+export type ProtectedList = {items:ProtectedItem[];missing:number};
 export type GameFollower = Omit<Follower, "gear"> & {
   outfits?:Outfits;
+  collect?:ProtectedList;
   wardrobe?:WardrobeItem[]; behavior?:BehaviorSettings; behaviorOverride?:boolean;
   carried?:number;capacity?:number;activity?:string;request?:string;
   managed: boolean;
@@ -399,6 +404,31 @@ function repairWardrobe(value: unknown, note: (text: string) => void): unknown[]
   return rows.slice(0, 512);
 }
 
+// The protection list is small by construction - saved outfits, player gifts and manual pins - so
+// one odd row is dropped and reported instead of hiding the page.
+function repairProtected(
+  value: unknown,
+  note: (text: string) => void,
+): unknown | undefined {
+  if (!record(value)) return undefined;
+  const raw = Array.isArray(value.items) ? value.items : [];
+  const items = raw.filter((item) => {
+    if (!record(item) || !instanceKey(field(item, "key"))) return false;
+    if (typeof item.name !== "string" || item.name.length > 4096) return false;
+    if (!Number.isInteger(item.form) || !Number.isInteger(item.count)) return false;
+    if (typeof item.inventoryCategory !== "string") return false;
+    if (typeof item.equipped !== "boolean" || typeof item.quest !== "boolean") return false;
+    return (
+      Array.isArray(item.reasons) &&
+      item.reasons.length > 0 &&
+      item.reasons.every((reason) => typeof reason === "string")
+    );
+  });
+  if (items.length !== raw.length)
+    note(`保护清单里有 ${raw.length - items.length} 条异常记录已跳过。`);
+  return { items: items.slice(0, 512), missing: wholeNumber(value.missing) };
+}
+
 function repairOutfits(
   value: unknown,
   note: (text: string) => void,
@@ -483,6 +513,11 @@ function repairFollower(
   };
   if (row.wardrobe !== undefined)
     out.wardrobe = repairWardrobe(row.wardrobe, note);
+  if (row.collect !== undefined) {
+    const collect = repairProtected(row.collect, note);
+    if (collect === undefined) delete out.collect;
+    else out.collect = collect;
+  }
   if (row.outfits !== undefined) {
     const outfits = repairOutfits(row.outfits, note);
     if (outfits === undefined) delete out.outfits;

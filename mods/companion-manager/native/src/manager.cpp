@@ -901,6 +901,7 @@ void DescribeActor(RE::Actor *actor, json &row)
     // built for the companion an item panel is currently showing.
     if(!wardrobeFocus||wardrobeFocus==actor->GetFormID()) {
         row["wardrobe"] = WardrobeSnapshot(actor,r);
+        row["collect"] = ProtectedItems(actor,r);
         row["outfits"] = OutfitSnapshot(actor,r);
     }
     row["carried"] = Carried(actor);

@@ -96,6 +96,45 @@ json OutfitItems(RE::Actor* actor,const json& r) {
     }
     return result;
 }
+// Keys named by this character's saved outfits, so the protected list can say why a piece is kept.
+std::unordered_set<std::string> PresetKeys(const json& r) {
+    std::unordered_set<std::string> keys;
+    for(const auto& preset:r.value("outfitPresets",json::array()))
+        for(const auto& item:preset.value("items",json::array()))
+            if(item.contains("key")) if(const auto& key=item["key"];key.is_string()) keys.insert(key.get<std::string>());
+    return keys;
+}
+// The protection list - saved outfits, gear the player handed over, manual pins - is small by
+// construction, so each key is resolved against the whole inventory instead of riding the capped
+// row list the panel uses. Pieces that are gone are counted, never silently passed off as kept.
+json ProtectedItems(RE::Actor* actor,const json& r) {
+    json items=json::array();
+    const auto presets=PresetKeys(r);
+    const auto gifts=r.value("giftLocks",json::array());
+    std::unordered_set<std::string> seen;
+    unsigned missing=0;
+    for(const auto* field:{"favorites","giftLocks"}) {
+        for(const auto& value:r.value(field,json::array())) {
+            if(!value.is_string()) continue;
+            const auto key=value.get<std::string>();
+            if(!seen.insert(key).second) continue;
+            const auto base=rules::FormIDFromHex(std::string_view(key).substr(0,8));
+            if(!base) {++missing;continue;}
+            const auto rows=Wardrobe(actor,r,false,64,base);
+            const auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& row){return row.key==key;});
+            if(found==rows.end()) {++missing;continue;}
+            json reasons=json::array();
+            if(presets.contains(key)) reasons.push_back("套装");
+            if(std::any_of(gifts.begin(),gifts.end(),[&](const auto& gift){return gift.is_string()&&gift.get<std::string>()==key;}))
+                reasons.push_back("玩家交付");
+            if(reasons.empty()) reasons.push_back("手动锁定");
+            items.push_back({{"key",key},{"form",base},{"name",found->name},{"count",found->count},
+                {"value",found->value},{"inventoryCategory",InventoryCategory(found->item)},
+                {"equipped",found->equipped},{"quest",found->quest},{"reasons",reasons}});
+        }
+    }
+    return {{"items",items},{"missing",missing}};
+}
 json OutfitSnapshot(RE::Actor* actor,const json& r) {
     auto items=OutfitItems(actor,r);
     auto presets=r.value("outfitPresets",json::array());
