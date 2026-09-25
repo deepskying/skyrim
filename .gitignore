@@ -1,4 +1,5 @@
 reference/
+output/
 .pnpm-store/
 **/node_modules/
 **/dist/
