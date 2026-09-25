@@ -39,7 +39,6 @@ export function MagicCrafting({ state, action, active }: { state: ArrowState; ac
           return <button key={s.id} disabled={busy} aria-pressed={s.id === selection.spell} className={[s.id === selection.spell && 'selected', highlight && `material-${highlight}`].filter(Boolean).join(' ')} onClick={() => setSelection(previous => reconcileSelection(state, { ...previous, spell: s.id }))}><span>✧</span><div><b>{s.name}</b><small>{s.source}</small></div>{s.id === selection.spell && <i>✓</i>}</button>;
         })}{!spells.length && <p className="arrow-muted">没有符合条件的已学法术。</p>}</div>
         {plan.spell && <p className="craft-spell-description">{plan.spell.eligibility?.reasons.join('；') || '选择基材和充能材料后，即可确认制作。'}</p>}
-        {!!state.orders?.entries.length && <ul className="craft-order-queue" aria-label="制作队列">{state.orders.entries.map(entry => <li key={entry.spell} className={entry.family ?? ''}><b>{entry.name}</b><span>剩余 {entry.label} / {entry.total}</span>{state.orders?.paused && <i>{state.orders.reason || '已暂停'}</i>}</li>)}</ul>}
       </section>
       <div className="craft-ingredients">
         <section className="craft-stock-card arrow-card" aria-label="箭矢用量">

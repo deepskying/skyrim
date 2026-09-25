@@ -119,5 +119,8 @@ test('queued crafting gates the start button on the co-save and the per-spell ce
   assert.match(quote, /craftType = normal \? 'normalCraft' : 'orderStart'/);
   assert.match(quote, /已加入制作队列/);
   const panel = readFileSync(new URL('../src/arrows/MagicCrafting.tsx', import.meta.url), 'utf8');
-  assert.match(panel, /aria-label="制作队列"/);
+  // Queue progress lives in the bottom-left HUD; the crafting panel no longer repeats a
+  // per-spell remaining count.
+  assert.doesNotMatch(panel, /craft-order-queue/);
+  assert.doesNotMatch(panel, /aria-label="制作队列"/);
 });
