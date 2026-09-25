@@ -73,6 +73,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
     <div className="cm-wear-detail">
       <ModelPreview actorId={f.id} id={modelId}/>
       {preview&&outcome?<>
+        <div className="cm-wear-info">
         <div className="cm-wear-title"><h3><i className={`cm-wear-icon is-${wearIcon(preview).tone}`} aria-hidden="true">{wearIcon(preview).glyph}</i><span className="cm-wear-title-name">{preview.name}</span></h3><div className="cm-wear-title-actions"><small className={preview.equipped?"is-worn":""}>{preview.equipped?"已穿戴":"库存中"}{preview.quest?" · 任务装备":""}{preview.favorite?" · ★ 已收藏":""}</small><button className="primary" disabled={blocked(preview)} onClick={()=>toggle(preview)}>{preview.equipped?"卸下":"穿上"}</button></div></div>
         <div className="cm-wear-stats">
           <div className={delta>0?"up":delta<0?"down":""}><small>{outcome.action==="wear"?"穿上后护甲":"卸下后护甲"}</small>
@@ -89,6 +90,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
           {!!outcome.replaced.length&&<div><dt>将换下</dt><dd>{outcome.replaced.map(row=>row.name).join("、")}</dd></div>}
           <div className="cm-wear-hint"><dt>操作</dt><dd>{preview.equipped&&preview.quest?"任务装备不能卸下。":usable?(preview.equipped?"点击右侧按钮或按 Enter 卸下，悬停其它服饰即可预览对比。":"点击右侧按钮或按 Enter 穿上；同名物品只影响选中那件。"):"当前无法穿脱，仅预览；请先让伙伴脱离战斗并待在身边。"}</dd></div>
         </dl>
+        </div>
       </>:<div className="cm-empty">左侧没有可预览的服饰。</div>}
     </div>
   </div>;

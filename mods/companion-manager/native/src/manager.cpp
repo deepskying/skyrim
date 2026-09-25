@@ -507,7 +507,7 @@ void Tick()
                 try {
                     CancelActivity();
                     if(dialogueOutfitMode!=0) {
-                        OpenPartnerWardrobe(id,dialogueOutfitMode==1?"wear":"save");
+                        OpenPartnerWardrobe(id,dialogueOutfitMode==1?"compact":"save");
                         return;
                     }
                     // The dialogue line is "随机套装": only saved sets, with a message when none exist.
@@ -575,7 +575,7 @@ bool RegisterPapyrus(RE::BSScript::IVirtualMachine* vm)
         const auto it=members.find(actor->GetFormID());
         if(it==members.end()||!it->second.value("active",false)) return;
         dialogueOutfitRequest=actor->GetFormID();
-        dialogueOutfitMode=0;   // 0 = random saved set, 1 = wear page, 2 = save page
+        dialogueOutfitMode=0;   // 0 = random saved set, 1 = compact wear overlay, 2 = save page
         dialogueOutfitDeadline=ActivityTime()+20;
     });
     vm->RegisterFunction("AdjustOutfit","CMDialogue", +[](RE::StaticFunctionTag*,RE::Actor* actor,std::int32_t mode) {

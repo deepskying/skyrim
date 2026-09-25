@@ -135,6 +135,22 @@ const assert=require('node:assert/strict');
   // Leaving the page drops the model instead of leaving a surface over the other tabs.
   await page.getByRole('button',{name:'整套随机',exact:true}).click();
   await page.waitForFunction(()=>window.__previewCalls.some(call=>call.type==='previewClear'));
+  // The dialogue's 调整穿搭 opens the compact overlay: no sidebar, no tabs, a transparent
+  // viewport over the game and one translucent info card.
+  await entry('000A2C94','compact');
+  await page.locator('.cm-compact').waitFor();
+  assert.equal(await page.locator('.sidebar').count(),0);
+  assert.equal(await page.locator('.cm-outfit-toolbar').count(),0);
+  assert.equal(await page.locator('.cm-compact .cm-wear-list').count(),1);
+  assert.equal(await page.locator('.cm-compact-bar h2').innerText(),'莱迪亚');
+  assert.equal(await page.locator('.cm-preview-viewport').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
+  assert.match(await page.locator('.cm-wear-info').evaluate(e=>getComputedStyle(e).backgroundColor),/rgba\(8, 10, 12, 0\.66\)/);
+  // Keyboard and mouse keep working in the overlay.
+  const wornBefore=await page.locator('.cm-wear-row.is-worn').count();
+  await page.locator('.cm-wear-list').focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(before=>document.querySelectorAll('.cm-wear-row.is-worn').length!==before,wornBefore);
   assert.deepEqual(errors,[]);
   console.log('PASS save once, companion switch, delayed actor, dialogue ownership, worn slot highlights, the wear page and its model viewport');
  } finally {await browser.close();}

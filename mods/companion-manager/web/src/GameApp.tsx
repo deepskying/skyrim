@@ -12,6 +12,7 @@ import { CompanionPicker } from "./CompanionPicker";
 import { recruitmentCandidates, recruitmentBlock } from "./recruitment";
 import {Management} from "./Management";
 import {OutfitPanel} from "./OutfitPanel";
+import {WearPanel} from "./WearPanel";
 
 type Section = Exclude<DemoSection, "nearby"> | "behavior" | "wardrobe" | "magic" | "outfits";
 const sections: [Section, string, string][] = [
@@ -76,7 +77,7 @@ export function GameApp() {
   const [managementActor,setManagementActor]=useState("");
   const [wardrobeEntry,setWardrobeEntry]=useState({mode:"inventory",sequence:0,actorId:"",session:""});
   useEffect(()=>{
-    const open=(e:Event)=>{const detail=(e as CustomEvent).detail;const id=typeof detail==="string"?detail:detail?.actorId;if(typeof id==="string"&&/^[0-9A-F]{8}$/.test(id)){const outfit=["part","save","wear"].includes(detail?.mode);setManagementActor(id);setWardrobeEntry(old=>({mode:outfit?detail.mode:"inventory",sequence:old.sequence+1,actorId:id,session:typeof detail?.session==="string"?detail.session:""}));setSection(outfit?"outfits":"wardrobe");setConfirm(null);setRecruitOpen(false);}};
+    const open=(e:Event)=>{const detail=(e as CustomEvent).detail;const id=typeof detail==="string"?detail:detail?.actorId;if(typeof id==="string"&&/^[0-9A-F]{8}$/.test(id)){const outfit=["part","save","wear","compact"].includes(detail?.mode);setManagementActor(id);setWardrobeEntry(old=>({mode:outfit?detail.mode:"inventory",sequence:old.sequence+1,actorId:id,session:typeof detail?.session==="string"?detail.session:""}));setSection(outfit?"outfits":"wardrobe");setConfirm(null);setRecruitOpen(false);}};
     window.addEventListener("companion:wardrobe",open);return()=>window.removeEventListener("companion:wardrobe",open);
   },[]);
   const candidates = recruitmentCandidates(s, recruitQuery);
@@ -90,7 +91,7 @@ export function GameApp() {
           .includes(query.toLowerCase()),
     ) ?? [];
   const magicFollowers = s?.followers.filter(f => f.managed) ?? [];
-  const entryWaiting=["save","part","wear"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
+  const entryWaiting=["save","part","wear","compact"].includes(wardrobeEntry.mode)&&!!wardrobeEntry.session&&wardrobeEntry.session!==s?.session;
   const pinned = section==="outfits"||section==="magic" ? pinnedCompanionId(managementActor,magicFollowers) : managementActor;
   const f = section === "outfits" ? (entryWaiting?undefined:magicFollowers.find(x => x.id === pinned)) : section === "magic" ? magicFollowers.find(x => x.id === pinned) : s?.followers.find((x) => x.id === selected && x.group === section);
   // The snapshot arrives ordered by live distance, so the target must be pinned: re-deriving it
@@ -202,6 +203,24 @@ export function GameApp() {
     "--base-size": `${prefs.font}px`,
     "--text-scale": prefs.font / 15,
   } as CSSProperties;
+  // The dialogue's 调整穿搭 opens the compact shell instead of the whole dashboard: the same wear
+  // page, laid out over the game with no panel chrome, so equipping something stays a quick detour.
+  if (wardrobeEntry.mode === "compact")
+    return (
+      <div className="preview-world cm-runtime is-compact" style={style}>
+        <main className="cm-compact">
+          <header className="cm-compact-bar">
+            <div><p className="cm-compact-eyebrow">EQUIPMENT</p><h2>{f?.name ?? "调整穿搭"}</h2></div>
+            <button type="button" className="cm-compact-close" onClick={() => request("close")} aria-label="关闭">×</button>
+          </header>
+          {f ? (
+            <WearPanel f={f} enabled={enabled} pending={!!f.outfits?.pending} command={game.command}/>
+          ) : (
+            <div className="cm-empty">{managementActor ? "等待目标伙伴的数据，请刷新或重新选择伙伴。" : "先招募一位伙伴，即可调整穿搭。"}</div>
+          )}
+        </main>
+      </div>
+    );
   return (
     <div className="preview-world cm-runtime">
       <main className="app" style={style}>
