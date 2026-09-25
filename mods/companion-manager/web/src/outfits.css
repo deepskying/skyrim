@@ -65,20 +65,16 @@
 .cm-outfit-card{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:104px;padding:14px 16px;border:1px solid rgba(255,255,255,.12);border-radius:4px;background:rgba(8,10,12,.62);color:#e7e4dc;text-align:left;cursor:pointer}
 .cm-outfit-card-top{display:flex;align-items:center;gap:8px;min-width:0}.cm-outfit-card-top strong{flex:1;min-width:0;font-size:1.12em;font-weight:500;overflow-wrap:anywhere}
 .cm-outfit-card-meta{color:#a9a49a;font-size:13px;overflow-wrap:anywhere}
-.cm-outfit-badges{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
-.cm-outfit-badge{padding:2px 7px;border:1px solid rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.04);color:#bdb7ab;font-size:12px;max-width:100%;overflow-wrap:anywhere}
-.cm-outfit-badge.party{border-color:#7fd0b066;background:#7fd0b014;color:#a8e6cf}
-.cm-outfit-badge.waiting{border-color:#d8b46a66;background:#d8b46a14;color:#efd49a}
-.cm-outfit-badge.registry{border-color:#8a94a066;background:#8a94a00f;color:#b6bcc4}
-.cm-outfit-badge.nearby{border-color:#7fa8d066;background:#7fa8d014;color:#b7d2ea}
-.cm-outfit-badge.self{border-color:#c8a96a66;background:#c8a96a14;color:#e8d3a2}
-.cm-outfit-badge.sets{border-color:#8fb6a855;background:#8fb6a80f;color:#bfe0d3}
-.cm-outfit-badge.home{border-color:#c0a08a55;background:#c0a08a0f;color:#dcc2b1}
+.cm-outfit-home{color:#c9c2b6;font-size:13px;overflow-wrap:anywhere}
 .cm-outfit-hint{margin-left:auto;color:#8f8a80;font-size:12px;white-space:nowrap}
 .cm-outfit-card-foot{display:flex;align-items:center;gap:10px;margin-top:auto;color:#b9b3a7;font-size:13px}
 .cm-outfit-card:hover{border-color:#8fb6a8;background:rgba(20,26,28,.86)}
-.cm-outfit-card.self{border-color:#c8a96a66;background:rgba(30,26,18,.66)}
-.cm-outfit-card.away{opacity:.72}
+/* 1.9.4: the party state is the card's background; the set count badge is gone. */
+.cm-outfit-card.party{border-color:#7fd0b055;background:rgba(22,50,42,.72)}
+.cm-outfit-card.waiting{border-color:#d8b46a55;background:rgba(56,44,20,.72)}
+.cm-outfit-card.registry{border-color:#8a94a044;background:rgba(18,20,24,.72)}
+.cm-outfit-card.nearby{border-color:#7fa8d044;background:rgba(20,32,44,.72)}
+.cm-outfit-card.self{border-color:#c8a96a66;background:rgba(52,42,20,.72)}
 .cm-outfit-avatar{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);font-size:15px}
 .cm-outfit-card.self .cm-outfit-avatar{border-color:#c8a96a88;color:#f0dcae}
 .cm-outfit-tag{flex-shrink:0;padding:2px 7px;border:1px solid #c8a96a66;border-radius:10px;background:#c8a96a14;color:#e8d3a2;font-size:12px}
