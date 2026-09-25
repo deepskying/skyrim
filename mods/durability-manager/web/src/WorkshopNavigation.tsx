@@ -1,6 +1,8 @@
-export type Tab = 'workshop' | 'enhancement' | 'arrows' | 'settings';
+// The 装备强化 rail entry was removed in 2.0.1: 装备养护 already owns repair and enhancement, and
+// the detail panel now offers both as cards, so the separate page only duplicated the entry point.
+export type Tab = 'workshop' | 'arrows' | 'settings';
 const entries: { id: Tab; icon: string; name: string }[] = [
-  { id: 'workshop', icon: '◈', name: '装备养护' }, { id: 'enhancement', icon: '⚒', name: '装备强化' },
+  { id: 'workshop', icon: '◈', name: '装备养护' },
   { id: 'arrows', icon: '➶', name: '魔法箭' }, { id: 'settings', icon: '⚙', name: '工坊设置' },
 ];
 export function WorkshopNavigation({ tab, forge, arrows, onChange }: { tab: Tab; forge: boolean; arrows: boolean; onChange: (tab: Tab) => void }) {
