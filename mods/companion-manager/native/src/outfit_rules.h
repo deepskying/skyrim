@@ -36,7 +36,7 @@ constexpr bool StripBeforeWear(bool outfitPiece,bool protectedItem,bool namedByS
 // A saved set names one instance by key. When that identity is gone - the engine re-issues it
 // after a temper round trip duplicates it - the only safe stand-in is the same base form carrying
 // the same enchantment signature: another enchantment, or the same one at a different charge, is
-// a different item, and a worn copy is already in use.
+// a different item.
 struct EnchantSignature {
     std::uint32_t form{};
     std::uint16_t charge{};
@@ -45,7 +45,14 @@ struct EnchantSignature {
 constexpr bool SameEnchantment(const EnchantSignature& a,const EnchantSignature& b) {
     return a.enchanted==b.enchanted&&(!a.enchanted||(a.form==b.form&&a.charge==b.charge));
 }
-constexpr bool FallbackInstance(const EnchantSignature& saved,const EnchantSignature& row,bool worn) {
+// Any copy carrying that signature describes the piece the set meant.
+constexpr bool FallbackMatch(const EnchantSignature& saved,const EnchantSignature& row) {
+    return SameEnchantment(saved,row);
+}
+// An unworn copy is the one the set actually puts on, so it is preferred. A worn copy is the
+// piece itself: it satisfies the set, and naming it is what keeps a whole-set request from
+// stripping it as "a piece the set does not name".
+constexpr bool FallbackPreferred(const EnchantSignature& saved,const EnchantSignature& row,bool worn) {
     return !worn&&SameEnchantment(saved,row);
 }
 // The wear page toggles one named instance. It covers every playable armor record that occupies a

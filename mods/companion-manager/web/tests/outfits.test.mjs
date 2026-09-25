@@ -58,12 +58,16 @@ test('a saved set wears its reinforced piece again after the engine re-issued it
   assert.ok(run(s,'saveNamedOutfit',{name:'强化装'}).ok);
   const p=f.outfits.presets.find(p=>p.name==='强化装'),saved=p.items.find(i=>i.key===piece.key);
   assert.ok(saved);assert.equal(saved.enchant,0x0007A0F7);assert.equal(saved.charge,200);
-  // A temper round trip takes the piece off and puts it back on, and the engine hands the copy it
-  // re-equips a fresh uid: the key the set stored no longer resolves to any row.
-  piece.equipped=false;piece.key='00012E49:00000014:00FF';
+  // A temper round trip re-issues the worn copy's identity, so the key the set stored resolves to
+  // nothing. The piece is still on: a whole-set request must keep it there instead of stripping a
+  // piece it can no longer name.
+  piece.key='00012E49:00000014:00FF';
   assert.ok(run(s,'applyNamedOutfit',{presetId:p.id}).ok);
-  // Same base form with the same enchantment signature, so the reinforced piece comes back on and
+  assert.equal(piece.equipped,true);assert.equal(plain.equipped,false);
+  // Back in the pack, the same base form with the same enchantment signature puts it on again, and
   // the plain copy of that base stays off.
+  piece.equipped=false;
+  assert.ok(run(s,'applyNamedOutfit',{presetId:p.id}).ok);
   assert.equal(piece.equipped,true);assert.equal(plain.equipped,false);
   // A set saved before signatures existed carries none to match on, so it is never guessed at.
   const legacy=structuredClone(p);legacy.id=99;

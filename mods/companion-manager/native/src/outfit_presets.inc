@@ -148,10 +148,10 @@ void RemoveNamedOutfit(json& r,const json& presetID) {
 }
 // The set names an instance the inventory no longer carries under that identity: the engine
 // re-issued it after a temper round trip duplicated it. The same base form with the same
-// enchantment signature is the only safe stand-in; a differently enchanted copy or an already
-// worn one is never substituted, so a missing piece still reports as missing. Sets saved before
-// the signature existed carry no signature at all and are never guessed at: the piece has to be
-// saved again before it can be recovered.
+// enchantment signature is the only safe stand-in, so a differently enchanted copy is never
+// substituted; a worn copy of that signature is the piece itself and counts as already satisfied.
+// Sets saved before the signature existed carry no signature at all and are never guessed at: the
+// piece has to be saved again before it can be recovered.
 const WardrobeItem* FallbackRow(const std::vector<WardrobeItem>& rows,const json& saved) {
     const auto formField=saved.find("form");
     if(formField==saved.end()||!formField->is_number_integer()) return nullptr;
@@ -162,14 +162,42 @@ const WardrobeItem* FallbackRow(const std::vector<WardrobeItem>& rows,const json
     if(const auto charge=saved.find("charge");charge!=saved.end()&&charge->is_number_integer())
         enchant.charge=static_cast<std::uint16_t>((std::min)(charge->get<std::uint32_t>(),0xFFFFu));
     const auto form=formField->get<RE::FormID>();
+    const auto matches=[&](const WardrobeItem& row){
+        return row.item->GetFormID()==form&&outfit::FallbackMatch(enchant,row.enchant);
+    };
+    // A spare copy is what the set puts on; a worn one only satisfies the set, and naming it is
+    // what stops a whole-set request from stripping the piece it is already wearing.
+    const auto spare=std::find_if(rows.begin(),rows.end(),[&](const auto& row){
+        return matches(row)&&outfit::FallbackPreferred(enchant,row.enchant,row.equipped);
+    });
+    if(spare!=rows.end()) return &*spare;
     const auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& row){
-        return row.item->GetFormID()==form&&outfit::FallbackInstance(enchant,row.enchant,row.equipped);
+        return matches(row);
     });
     return found==rows.end()?nullptr:&*found;
 }
 outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool manual) {
     if(outfitChecks.contains(actor->GetFormID())) return outfit::Result::Pending;
-    const auto rows=Wardrobe(actor,r,true);std::vector<WardrobeItem> selected;
+    auto rows=Wardrobe(actor,r,true);
+    const auto wardrobeRows=rows.size();
+    // The set was saved from the wardrobe page, which lists worn instances the inventory walk above
+    // can drop: its 512-row cap and its per-entry count accounting both cut rows. Resolving against
+    // the same rows the page saw is what keeps a saved key from reading as missing and having its
+    // worn copy stripped as "a piece the set does not name".
+    for(const auto& worn:RawWornArmor(actor)) {
+        if(!worn.extra||!OutfitArmor(worn.armor)||worn.armor==actor->GetSkin()) continue;
+        const auto key=WardrobeKey(worn.armor,worn.extra);
+        if(std::any_of(rows.begin(),rows.end(),[&](const auto& row){return row.key==key;})) continue;
+        WardrobeItem row{};
+        row.item=worn.armor;row.extra=worn.extra;row.key=key;
+        row.name=worn.armor->GetName()?worn.armor->GetName():"";
+        row.count=(std::max)(1,worn.extra->GetCount());
+        row.category=Category(worn.armor);
+        row.equipped=true;row.quest=worn.protectedItem;row.equipment=true;
+        row.enchant=EnchantSignatureOf(worn.armor,worn.extra);
+        rows.push_back(std::move(row));
+    }
+    std::vector<WardrobeItem> selected;
     auto occupied=ProtectedOutfitSlots(actor);
     std::unordered_set<std::string> chosen;
     unsigned missing=0;
@@ -178,17 +206,25 @@ outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool
         const auto found=std::find_if(rows.begin(),rows.end(),[&](const auto& x){return x.key==savedKey;});
         const WardrobeItem* row=found!=rows.end()?&*found:FallbackRow(rows,saved);
         if(row&&found==rows.end())
-            logger::info("Outfit fallback actor={:08X} saved={} name={} matched={}",
-                         actor->GetFormID(),savedKey,saved.value("name",std::string{}),row->key);
+            logger::info("Outfit fallback actor={:08X} saved={} name={} matched={} worn={}",
+                         actor->GetFormID(),savedKey,saved.value("name",std::string{}),row->key,row->equipped);
         // Two saved pieces must never both claim one instance, whichever way each was found.
-        if(!row||!chosen.insert(row->key).second) {++missing;continue;}
+        if(!row||!chosen.insert(row->key).second) {
+            const auto baseID=saved.value("form",0u);
+            const auto sameBase=std::count_if(rows.begin(),rows.end(),[&](const auto& x){return x.item->GetFormID()==baseID;});
+            logger::warn("Outfit unresolved actor={:08X} name={} saved={} form={:08X} enchant={:08X} charge={} sameBaseRows={}",
+                actor->GetFormID(),saved.value("name",std::string{}),savedKey,baseID,
+                saved.value("enchant",0u),saved.value("charge",0u),sameBase);
+            ++missing;continue;
+        }
         auto* armor=row->item->As<RE::TESObjectARMO>();
         if(!OutfitArmor(armor)||armor==actor->GetSkin()||row->quest) continue;
         const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());
         if(occupied&mask) continue;
         occupied|=mask;selected.push_back(*row);
     }
-    logger::info("Outfit preset actor={:08X} name={} missing={} selected={}",actor->GetFormID(),preset["name"].get<std::string>(),missing,selected.size());
+    logger::info("Outfit preset actor={:08X} name={} missing={} selected={} wardrobeRows={} extraWorn={}",
+        actor->GetFormID(),preset["name"].get<std::string>(),missing,selected.size(),wardrobeRows,rows.size()-wardrobeRows);
     if(missing&&manual) RE::DebugNotification("套装中有库存缺失物品，已跳过；当前其余服饰已换下");
     if(selected.empty()) return outfit::Result::NoSelection;
     // A saved set is a whole outfit: a request from the player or the dialogue replaces what the

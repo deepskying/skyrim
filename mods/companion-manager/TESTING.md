@@ -1,3 +1,9 @@
+## 1.9.9（2026-09-25）套装漏穿强化装备的最后一环
+
+- 原生：`ApplyNamedOutfit` 的候选行改成 `Wardrobe()` **加上** `RawWornArmor()` 补入的穿戴实例（与保存侧 `OutfitItems()` 同一批行）；`outfit_rules.h` 把退化判定拆成 `FallbackMatch`（同 base + 同附魔签名即算同一件）与 `FallbackPreferred`（优先未穿戴），`FallbackRow` 先找备件、没有才退回已穿戴件；新增 `Outfit unresolved` 诊断日志与 `wardrobeRows=/extraWorn=` 计数，用于下次从日志直接定位。
+- 验证：原生 Release DLL 构建通过，8 个测试目标直接运行 exit=0；网页 58 项测试通过（「a saved set wears its reinforced piece again after the engine re-issued its identity」现在同时覆盖"身份失效时正穿着不被脱下"与"放回背包后再次穿上"）；`pnpm build`（含 `tsc --noEmit`）通过。
+- 游戏内仍需人工复核：含强化装备的套装换上后不再被脱掉。浏览器模拟与编译通过不等于游戏验证。
+
 ## 1.9.8（2026-09-25）强化过的装备在套装里漏穿
 
 - 原生：`wardrobe_identity.h` 的让位规则加入"被套装引用的 key 留在穿戴件上"，引用表由 `activities.inc` 从所有成员与玩家的 `outfitPresets` 惰性收集（只在真的撞号时才建）；`outfit_rules.h` 新增 `EnchantSignature` / `SameEnchantment` / `FallbackInstance`；`WardrobeItem` 与 `OutfitItem` 带附魔 FormID 与充能，保存套装时两者恒写入（无附魔写 0）；`ApplyNamedOutfit` 在 key 缺失且记录有签名时按"同 base FormID + 同附魔签名 + 未穿戴"退化匹配，并保证两件套装不会同时认领同一个实例；快照 `version` 3 → 4（`snapshot.cpp`、`bridge.ts`、`preview-data.mjs`）。

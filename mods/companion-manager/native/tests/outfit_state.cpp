@@ -51,11 +51,15 @@ int main(){
     CHECK(!outfit::SameEnchantment(fire,plain));         // nor the other way round
     CHECK(!outfit::SameEnchantment(fire,frost));         // nor one enchantment for another
     CHECK(!outfit::SameEnchantment(fire,refilled));      // the same enchantment at another charge differs
-    CHECK(outfit::FallbackInstance(fire,fire,false));
-    CHECK(outfit::FallbackInstance(plain,plain,false));
-    CHECK(!outfit::FallbackInstance(fire,fire,true));    // an already worn copy is in use
-    CHECK(!outfit::FallbackInstance(fire,plain,false));
-    CHECK(!outfit::FallbackInstance(plain,fire,false));
+    CHECK(outfit::FallbackMatch(fire,fire));             // the same signature describes the same piece
+    CHECK(outfit::FallbackMatch(plain,plain));
+    CHECK(!outfit::FallbackMatch(fire,plain));
+    CHECK(!outfit::FallbackMatch(plain,fire));
+    CHECK(outfit::FallbackPreferred(fire,fire,false));   // a spare copy is what the set puts on
+    CHECK(outfit::FallbackPreferred(plain,plain,false));
+    CHECK(!outfit::FallbackPreferred(fire,fire,true));   // a worn copy is only already satisfied
+    CHECK(!outfit::FallbackPreferred(fire,plain,false));
+    CHECK(!outfit::FallbackPreferred(plain,fire,false));
     std::unordered_set<std::uint16_t> used{1,2,3,0xFFFF};
     CHECK(rules::FirstFreeUniqueID(used)==4);
     used.insert(4);

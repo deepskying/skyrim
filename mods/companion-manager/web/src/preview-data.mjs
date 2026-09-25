@@ -241,11 +241,13 @@ export function simulate(s, r) {
         const preset=d.presets.find(p=>p.id===r.presetId);if(!preset)return {ok:false,message:"套装不存在"};
         // A set names instances: while an instance is still there it is used as saved. When its
         // identity was re-issued (a temper round trip duplicates it), the same base form with the
-        // same enchantment signature stands in - never a differently enchanted copy.
+        // same enchantment signature stands in - never a differently enchanted copy. A spare copy
+        // is what the set puts on; a worn one only satisfies the set, and naming it is what stops
+        // the request from stripping the piece it is already wearing.
         const chosen=new Set();
         for(const saved of preset.items){
-          let i=d.items.find(x=>x.key===saved.key);
-          if(!i)i=d.items.find(x=>saved.enchant!==undefined&&!x.equipped&&x.available&&x.form===saved.form&&sameEnchantment(saved,x));
+          const match=x=>saved.enchant!==undefined&&x.available&&x.form===saved.form&&sameEnchantment(saved,x);
+          const i=d.items.find(x=>x.key===saved.key)??d.items.find(x=>match(x)&&!x.equipped)??d.items.find(match);
           if(!i||chosen.has(i.key))continue;
           chosen.add(i.key);keys.push(i.key);
         }
