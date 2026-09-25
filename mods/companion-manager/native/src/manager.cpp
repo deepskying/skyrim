@@ -866,12 +866,14 @@ json DescribePlayer()
     const auto *name = player->GetDisplayFullName();
     json row = {{"id", ID(player->GetFormID())},
                 {"name", name && *name ? name : "你"},
+                {"level", player->GetLevel()},
                 {"self", true},
                 {"group", "self"},
                 {"managed", true},
                 {"dead", player->IsDead()},
                 {"unavailable", player->IsDisabled() || player->GetCurrentScene() != nullptr},
                 {"inCombat", Fighting(player)},
+                {"level", player->GetLevel()},
                 {"presetCount", playerOutfits.value("outfitPresets", json::array()).size()}};
     if (!wardrobeFocus || wardrobeFocus == player->GetFormID())
         row["outfits"] = OutfitSnapshot(player, playerOutfits);

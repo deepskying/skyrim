@@ -62,6 +62,7 @@ export type Snapshot = {
 export type SelfCard = {
   id: string;
   name: string;
+  level?: number;
   outfits?: Outfits;
   dead?: boolean;
   unavailable?: boolean;
@@ -565,6 +566,7 @@ function repairSnapshot(value: unknown, note: (text: string) => void): unknown {
         unavailable: row.unavailable === true,
         inCombat: row.inCombat === true,
         presetCount: wholeNumber(row.presetCount),
+        level: wholeNumber(row.level),
       };
       if (row.outfits !== undefined) {
         const outfits = repairOutfits(row.outfits, note);
