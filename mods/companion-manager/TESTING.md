@@ -3,7 +3,7 @@
 - 原生：`Wardrobe()` 增加 `filterBase` / `apparelOnly` 过滤；`WardrobeSnapshot` 只发护甲；新增 `ProtectedItems()`（按 key 解析保护清单，来源含 套装／玩家交付／手动锁定）与 `collect` 载荷；`LockPlayerGift` 改为只解析该 base FormID 并走整份库存，同时记录 `giftLocks` 来源；新增 `unprotect` 指令；`RemapWardrobe` 一并迁移 `giftLocks`；`favorite` 指令改用整份库存解析。
 - 前端：`GameFollower.collect` 类型与修复函数（异常行丢弃并提示）；「伙伴库存」页改为「伙伴收藏」（受保护装备 + 来源标签 + 解除保护 + 交换物资）；侧栏标签同步改名。
 - 验证：原生 Release DLL 构建通过，8 个测试目标 exit=0；网页 60 项测试通过（新增保护清单来源/解除、异常行丢弃 2 项）；`pnpm build`（含 `tsc --noEmit`）通过。
-- 待办：换装页分页拉取；装备工坊回收保护需要跨模组判据。
+- 待办：无。换装页分页经评估暂不做（该页只发护甲，512 行消耗的是护甲件数）；装备工坊回收只作用于玩家自己的背包（`ResolveEquipmentInstance` 与 `RecycleInventorySelection` 都只操作 `PlayerCharacter`），玩家主动回收造成的套装缺件不再处理。
 
 ## 1.9.10（2026-09-25）换装不再被面板的行数上限截断
 
