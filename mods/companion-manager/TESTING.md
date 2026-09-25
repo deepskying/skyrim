@@ -1,3 +1,12 @@
+## 1.8.15（2026-09-25）列表更扁、预览自动撑满
+
+- 反馈：① 左侧列表滚动容易把面板一起滚上去、看不到预览；② 预览区仍偏小，希望用 flex 自动撑满；③ 列表项去掉背景与圆角；④ 类型图标放大，「已穿戴/收藏」不要再挤在图标下面，改到名称后面。
+- 高度链（②③ 的根因与修法）：面板内容区是 flex 子项（`.cm-management{flex:1;min-height:0;overflow:auto}`），原先「随从装备」页没有把它接满，内容比容器高 38–64px，于是滚轮滚的是面板、预览被压到最小高。现改为 `.cm-management-outfits`（GameApp 给穿搭区块加的类）→ `.cm-outfits` → `.cm-wear` 逐级 `display:flex;flex:1;min-height:0`，列表 `flex:1;min-height:0;overflow:auto` 并加 `overscroll-behavior:contain`；实测面板 `scrollHeight === clientHeight`（812/812）、列表内部滚动 (543/541)、滚轮后页面 `scrollTop` 与面板 `scrollTop` 均为 0。
+- 预览：`.cm-preview`/`.cm-preview-viewport` 由固定高度改成 `flex:1 1 0%`（下限 200px，窄屏 240px），并把「穿上/卸下」按钮移到标题行右侧（`.cm-wear-title-actions`）、操作提示并入事实条、属性卡由 `auto-fit` 改为一排 5 列——腾出的高度全部给预览。实测同一视口下预览由 252px 提升到 298px（无「将换下」行时），面板变高时随之增长。
+- 列表项：行背景改回 `transparent`、去圆角（收藏行仍保留淡蓝 `rgba(122,176,226,.22)`），类型图标 `font-size` 1.15em → 1.55em；「已穿戴」徽章与收藏 ★ 从图标下方移到名称后同一行（`.cm-wear-tags` 结构删除，改为名称单元格内的 `.cm-wear-badge`）。
+- 验证：`npm test` 55 项通过；`npm run build`（含 `tsc --noEmit`）通过；浏览器回归新增断言——普通行 `background-color` 为 `rgba(0, 0, 0, 0)` 且 `border-radius: 0px`、`.cm-wear-tags` 计 0、图标 `font-size ≥ 20px`、已穿戴徽章与 ★ 位于名称之后、列表 `overscroll-behavior: contain` 且滚轮后页面与面板 `scrollTop` 均为 0、预览不被裁切且随面板变高而增长（1440×1500 对比 1440×1000）；原有断言（2px 行距、收藏淡蓝底、图标字体与 `E83A` 盾牌码点、`previewSelect/Layout/Camera/Clear`）继续通过。
+- 游戏内待复测：滚轮划过左栏只滚列表；预览区在 1440p 下是否足够大、拖拽/滚轮手感；行无底色后的可读性与收藏行标记是否清楚；名称后徽章的换行表现（超长物品名）。
+
 ## 1.8.14（2026-09-25）装备预览取景与列表间距
 
 - 反馈：① 装备预览的展示区域太小；② 列表项之间希望有 2px 间距；③ 已收藏的列表项给淡蓝色背景；④ 移除「手动调整」页签；⑤ 左侧列表没有占满剩余空间。

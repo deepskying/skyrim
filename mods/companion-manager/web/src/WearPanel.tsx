@@ -63,7 +63,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
         {shown.map(row=>{const icon=wearIcon(row);return <div key={row.key} role="option" aria-selected={row.key===selectedKey} aria-disabled={blocked(row)}
           className={`cm-wear-row${row.equipped?" is-worn":""}${row.favorite?" is-favorite":""}${preview?.key===row.key?" is-preview":""}`}
           onMouseEnter={()=>setHovered(row.key)} onClick={()=>{setSelectedKey(row.key);toggle(row);}}>
-          <span className="cm-wear-name"><span className="cm-wear-line"><i className={`cm-wear-icon is-${icon.tone}`} aria-hidden="true">{icon.glyph}</i><strong>{row.name}</strong></span>{(row.equipped||row.quest||row.favorite)&&<small className="cm-wear-tags">{row.equipped&&<span>已穿戴</span>}{row.quest&&<span>任务</span>}{row.favorite&&<span>★</span>}</small>}</span>
+          <span className="cm-wear-name"><i className={`cm-wear-icon is-${icon.tone}`} aria-hidden="true">{icon.glyph}</i><strong>{row.name}</strong>{row.equipped&&<small className="cm-wear-badge">已穿戴</small>}{row.quest&&<small className="cm-wear-badge is-quest">任务</small>}{row.favorite&&<small className="cm-wear-badge is-favorite" aria-label="已收藏">★</small>}</span>
           <span>{row.count}</span><span>{row.weight.toFixed(1)}</span><span>{row.value}</span>
         </div>;})}
       </div>
@@ -73,7 +73,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
     <div className="cm-wear-detail">
       <ModelPreview actorId={f.id} id={modelId}/>
       {preview&&outcome?<>
-        <div className="cm-wear-title"><h3><i className={`cm-wear-icon is-${wearIcon(preview).tone}`} aria-hidden="true">{wearIcon(preview).glyph}</i><span className="cm-wear-title-name">{preview.name}</span></h3><small className={preview.equipped?"is-worn":""}>{preview.equipped?"已穿戴":"库存中"}{preview.quest?" · 任务装备":""}{preview.favorite?" · ★ 已收藏":""}</small></div>
+        <div className="cm-wear-title"><h3><i className={`cm-wear-icon is-${wearIcon(preview).tone}`} aria-hidden="true">{wearIcon(preview).glyph}</i><span className="cm-wear-title-name">{preview.name}</span></h3><div className="cm-wear-title-actions"><small className={preview.equipped?"is-worn":""}>{preview.equipped?"已穿戴":"库存中"}{preview.quest?" · 任务装备":""}{preview.favorite?" · ★ 已收藏":""}</small><button className="primary" disabled={blocked(preview)} onClick={()=>toggle(preview)}>{preview.equipped?"卸下":"穿上"}</button></div></div>
         <div className="cm-wear-stats">
           <div className={delta>0?"up":delta<0?"down":""}><small>{outcome.action==="wear"?"穿上后护甲":"卸下后护甲"}</small>
             <strong>{outcome.next}{delta!==0&&<span>{delta>0?` (+${delta})`:` (${delta})`}</span>}</strong></div>
@@ -87,9 +87,8 @@ export function WearPanel({f,enabled,pending,command}:Props){
           <div><dt>类型</dt><dd>{preview.armorType?armorTypeNames[preview.armorType]:"未标注"}</dd></div>
           {preview.enchantment&&<div><dt>附魔</dt><dd>{preview.enchantment}</dd></div>}
           {!!outcome.replaced.length&&<div><dt>将换下</dt><dd>{outcome.replaced.map(row=>row.name).join("、")}</dd></div>}
+          <div className="cm-wear-hint"><dt>操作</dt><dd>{preview.equipped&&preview.quest?"任务装备不能卸下。":usable?(preview.equipped?"点击右侧按钮或按 Enter 卸下，悬停其它服饰即可预览对比。":"点击右侧按钮或按 Enter 穿上；同名物品只影响选中那件。"):"当前无法穿脱，仅预览；请先让伙伴脱离战斗并待在身边。"}</dd></div>
         </dl>
-        <button className="primary" disabled={blocked(preview)} onClick={()=>toggle(preview)}>{preview.equipped?"卸下":"穿上"}</button>
-        <p>{preview.equipped&&preview.quest?"任务装备不能卸下。":usable?(preview.equipped?"点击或按 Enter 卸下，悬停其它服饰即可预览对比。":"点击或按 Enter 穿上，同名物品只影响选中的那件。"):"当前无法穿脱，仅预览；请先让伙伴脱离战斗并待在身边。"}</p>
       </>:<div className="cm-empty">左侧没有可预览的服饰。</div>}
     </div>
   </div>;

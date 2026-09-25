@@ -55,6 +55,21 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.cm-wear-row.is-favorite').count(),2);
   assert.match(await page.locator('.cm-wear-row.is-favorite').first().evaluate(e=>getComputedStyle(e).backgroundColor),/122, 176, 226/);
   assert.ok(await page.locator('.cm-wear-list').evaluate(e=>e.getBoundingClientRect().height)>=400);
+  // Plain rows are flat again - no card background, no radius - and the type icon is the marker.
+  const plainRow=page.locator('.cm-wear-row').filter({hasText:'皮甲（火焰抗性）'});
+  assert.equal(await plainRow.evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
+  assert.equal(await plainRow.evaluate(e=>getComputedStyle(e).borderRadius),'0px');
+  assert.equal(await page.locator('.cm-wear-tags').count(),0);
+  assert.ok(parseFloat(await page.locator('.cm-wear-row .cm-wear-icon').first().evaluate(e=>getComputedStyle(e).fontSize))>=20);
+  // The equipped badge and the favourite star sit after the name, on the same line.
+  assert.equal(await page.locator('.cm-wear-row.is-worn .cm-wear-badge').first().innerText(),'已穿戴');
+  assert.equal(await page.locator('.cm-wear-row.is-worn .cm-wear-badge.is-favorite').count(),1);
+  // The list owns the wheel: scrolling it must not push the panel behind it.
+  assert.equal(await page.locator('.cm-wear-list').evaluate(e=>getComputedStyle(e).overscrollBehavior),'contain');
+  await page.locator('.cm-wear-list').hover();
+  await page.mouse.wheel(0,600);
+  assert.equal(await page.evaluate(()=>document.scrollingElement.scrollTop),0);
+  assert.equal(await page.locator('.cm-management').first().evaluate(e=>e.scrollTop),0);
   // Every row carries a type icon from the shared icon font, and the font really loads.
   const wearIcons=page.locator('.cm-wear-row .cm-wear-icon');
   assert.equal(await wearIcons.count(),6);
@@ -66,7 +81,7 @@ const assert=require('node:assert/strict');
   await wearRows.nth(1).hover();
   assert.equal(await page.locator('.cm-wear-title-name').innerText(),'皮甲（火焰抗性）');
   assert.equal((await armorStat.innerText()).includes('36'),true);
-  assert.equal(await page.locator('.cm-wear-facts div').last().locator('dd').innerText(),'皮甲');
+  assert.equal(await page.locator('.cm-wear-facts div').filter({hasText:'将换下'}).locator('dd').innerText(),'皮甲');
   await wearRows.nth(5).hover(); // shield: +20 armor, nothing replaced
   assert.equal((await armorStat.innerText()).includes('+20'),true);
   // Live ratings are floats; the page must never show the raw value.
@@ -91,9 +106,17 @@ const assert=require('node:assert/strict');
   await page.evaluate(()=>{window.__companionPreviewStatus='ready';});
   await wearRows.nth(5).hover(); // shield, so the requested base form is unambiguous
   await page.getByText('拖动旋转 · 滚轮缩放',{exact:true}).waitFor();
-  // The model needs room to read: the viewport stays at least 300px tall.
+  // The 3D area is the flex filler of the detail column: it grows with the panel instead of
+  // sitting at a fixed height, and it is never clipped by its parent.
   const previewHeight=await page.locator('.cm-preview-viewport').evaluate(e=>e.getBoundingClientRect().height);
-  assert.ok(previewHeight>=300,`preview viewport too short: ${previewHeight}`);
+  assert.ok(previewHeight>=200,`preview viewport too short: ${previewHeight}`);
+  const previewFills=await page.locator('.cm-preview').evaluate(e=>Math.round(e.getBoundingClientRect().height)-e.scrollHeight);
+  assert.ok(previewFills>=0,`preview is clipped by ${-previewFills}px`);
+  // A taller panel hands the extra room to the preview instead of leaving a gap.
+  await page.setViewportSize({width:1440,height:1500});
+  const taller=await page.locator('.cm-preview-viewport').evaluate(e=>e.getBoundingClientRect().height);
+  assert.ok(taller>previewHeight,`preview did not grow with the panel: ${previewHeight} -> ${taller}`);
+  await page.setViewportSize({width:1440,height:1000});
   const calls=await page.evaluate(()=>window.__previewCalls);
   const select=calls.find(call=>call.type==='previewSelect');
   assert.equal(select.id,'00012EB6');assert.equal(select.actorId,'000A2C94');
