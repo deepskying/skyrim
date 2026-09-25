@@ -4,15 +4,23 @@ This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preservi
 
 ## Modules
 
+- `mods/arcane-arsenal` — weapon, staff and greatsword assets with their art and material build pipeline (`art/` holds the sources, `build/` the per-version working copies its scripts read as baselines).
+- `mods/buy-displayed-items` — purchase merchant-owned displayed items in shops and inns with the normal interaction key; sneak to steal. Independent SKSE plugin for **1.5.97**; first test build, no PrismaUI required.
+- `mods/companion-manager` — follower dashboard running on the Meridian UI platform. Default panel hotkey: **Shift+F**.
+- `mods/magic-arrows` — arrow crafting, charging rules and the crafting queue; the unified workshop consumes its ESP.
+- `mods/meridian-ui` — the UI platform itself: Meridian UI 1.5.0 sources plus the local NIF preview patch. See `mods/meridian-ui/FORK-NOTES.md` before changing it.
 - `mods/main-menu-manager` — random main-menu themes, a separate loading-screen library, desktop preview/removal with synchronized LSCR records, resource recovery, and an offline helper for custom images. Targets Skyrim SE **1.5.97**; no PrismaUI required.
 - `mods/music-manager` — environment-aware MP3 background music, DCS library migration, and Prisma UI controls. Default panel hotkey: **Shift+M**. Targets Skyrim SE **1.5.97**.
-- `mods/follower-spellbook-manager` — manage loaded followers, their spells, and spell tomes. Default panel hotkey: **Shift+S**.
+- `mods/peak-effect-loop-guard` — stops magic effects that would otherwise loop forever.
 - `mods/inventory-manager` — lightweight inventory and magic list with configurable shortcuts. Default panel hotkey: **Shift+D**.
 - `mods/durability-manager` — PrismaUI foundation for weapon and armour durability. Default panel hotkey: **Shift+F**.
+- `mods/workshop` — the unified equipment workshop (durability, arrow crafting queue, status HUD). It assembles its package from `durability-manager` and `magic-arrows`, so those sources are required. Hotkey: **Shift+A**.
 
 Both mods can be installed together: they use separate DLLs, views, and INI files. Shared Iconfont source is under `shared/iconfont`; the external build dependencies stay in `reference/`.
 
 ## Follower Spellbook Manager
+
+> Removed from this repository on 2026-09-25; the sections below are kept as history.
 
 An SKSE + Prisma UI mod for Skyrim Special Edition 1.5.97. It lets the player inspect loaded followers' spells and teach them spell tomes from the player's inventory.
 
