@@ -6,7 +6,8 @@ void check(bool b){if(!b)throw std::runtime_error("assertion failed");}
 template<class F>void reject(F f){bool rejected=false;try{f();}catch(const std::runtime_error&){rejected=true;}check(rejected);}
 int main(){
     check(EffectCharge(3,30)==3&&EffectCharge(3,60)==5&&EffectCharge(-3,60)==5);
-    check(EffectCharge(100,300)==100&&EffectCharge(0,0)==0&&EffectCharge(std::numeric_limits<float>::infinity(),30)==0);
+    check(EffectCharge(100,300)==200&&EffectCharge(0,0)==0&&EffectCharge(std::numeric_limits<float>::infinity(),30)==0);
+    check(EffectCharge(5000,120)==materialUnitCap&&EffectCharge(std::numeric_limits<float>::max(),30)==materialUnitCap);
     auto elemental=MakePlan({{1,3,0}},{{1,10,0}},{{8,2,16}},12,24,{4,8,8});
     check(elemental.total==3&&elemental.gold==12&&elemental.magicka==24&&elemental.charge==24&&elemental.ingredients[0].count==2);
     reject([&]{MakePlan({{1,1,0}},{{1,10,0}},{{8,1,8}},3,8,{4,8,8});});
@@ -28,7 +29,12 @@ int main(){
     reject([&]{MakePlan({{1,1,0}},stock,{{8,100,100}},1000,std::numeric_limits<float>::quiet_NaN());});
     reject([&]{MakePlan({{1,1,0}},stock,{{8,1,9}},1000,1000);});
     reject([&]{MakePlan({{1,1,0}},stock,{{8,100,100},{8,100,100}},1000,1000);});
-    reject([&]{MakePlan({{1,100,0},{2,1,0}},{{1,100,0},{2,100,0}},{{8,100,100}},10000,10000);});
+    reject([&]{MakePlan({{1,1000,0}},{{1,1000,0}},{{8,100,100}},100000,100000);}); // one box is capped at 999
+    auto large=MakePlan({{1,999,0},{2,999,0}},{{1,999,0},{2,999,0}},{{8,200,100}},100000,100000,{5,12,10},false);
+    check(large.total==1998&&large.charge==19980); // batches have no 100 arrow ceiling
+    auto unlocked=MakeChargedPlan({{1,600,0}},{{1,600,0}},{{8,600,10}},3000,0,{5,12,10},false);
+    check(unlocked.total==600); // queued crafting plans without magicka on hand
+    reject([&]{MakeChargedPlan({{1,600,0}},{{1,600,0}},{{8,600,10}},3000,0,{5,12,10});});
     auto exact=MakePlan({{1,1,0}},stock,{{8,1,10}},5,12);check(exact.ingredients[0].count==1);
     // 10 selected bases, explicit basket only funds 7; all four costs use 7.
     auto partial=MakeChargedPlan({{1,10,0}},stock,{{8,7,10}},35,84);

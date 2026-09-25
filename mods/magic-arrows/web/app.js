@@ -4,7 +4,8 @@ const $=id=>document.getElementById(id);
 const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const colors={normal:'#9ca8b5',ice:'#55caff',shock:'#94aeff',poison:'#9afc48',wind:'#55e7b0',water:'#36d6e6',earth:'#d59a53',dark:'#a77cdd',arcane:'#f075da',fire:'#ff8b32',blood:'#ff4c69',holy:'#f0cc72',soul:'#b29afa'};
 const labels={normal:'普通弹药',ice:'冰 · 霜晶箭',shock:'电 · 雷棱箭',poison:'毒 · 蛇牙箭',wind:'风 · 旋翼箭',water:'水 · 碧波箭',earth:'土 · 岩锥箭',dark:'暗 · 影镰箭',arcane:'奥术 · 奥术箭',fire:'火 · 火焰箭',blood:'嗜血 · 外观试作',holy:'圣辉 · 外观试作',soul:'星魂 · 外观试作'};
-let state={version:'0.9.9',nativeEscape:true,arrows:[],spells:[],materials:[],recipes:[],loaded:false,hotkey:{key:'W',shift:true,ctrl:false,alt:false}};
+const craftInputMax=999,craftBatchMax=10000;
+let state={version:'1.0.0',nativeEscape:true,arrows:[],spells:[],materials:[],recipes:[],loaded:false,hotkey:{key:'W',shift:true,ctrl:false,alt:false}};
 let page='equipment',filter='all',search='',selected=0,mode='magic',spell=0,recipe=0;
 let normalBatches=1,normalSearch='';
 let equipPending=0;
@@ -79,13 +80,20 @@ function detail(){
     $('detail').innerHTML=a?`<div class="visual" style="--arrow:${colors[a.family]};color:${colors[a.family]}">${arrow(a.family)}</div><h2>${escape(a.name)}</h2><p>${labels[a.family]||labels.normal}</p><dl><dt>库存数量</dt><dd>${a.count}</dd><dt>基础物理伤害</dt><dd>${Number(a.damage).toFixed(0)}</dd><dt>使用武器</dt><dd>${a.bolt?'弩':'弓'}</dd></dl>${a.usable===false?'<p>原法术或基材引用不可用，这组箭已暂停使用，物品没有被删除。</p>':a.spellBound&&a.adapter?.runtime?`<p>${releaseDescription(a.adapter)}归属实际射手。</p>`:a.spellBound?`<p>命中点释放${escape(labels[a.family]||'元素')}效果，基础伤害 ${a.adapter?.damage||40}，范围 ${a.adapter?.radius||320}。普通弓即可使用；这是固定适配效果。</p>`:a.family!=='normal'?'<p>当前是发光外观试作箭，尚未封存法术。</p>':''}<p class="equip-state">${a.usable===false?'来源缺失或不兼容':a.equipped?'当前已装备':'点击卡片直接装备，面板会自动关闭。'}</p>`:'<h2>选择箭矢即可装备</h2><p>点击卡片直接装备，面板随后关闭；再次打开可查看已装备高亮。</p>';
 }
 function options(items,value,placeholder){return `<option value="0">${placeholder}</option>`+items.map(x=>`<option value="${x.id}" ${x.id===value?'selected':''}>${escape(x.name)}${x.count!==undefined?' ×'+x.count:''}</option>`).join('');}
+function queuedForSpell(id){const e=(state.orders?.entries||[]).find(x=>x.spell===id);return e?e.remaining:0;}
+function orderCapacity(){return state.orders?.limit||10000;}
+function craftOrders(){
+    const root=$('craft-orders');if(!root)return;
+    const entries=state.orders?.entries||[];
+    root.innerHTML=entries.length?`<div class="order-heading"><h3>制作队列 <span>${entries.length} 种法术</span></h3>${state.orders.paused?`<p class="order-paused">${escape(state.orders.reason||'已暂停')}</p>`:''}</div><div class="order-list">${entries.map(e=>`<div class="order-item"${e.family?` data-order-family="${escape(e.family)}"`:''}><b>${escape(e.name)}</b><span>剩余 ${escape(e.label??e.remaining)} / ${e.total}</span></div>`).join('')}</div>`:'';
+}
 function craft(){
-    $('content').innerHTML=`<div class="toolbar"><div class="pills"><button data-mode="magic" class="${mode==='magic'?'active':''}">魔法箭矢</button><button data-mode="normal" class="${mode==='normal'?'active':''}">普通箭矢</button></div></div>${mode==='magic'?'<div class="notice">符合条件的已学法术可直接封存。持续型箭在命中点施放 3 秒；加入材料充能后，按实际产量确认制作。</div>':''}<p class="muted">封存身份：${state.runtimeSlots?`${state.runtimeSlots.capacity-state.runtimeSlots.free} / ${state.runtimeSlots.capacity} 组${state.runtimeSlots.ready?'':' · 尚未就绪'}`:'等待游戏数据'}。同一法术与基材重复制作可继续叠加。</p><div id="craft-body"></div>`;
+    $('content').innerHTML=`<div class="toolbar"><div class="pills"><button data-mode="magic" class="${mode==='magic'?'active':''}">魔法箭矢</button><button data-mode="normal" class="${mode==='normal'?'active':''}">普通箭矢</button></div></div>${mode==='magic'?'<div class="notice">符合条件的已学法术可直接封存。持续型箭在命中点施放 3 秒；点「开始制作」时一次性扣除金币、基材与充能材料，订单进入队列，离开附魔台后按当前法力逐支产出。</div>':''}<p class="muted">封存身份：${state.runtimeSlots?`${state.runtimeSlots.capacity-state.runtimeSlots.free} / ${state.runtimeSlots.capacity} 组${state.runtimeSlots.ready?'':' · 尚未就绪'}`:'等待游戏数据'}。同一法术与基材重复制作可继续叠加。</p><div id="craft-body"></div>`;
     document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;state.quote=null;state.normalQuote=null;craft();send('workshopMode',{mode});});
     if(mode==='magic'){
-        $('craft-body').innerHTML=`<div class="magic-workshop"><section><div class="toolbar"><div class="pills">${[['candidate','可制作'],['review','待适配'],['excluded','暂不支持']].map(([id,name])=>`<button data-spell-filter="${id}" class="${spellFilter===id?'active':''}">${name} ${state.spells.filter(s=>eligibility(s).status===id).length}</button>`).join('')}</div><input id="spell-search" class="search" placeholder="搜索法术或来源模组…" aria-label="搜索法术" value="${escape(spellSearch)}"></div><p class="muted">“可制作”只显示已支持的法术，其余分类列出尚未支持的法术及原因。</p><div id="spell-grid" class="grid spell-grid"></div></section></div>`;
+        $('craft-body').innerHTML=`<div class="magic-workshop"><section><div class="toolbar"><div class="pills">${[['candidate','可制作'],['review','待适配'],['excluded','暂不支持']].map(([id,name])=>`<button data-spell-filter="${id}" class="${spellFilter===id?'active':''}">${name} ${state.spells.filter(s=>eligibility(s).status===id).length}</button>`).join('')}</div><input id="spell-search" class="search" placeholder="搜索法术或来源模组…" aria-label="搜索法术" value="${escape(spellSearch)}"></div><p class="muted">“可制作”只显示已支持的法术，其余分类列出尚未支持的法术及原因。</p><div id="spell-grid" class="grid spell-grid"></div></section><section id="craft-orders" class="craft-orders" aria-label="制作队列"></section></div>`;
         document.querySelectorAll('[data-spell-filter]').forEach(b=>b.onclick=()=>{spellFilter=b.dataset.spellFilter;spell=0;state.quote=null;craft();});
-        $('spell-search').oninput=e=>{spellSearch=e.target.value;spellGrid();};spellGrid();
+        $('spell-search').oninput=e=>{spellSearch=e.target.value;spellGrid();};spellGrid();craftOrders();
     }else normalWorkshop();
 }
 function normalWorkshop(){
@@ -116,14 +124,15 @@ function eligibility(s){
 function spellGrid(){
     const names={candidate:'可制作',review:'待适配',excluded:'暂不支持'};
     const items=state.spells.filter(s=>eligibility(s).status===spellFilter&&`${s.name} ${s.source||''}`.toLowerCase().includes(spellSearch.toLowerCase()));
-    $('spell-grid').innerHTML=items.map(s=>`<button class="card spell-card ${spell===s.id?'selected':''}" data-spell="${s.id}"><span class="spell-sigil" aria-hidden="true">✧</span><div class="card-body"><h3>${escape(s.name)}</h3><p class="spell-source">${escape(s.source||'来源未提供')}</p><div class="meta"><span>${eligibility(s).releaseMode==='sustained'?'持续型 · ':''}${s.craftable?'可制作':names[eligibility(s).status]||'待适配'}${s.adapter?.castRoute==='actor'?' · 需命中角色':s.adapter?.castRoute==='area'?' · 落点范围':''}</span></div></div></button>`).join('')||'<div class="empty">没有符合条件的已学法术<br><small>可以查看其他筛选页了解排除原因。</small></div>';
+    $('spell-grid').innerHTML=items.map(s=>`<button class="card spell-card ${spellMaterialHighlight(s)} ${spell===s.id?'selected':''}" data-spell="${s.id}"><span class="spell-sigil" aria-hidden="true">✧</span><div class="card-body"><h3>${escape(s.name)}</h3><p class="spell-source">${escape(s.source||'来源未提供')}</p><div class="meta"><span>${eligibility(s).releaseMode==='sustained'?'持续型 · ':''}${s.craftable?'可制作':names[eligibility(s).status]||'待适配'}${s.adapter?.castRoute==='actor'?' · 需命中角色':s.adapter?.castRoute==='area'?' · 落点范围':''}</span></div></div></button>`).join('')||'<div class="empty">没有符合条件的已学法术<br><small>可以查看其他筛选页了解排除原因。</small></div>';
     document.querySelectorAll('[data-spell]').forEach(b=>b.onclick=()=>{spell=Number(b.dataset.spell);batches.clear();ingredientSelection.clear();acceptedQuote=null;quoteError='';modalOpen=true;spellGrid();scheduleQuote();});craftDetail();
 }
 function selectedSpell(){return state.spells.find(s=>s.id===spell);}
 function baseArrows(){const s=selectedSpell();return state.arrows.filter(a=>a.count>0&&(s?.adapter?.runtime?a.runtimeBase:a.fireballBase));}
 function materialRank(m){return m.kind==='potion'?0:m.kind==='poison'?1:2;}
 function materialKindLabel(m){return m.kind==='potion'?'药水':m.kind==='poison'?'毒药':'原材料';}
-function usableMaterials(){const a=selectedSpell()?.adapter;return state.materials.map(m=>({...m,units:m.charges?.[a?.family||'fire']??(a?.family&&a.family!=='fire'?0:m.units)})).filter(m=>m.units>0&&m.count>0&&m.kind!=='food').sort((a,b)=>materialRank(a)-materialRank(b)||b.units-a.units||String(a.name).localeCompare(String(b.name),'zh-CN')||a.id-b.id);}
+function usableMaterials(forSpell=selectedSpell()){const a=forSpell?.adapter;return state.materials.map(m=>({...m,units:m.charges?.[a?.family||'fire']??(a?.family&&a.family!=='fire'?0:m.units)})).filter(m=>m.units>0&&m.count>0&&['potion','poison','ingredient'].includes(m.kind)).sort((a,b)=>materialRank(a)-materialRank(b)||b.units-a.units||String(a.name).localeCompare(String(b.name),'zh-CN')||a.id-b.id);}
+function spellMaterialHighlight(s){if(!s.craftable)return '';const materials=usableMaterials(s);if(materials.reduce((total,m)=>total+m.units*m.count,0)<Math.max(1,s.adapter?.charge??10))return '';return materials.some(m=>m.kind==='potion'||m.kind==='poison')?'material-potion':materials.some(m=>m.kind==='ingredient')?'material-ingredient':'';}
 function magicSelection(){return {spell,bases:[...batches].map(([id,count])=>({id,count})),materials:[...ingredientSelection].map(([id,count])=>({id,count}))};}
 function closeDialog(){
     modalOpen=false;clearTimeout(quoteTimer);++quoteVersion;quoteBusy=false;craftBusy=false;acceptedQuote=null;quoteError='';
@@ -135,24 +144,24 @@ function craftDetail(){
     if($('magic-dialog')){updateMagicSummary();return;}
     const s=selectedSpell();if(!s){closeDialog();return;}
     const d=document.createElement('dialog');d.id='magic-dialog';d.setAttribute('aria-labelledby','magic-dialog-title');
-    d.innerHTML=`<div class="magic-dialog-head"><h2 id="magic-dialog-title">${escape(s.name)}</h2><button id="dismiss-magic" aria-label="关闭制作清单">×</button></div>${s.craftable?`<div id="unit-costs" class="unit-costs">${unitCostsMarkup(s.adapter)}</div><div class="magic-dialog-body"><section><p class="material-hint">${releaseDescription(s.adapter)}</p><h3>基材箭矢 <span id="magic-total"></span></h3><p class="material-hint">数量为制作上限，多种基材按勾选顺序使用。</p><div class="magic-list">${baseArrows().map(a=>`<div class="magic-item"><label><input type="checkbox" data-base="${a.id}"><span>${escape(a.name)}<small>库存 ${a.count} · 本次 <b data-base-use="${a.id}">0</b></small></span></label><input type="number" data-quantity="${a.id}" aria-label="${escape(a.name)}数量" min="1" max="${Math.min(100,a.count)}" step="1" value="1" disabled></div>`).join('')||'<p>没有可用的基材箭矢。</p>'}</div></section><section class="charge-section"><div class="charge-heading"><h3>炼金充能</h3><strong id="charge-value"></strong></div><div id="charge-bar" class="charge-bar" role="meter" aria-label="已添加材料充能" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><span></span></div><p id="charge-output" class="charge-output"></p><p class="material-hint">药水优先，其次毒药与原材料；同类按充能量排序。只列出匹配功效，药水可直接使用，原材料需已发现功效。</p><div class="material-pool">${usableMaterials().map(m=>`<button class="material-card" data-add-material="${m.id}" aria-label="添加${escape(m.name)}"><span class="material-card-heading"><b>${escape(m.name)}</b><span class="material-stock" data-material-stock="${m.id}" title="剩余可添加 ${m.count} 份">×${m.count}</span></span><span class="material-kind">${materialKindLabel(m)}</span><span>每${m.kind==='potion'||m.kind==='poison'?'瓶':'份'} +${m.units} 充能</span></button>`).join('')||'<p>没有匹配功效的药水、毒药或已发现功效的原材料。</p>'}</div><h3 class="basket-heading">待消耗材料</h3><div id="material-basket" class="material-basket"></div><p id="charge-excess" class="material-hint"></p></section></div><div class="magic-costs">${resourceMeter('mana','法力值')}${resourceMeter('gold','金币')}</div><div class="magic-dialog-foot"><p id="magic-error" role="status"></p><button id="confirm-craft" class="primary" disabled>确认制作</button></div>`:`<div class="magic-dialog-body unsupported"><p>${eligibility(s).reasons.map(escape).join('<br>')}</p></div>`}`;
+    d.innerHTML=`<div class="magic-dialog-head"><h2 id="magic-dialog-title">${escape(s.name)}</h2><button id="dismiss-magic" aria-label="关闭制作清单">×</button></div>${s.craftable?`<div id="unit-costs" class="unit-costs">${unitCostsMarkup(s.adapter)}</div><div class="magic-dialog-body"><section><p class="material-hint">${releaseDescription(s.adapter)}</p><h3>基材箭矢 <span id="magic-total"></span></h3><p class="material-hint">数量为制作上限，多种基材按勾选顺序使用。</p><div class="magic-list">${baseArrows().map(a=>`<div class="magic-item"><label><input type="checkbox" data-base="${a.id}"><span>${escape(a.name)}<small>库存 ${a.count} · 本次 <b data-base-use="${a.id}">0</b></small></span></label><input type="number" data-quantity="${a.id}" aria-label="${escape(a.name)}数量" min="1" max="${Math.min(craftInputMax,a.count)}" step="1" value="1" disabled></div>`).join('')||'<p>没有可用的基材箭矢。</p>'}</div></section><section class="charge-section"><div class="charge-heading"><h3>炼金充能</h3><strong id="charge-value"></strong></div><div id="charge-bar" class="charge-bar" role="meter" aria-label="已添加材料充能" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><span></span></div><p id="charge-output" class="charge-output"></p><p class="material-hint">药水优先，其次毒药与原材料；同类按充能量排序。只列出匹配功效，药水可直接使用，原材料需已发现功效。</p><div class="material-pool">${usableMaterials().map(m=>`<button class="material-card" data-add-material="${m.id}" aria-label="添加${escape(m.name)}"><span class="material-card-heading"><b>${escape(m.name)}</b><span class="material-stock" data-material-stock="${m.id}" title="剩余可添加 ${m.count} 份">×${m.count}</span></span><span class="material-kind">${materialKindLabel(m)}</span><span>每${m.kind==='potion'||m.kind==='poison'?'瓶':'份'} +${m.units} 充能</span></button>`).join('')||'<p>没有匹配功效的药水、毒药或已发现功效的原材料。</p>'}</div><h3 class="basket-heading">待消耗材料</h3><div id="material-basket" class="material-basket"></div><p id="charge-excess" class="material-hint"></p></section></div><div class="magic-costs">${resourceMeter('mana','法力值')}${resourceMeter('gold','金币')}</div><div class="magic-dialog-foot"><p id="magic-error" role="status"></p><button id="confirm-craft" class="primary" disabled>开始制作</button></div>`:`<div class="magic-dialog-body unsupported"><p>${eligibility(s).reasons.map(escape).join('<br>')}</p></div>`}`;
     document.body.append(d);d.showModal();$('dismiss-magic').onclick=closeDialog;
     d.addEventListener('cancel',e=>e.preventDefault());
     d.querySelectorAll('[data-base]').forEach(input=>input.onchange=()=>{const id=Number(input.dataset.base);const n=d.querySelector(`[data-quantity="${id}"]`);n.disabled=!input.checked;if(input.checked)normalizeBaseInput(n,true);else batches.delete(id);scheduleQuote();});
     d.querySelectorAll('[data-quantity]').forEach(input=>{input.oninput=()=>{normalizeBaseInput(input);scheduleQuote();};input.onblur=()=>{const before=batches.get(Number(input.dataset.quantity));normalizeBaseInput(input,true);if(before!==batches.get(Number(input.dataset.quantity)))scheduleQuote();};});
-    d.querySelectorAll('[data-add-material]').forEach(button=>button.onclick=()=>{const id=Number(button.dataset.addMaterial);const m=usableMaterials().find(m=>m.id===id);const n=ingredientSelection.get(id)||0;if(craftBusy||!m||n>=Math.min(10000,m.count))return;const p=previewPlan(),needed=Math.max(0,p.target*p.perArrow-p.energy);const add=Math.min(Math.max(0,Math.min(10000,m.count)-n),Math.ceil(needed/m.units));if(!Number.isFinite(add)||add<=0)return;ingredientSelection.set(id,n+add);scheduleQuote();});
+    d.querySelectorAll('[data-add-material]').forEach(button=>button.onclick=()=>{const id=Number(button.dataset.addMaterial);const m=usableMaterials().find(m=>m.id===id);const n=ingredientSelection.get(id)||0;if(craftBusy||!m||n>=Math.min(craftInputMax,m.count))return;const p=previewPlan(),needed=Math.max(0,p.target*p.perArrow-p.energy);const add=Math.min(Math.max(0,Math.min(craftInputMax,m.count)-n),Math.ceil(needed/m.units));if(!Number.isFinite(add)||add<=0)return;ingredientSelection.set(id,n+add);scheduleQuote();});
     $('material-basket')?.addEventListener('click',e=>{const button=e.target.closest('[data-remove-material]');if(!button||craftBusy)return;const id=Number(button.dataset.removeMaterial),n=ingredientSelection.get(id)||0;if(n>1)ingredientSelection.set(id,n-1);else ingredientSelection.delete(id);scheduleQuote();});
     if($('confirm-craft'))$('confirm-craft').onclick=()=>{
         if(!acceptedQuote||quoteBusy||craftBusy)return;
         const q=acceptedQuote;craftBusy=true;updateMagicSummary();
-        send('craft',{token:q.token,runtime:!!q.runtime,requestID:quoteVersion});
+        send('orderStart',{...magicSelection(),runtime:!!q.runtime,requestID:quoteVersion});
     };
     updateMagicSummary();
 }
 function quantityLimit(id){
     const stock=baseArrows().find(a=>a.id===id)?.count||0;
     const others=[...batches].reduce((sum,[key,n])=>sum+(key!==id&&Number.isFinite(n)?n:0),0);
-    return Math.max(0,Math.min(stock,100-others));
+    return Math.max(0,Math.min(stock,craftInputMax,craftBatchMax-others));
 }
 function normalizeBaseInput(input,commit=false){
     const id=Number(input.dataset.quantity),limit=quantityLimit(id);input.max=String(limit);
@@ -169,14 +178,15 @@ function unitCostsMarkup(a){
 function previewPlan(){
     const a=selectedSpell()?.adapter;let target=0,error='',energy=0;const arrows=baseArrows(),materials=usableMaterials(),used=new Map(),baseUse=new Map();
     for(const [id,count] of batches){const stock=arrows.find(x=>x.id===id)?.count??0;if(!Number.isInteger(count)||count<1||count>stock)error='请填写有效的箭矢数量';target+=Number.isFinite(count)?count:0;}
-    if(target>100)error='每次最多制作 100 支';
-    for(const [id,count] of ingredientSelection){const m=materials.find(x=>x.id===id);if(!m||!Number.isInteger(count)||count<1||count>Math.min(m.count,10000)){error='待消耗材料库存不足，请减少数量';continue;}energy+=count*m.units;used.set(id,count);}
+    if(target>craftBatchMax)error=`每次最多制作 ${craftBatchMax} 支`;
+    for(const [id,count] of ingredientSelection){const m=materials.find(x=>x.id===id);if(!m||!Number.isInteger(count)||count<1||count>Math.min(m.count,craftInputMax)){error='待消耗材料库存不足，请减少数量';continue;}energy+=count*m.units;used.set(id,count);}
     const perArrow=a?.charge??10,total=Math.max(0,Math.min(target,Math.floor(energy/perArrow)));
     let remaining=total;for(const [id,count] of batches){const take=Math.min(remaining,count);baseUse.set(id,take);remaining-=take;}
     const cost={gold:total*(a?.gold??5),mana:total*(a?.mana??12)};
     if(!error&&!target)error='请选择基材箭矢和数量';
     if(!error&&!total)error=`请添加材料，至少需要 ${perArrow} 充能制作 1 支`;
-    if(!error&&state.resources&&cost.mana>state.resources.magicka)error='当前法力不足';
+    // Queued crafting draws magicka one arrow at a time, so the current value never blocks
+    // starting an order; only the gold price must be affordable up front.
     if(!error&&state.resources&&cost.gold>state.resources.gold)error='金币不足';
     return {total,target,energy,perArrow,cost,used,baseUse,error};
 }
@@ -212,13 +222,16 @@ function updateMagicSummary(){
     bar.setAttribute('aria-valuemax',Math.max(1,capacity,energy));bar.setAttribute('aria-valuenow',energy);bar.setAttribute('aria-valuetext',`${energy} 充能，目标 ${capacity}，可制作 ${total} 支`);
     $('charge-output').textContent=`可制作 ${total} / ${p.target} 支 · 每支 ${p.perArrow} 充能`;
     const materials=usableMaterials();
-    document.querySelectorAll('[data-add-material]').forEach(button=>{const id=Number(button.dataset.addMaterial),m=materials.find(m=>m.id===id),n=ingredientSelection.get(id)||0;button.disabled=craftBusy||!m||n>=Math.min(m.count,10000)||!p.target||p.energy>=capacity;const remaining=Math.max(0,(m?.count||0)-n),badge=button.querySelector('[data-material-stock]');badge.textContent=`×${remaining}`;badge.title=`剩余可添加 ${remaining} 份`;button.setAttribute('aria-label',`添加${m?.name||'材料'}，剩余可添加 ${remaining} 份`);});
+    document.querySelectorAll('[data-add-material]').forEach(button=>{const id=Number(button.dataset.addMaterial),m=materials.find(m=>m.id===id),n=ingredientSelection.get(id)||0;button.disabled=craftBusy||!m||n>=Math.min(m.count,craftInputMax)||!p.target||p.energy>=capacity;const remaining=Math.max(0,(m?.count||0)-n),badge=button.querySelector('[data-material-stock]');badge.textContent=`×${remaining}`;badge.title=`剩余可添加 ${remaining} 份`;button.setAttribute('aria-label',`添加${m?.name||'材料'}，剩余可添加 ${remaining} 份`);});
     $('material-basket').innerHTML=[...ingredientSelection].map(([id,n])=>`<div class="basket-row"><span>${escape(state.materials.find(m=>m.id===id)?.name||'材料')} <b>× ${n}</b></span><button data-remove-material="${id}" aria-label="移除一份${escape(state.materials.find(m=>m.id===id)?.name||'材料')}" ${craftBusy?'disabled':''}>−</button></div>`).join('')||'<p>点击一种材料，按库存尽量补满所需充能。</p>';
     const excess=Math.max(0,energy-total*p.perArrow);
     $('charge-excess').textContent=excess&&total?`余量 ${excess} 充能不会保留，可用 − 调整材料。`:'确认前不会扣除材料，可用 − 撤回。';
-    $('magic-error').textContent=quoteError||p.error||(quoteBusy?'正在更新清单…':'');
-    $('confirm-craft').disabled=!q||!!p.error||quoteBusy||craftBusy;
-    $('confirm-craft').textContent=craftBusy?'正在制作…':`确认制作 ${total} / ${p.target} 支`;
+    // The queue itself never charges magicka up front, so only the gold price and the
+    // per-spell ceiling can stop an order here; the native side re-checks everything.
+    const queued=queuedForSpell(spell),capacityError=queued+total>orderCapacity()?`该法术最多排队 ${orderCapacity()} 支，当前已排 ${queued} 支`:'';
+    $('magic-error').textContent=quoteError||p.error||capacityError||(state.orders&&state.orders.available===false?'队列保存组件不可用，无法开始制作':quoteBusy?'正在更新清单…':'');
+    $('confirm-craft').disabled=!q||!!p.error||!!capacityError||state.orders?.available===false||quoteBusy||craftBusy;
+    $('confirm-craft').textContent=craftBusy?'正在加入队列…':`开始制作 ${total} / ${p.target} 支 · 已排 ${queued}`;
     $('magic-dialog').querySelectorAll('input').forEach(input=>{
         input.disabled=craftBusy||(input.hasAttribute('data-quantity')&&!batches.has(Number(input.dataset.quantity)));
     });
@@ -229,14 +242,14 @@ function scheduleQuote(){
     const p=previewPlan();
     // Still ask the game for an authoritative resource refresh on shortage; only
     // malformed selections are withheld. No resource mutation happens during a quote.
-    const valid=batches.size&&ingredientSelection.size&&p.target<=100&&p.total>0&&[...batches.values()].every(n=>Number.isInteger(n)&&n>0);
+    const valid=batches.size&&ingredientSelection.size&&p.target<=craftBatchMax&&p.total>0&&[...batches.values()].every(n=>Number.isInteger(n)&&n>0);
     if(valid){quoteBusy=true;const requestID=quoteVersion;quoteTimer=setTimeout(()=>{if(!modalOpen||requestID!==quoteVersion)return;send('quote',{...magicSelection(),runtime:!!selectedSpell()?.adapter?.runtime,requestID});},220);}
     updateMagicSummary();
 }
 
 function settings(){
     const h=state.hotkey;const keys=[...'ABCDEFGHIJKLMNOPQRSTUVWXYZ',...Array.from({length:12},(_,i)=>'F'+(i+1))];
-    $('content').innerHTML=`<div class="settings"><section class="section-box"><h2>唤起面板快捷键</h2><p>在游戏中打开面板；面板打开时，再按一次关闭。字母键需搭配修饰键，避免影响行走。</p><div class="key-row"><select id="key" aria-label="快捷键主键">${keys.map(k=>`<option ${k===h.key?'selected':''}>${k}</option>`).join('')}</select>${['shift','ctrl','alt'].map(k=>`<label><input type="checkbox" id="${k}" ${h[k]?'checked':''}>${k==='ctrl'?'Ctrl':k==='alt'?'Alt':'Shift'}</label>`).join('')}</div><div class="buttons"><button class="primary" id="save">保存快捷键</button><button id="reset">恢复 Shift + W</button></div></section><section class="section-box"><h2>能力入口 · 打开魔法箭工坊</h2><p>${state.powerAvailable?'已找到能力记录。读取存档或开始新游戏时自动加入「魔法 → 能力」。装备后按龙吼／能力键施放，可收藏、无魔法值消耗。':'尚未找到能力记录，请确认 MagicArrows.esp 已启用，并重新启动游戏。'}</p></section><section class="section-box"><h2>随从魔法箭消耗</h2><p>开启后，队友使用本模组封存箭或固定适配箭时按射击数量消耗，射空也消耗。已由游戏扣除的数量会计入，普通箭和外观试作箭沿用游戏规则。</p><label><input type="checkbox" id="follower-consume" ${(state.followers?.consumeMagicArrows??true)?'checked':''} ${state.followers?.available?'':'disabled'}>按射击数量消耗魔法箭</label><p>关闭后沿用游戏及其他模组的消耗规则。随从不需要掌握被封存的法术。此设置不改变友伤或随从自行选择箭矢的行为。</p><button id="save-followers" ${state.followers?.available?'':'disabled'}>保存随从设置</button></section><section class="section-box"><h2>当前版本</h2><p>0.9.9 · 炼金术每级减少 0.5% 材料充能需求，100 级最多减少 50%，向上取整且每支至少 1 点；法力和金币不受此减耗影响。Esc 优先关闭制作弹窗，再关闭面板。</p></section></div>`;
+    $('content').innerHTML=`<div class="settings"><section class="section-box"><h2>唤起面板快捷键</h2><p>在游戏中打开面板；面板打开时，再按一次关闭。字母键需搭配修饰键，避免影响行走。</p><div class="key-row"><select id="key" aria-label="快捷键主键">${keys.map(k=>`<option ${k===h.key?'selected':''}>${k}</option>`).join('')}</select>${['shift','ctrl','alt'].map(k=>`<label><input type="checkbox" id="${k}" ${h[k]?'checked':''}>${k==='ctrl'?'Ctrl':k==='alt'?'Alt':'Shift'}</label>`).join('')}</div><div class="buttons"><button class="primary" id="save">保存快捷键</button><button id="reset">恢复 Shift + W</button></div></section><section class="section-box"><h2>能力入口 · 打开魔法箭工坊</h2><p>${state.powerAvailable?'已找到能力记录。读取存档或开始新游戏时自动加入「魔法 → 能力」。装备后按龙吼／能力键施放，可收藏、无魔法值消耗。':'尚未找到能力记录，请确认 MagicArrows.esp 已启用，并重新启动游戏。'}</p></section><section class="section-box"><h2>随从魔法箭消耗</h2><p>开启后，队友使用本模组封存箭或固定适配箭时按射击数量消耗，射空也消耗。已由游戏扣除的数量会计入，普通箭和外观试作箭沿用游戏规则。</p><label><input type="checkbox" id="follower-consume" ${(state.followers?.consumeMagicArrows??true)?'checked':''} ${state.followers?.available?'':'disabled'}>按射击数量消耗魔法箭</label><p>关闭后沿用游戏及其他模组的消耗规则。随从不需要掌握被封存的法术。此设置不改变友伤或随从自行选择箭矢的行为。</p><button id="save-followers" ${state.followers?.available?'':'disabled'}>保存随从设置</button></section><section class="section-box"><h2>当前版本</h2><p>1.0.0 · 在附魔台点「开始制作」后一次性扣除金币、基材与充能材料，订单进入队列并随存档保存，离开附魔台后按当前法力逐支产出，等待法力回复不算暂停。每个法术最多排队 10000 支，队列进度与暂停原因显示在制作页。炼金术每级减少 0.5% 材料充能需求，100 级最多减少 50%，向上取整且每支至少 1 点；法力和金币不受此减耗影响。Esc 优先关闭制作弹窗，再关闭面板。</p></section></div>`;
     $('save-followers').onclick=()=>{const consumeMagicArrows=$('follower-consume').checked;$('save-followers').disabled=true;send('followerSettings',{consumeMagicArrows});};
     $('save').onclick=()=>send('settings',{key:$('key').value,shift:$('shift').checked,ctrl:$('ctrl').checked,alt:$('alt').checked});
     $('reset').onclick=()=>send('settings',{key:'W',shift:true,ctrl:false,alt:false});
@@ -247,7 +260,7 @@ window.MagicArrows={closeDialog,escape:escapeLayer,receiveState(next){
     const reply=next.workshopReply;
     if(modalOpen&&reply&&reply.requestID===quoteVersion){
         if(reply.type==='quote'){quoteBusy=false;acceptedQuote=reply.ok?next.quote:null;quoteError=reply.ok?'':reply.error||'无法计算制作清单';}
-        if(reply.type==='craft'){craftBusy=false;if(reply.ok)closeDialog();else{acceptedQuote=null;quoteError=reply.error||'制作失败，请重新选择材料';}}
+        if(reply.type==='orderStart'){craftBusy=false;if(reply.ok)closeDialog();else{acceptedQuote=null;quoteError=reply.error||'无法加入制作队列，请重新核对清单';}}
     }
     render();$('status').textContent=next.message||'库存已同步';
 }};
@@ -275,7 +288,7 @@ function demoAction(type,data){
     if(type==='inspect')return;
     if(type==='normalQuote'||type==='normalCraft'){$('status').textContent='浏览器示例不扣材料；请在游戏内计算真实费用';return;}
     if(type==='quote'){quoteBusy=false;quoteError='浏览器示例不扣资源，请在游戏内确认制作';render();return;}
-    if(type==='craft'){$('status').textContent='浏览器示例不能制作';return;}
+    if(type==='orderStart'){$('status').textContent='浏览器示例不能开始制作';return;}
     if(type==='close'){$('status').textContent='预览模式：游戏内此操作会关闭面板';return;}
     if(type==='followerSettings'){state.followers={available:true,consumeMagicArrows:data.consumeMagicArrows};}
     if(type==='settings'){if(!data.shift&&!data.ctrl&&!data.alt&&data.key.length===1){$('status').textContent='字母快捷键至少需要一个修饰键';return;}state.hotkey=data;}
@@ -286,6 +299,7 @@ function demoAction(type,data){
 }
 render();
 if(demo){document.body.classList.add('demo');state.loaded=true;state.powerAvailable=true;state.ammoQueue={available:true,enabled:false,ids:[],items:[],limit:64};
+    state.orders={available:true,limit:10000,paused:false,reason:'',entries:[{spell:101,name:'火焰箭·火球术',family:'fire',total:24,remaining:24,label:'24'},{spell:102,name:'霜晶箭·冰风暴',family:'ice',total:4500,remaining:1500,label:'1.5K'}]};
     state.arrows=[{id:1,name:'嗜血箭〔外观试作〕',family:'blood',count:100,damage:8,equipped:true},{id:2,name:'圣辉箭〔外观试作〕',family:'holy',count:100,damage:8},{id:3,name:'星魂箭〔外观试作〕',family:'soul',count:100,damage:8},...['铁箭','钢箭','精灵箭','矮人箭','魔族箭'].map((name,i)=>({id:10+i,name,family:'normal',count:24+i*18,damage:8+i*4,fireballBase:true}))];
     state.spells=[{id:101,name:'火球术',cost:95},{id:102,name:'冰风暴',cost:126},{id:103,name:'血液虹吸',cost:70}].map(s=>({...s,source:'Skyrim.esm',craftable:s.id===101,eligibility:{status:'candidate',reasons:['示例：通过结构初筛，仍需命中验证']}}));state.spells.push({id:106,name:'烈焰术',cost:14,source:'Skyrim.esm',eligibility:{status:'candidate',releaseMode:'sustained',reasons:['示例：持续型结构候选','命中点固定朝向，持续 3 秒；结构兼容时可制作']}},{id:104,name:'烈焰斗篷',cost:110,source:'Skyrim.esm',eligibility:{status:'excluded',reasons:['自身施法','包含斗篷效果']}},{id:105,name:'秘术印记',cost:80,source:'示例魔法模组.esp',eligibility:{status:'review',reasons:['脚本效果需要单独适配']}});state.materials=[{id:201,name:'龙舌兰',kind:'ingredient',count:8,units:6},{id:202,name:'火盐',kind:'ingredient',count:5,units:10},{id:203,name:'抗火药水',kind:'potion',count:3,charges:{fire:50}},{id:204,name:'自制抗火药水',kind:'potion',count:2,charges:{fire:35}},{id:205,name:'虚弱火焰毒药',kind:'poison',count:2,charges:{fire:25}},{id:206,name:'恢复魔法药水',kind:'potion',count:4,charges:{arcane:50,soul:50,dark:50}}];state.recipes=[{id:301,name:'铁箭',yield:24,craftable:true,maxBatches:4,source:'Dawnguard.esm',ingredients:[{name:'铁锭',need:1,have:4},{name:'木柴',need:1,have:8}]}];selected=1;render();$('status').textContent='浏览器预览 · 示例数据';
 }else{

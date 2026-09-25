@@ -1,12 +1,17 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync('mods/magic-arrows/web/app.js','utf8');
 function extract(name){const start=source.indexOf('function '+name+'(');const end=source.indexOf('\nfunction ',start+1);return source.slice(start,end<0?source.length:end);}
-const batches=new Map(),stock=[{id:1,count:10},{id:2,count:120}],checkbox={checked:true};
+const limits=source.split('\n').find(line=>line.startsWith('const craftInputMax='));
+const batches=new Map(),stock=[{id:1,count:10},{id:2,count:120},{id:3,count:20000}],checkbox={checked:true};
 const ctx={batches,baseArrows:()=>stock,document:{querySelector:()=>checkbox},Number,Math,String};
-vm.createContext(ctx);vm.runInContext(extract('quantityLimit')+'\n'+extract('normalizeBaseInput'),ctx);
+vm.createContext(ctx);vm.runInContext(limits+'\n'+extract('quantityLimit')+'\n'+extract('normalizeBaseInput'),ctx);
 function input(id,value,commit=false){const x={dataset:{quantity:String(id)},value};ctx.normalizeBaseInput(x,commit);return x;}
 assert.equal(input(1,'999').value,'10');assert.equal(batches.get(1),10);
-assert.equal(input(2,'150').value,'90');assert.equal([...batches.values()].reduce((a,b)=>a+b),100);
+assert.equal(input(2,'150').value,'120');assert.equal([...batches.values()].reduce((a,b)=>a+b),130);
+assert.equal(input(3,'5000').value,'999','one box stops at 999');
+batches.clear();batches.set(3,9999);
+assert.equal(input(1,'5').value,'1','an almost full batch leaves room for the remaining stock');
+batches.clear();batches.set(1,10);
 assert.equal(input(1,'-5').value,'1');assert.equal(input(1,'3.8').value,'3');
 assert.equal(input(1,'').value,'');assert.equal(batches.get(1),0);assert.equal(input(1,'',true).value,'1');
 stock[0].count=0;assert.equal(input(1,'8',true).disabled,true);assert.equal(checkbox.checked,false);assert(!batches.has(1));

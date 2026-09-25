@@ -70,7 +70,7 @@ inline int Classify(RE::SpellItem* s){
     }
     return runtime_rules::Dominant(score);
 }
-inline json Info(RE::SpellItem* s,RE::PlayerCharacter* p){int f=Classify(s);auto c=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p));return {{"runtime",true},{"castRoute",RouteName(s)},{"releaseMode",Sustained(s)?"sustained":"instant"},{"seconds",Sustained(s)?sustained_rules::seconds:0.f},{"family",runtime_rules::families[f]},{"material",MaterialName(f)},{"gold",c.gold},{"mana",c.mana},{"charge",c.charge}};}
+inline json Info(RE::SpellItem* s,RE::PlayerCharacter* p){int f=Classify(s);auto c=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p),crafting::Enchanting(p));return {{"runtime",true},{"castRoute",RouteName(s)},{"releaseMode",Sustained(s)?"sustained":"instant"},{"seconds",Sustained(s)?sustained_rules::seconds:0.f},{"family",runtime_rules::families[f]},{"material",MaterialName(f)},{"gold",c.gold},{"mana",c.mana},{"charge",c.charge}};}
 inline std::string OutputName(RE::SpellItem* s,RE::TESAmmo*){return std::string(names[Classify(s)])+"·"+crafting::Name(s);}
 inline void Neutral(Binding& b){
     b.spell=nullptr;b.base=nullptr;b.active=false;b.canonical=false;b.family=11;
@@ -157,7 +157,7 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& q){
     int f=Classify(s);std::unordered_set<RE::FormID> seen;
     for(auto selected:q.materials){auto id=selected.id;if(!seen.insert(id).second)throw std::runtime_error("材料选择重复");auto* i=RE::TESForm::LookupByID<RE::TESBoundObject>(id);auto it=inv.find(i);
         int units=crafting::Units(i,MaterialAV(f));if(units<=0||it==inv.end()||!it->second.second||it->second.second->IsQuestObject()||selected.count<1||it->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");ingredients.push_back({id,selected.count,units});}
-    auto costs=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p));auto result=crafting::MakeChargedPlan(q.bases,stock,ingredients,crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),costs);
+    auto costs=runtime_rules::Costs(s->CalculateMagickaCost(p),Sustained(s),crafting::Alchemy(p),crafting::Enchanting(p));auto result=crafting::MakeChargedPlan(q.bases,stock,ingredients,crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),costs,false);
     auto* existing=Existing(s);int needed=existing?0:1;
     if(existing&&!arrow_identity::Fits(crafting::Count(p,existing->ammo),result.total))throw std::runtime_error("成品库存数量超限");
     if(needed>Free())throw std::runtime_error("剩余封存身份不足（每存档最多 256 组）");return result;
@@ -165,7 +165,7 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& q){
 inline void Quote(RE::PlayerCharacter* p,const json& q){
     Reset();Request req{q.at("spell").get<RE::FormID>(),{}, {}};
     if(!q.at("bases").is_array()||!q.at("materials").is_array()||q.at("bases").size()>32||q.at("materials").size()>128)throw std::runtime_error("材料选择无效");
-    for(auto& b:q.at("bases")){if(!b.at("count").is_number_integer()||b.at("count")<1||b.at("count")>100)throw std::runtime_error("数量必须是 1–100 的整数");req.bases.push_back({b.at("id").get<RE::FormID>(),b.at("count").get<int>(),0});}
+    for(auto& b:q.at("bases")){if(!b.at("count").is_number_integer()||b.at("count")<1||b.at("count")>crafting::inputCountMax)throw std::runtime_error("数量必须是 1–999 的整数");req.bases.push_back({b.at("id").get<RE::FormID>(),b.at("count").get<int>(),0});}
     req.materials=crafting::ReadMaterials(q.at("materials"));auto plan=Evaluate(p,req);auto* s=RE::TESForm::LookupByID<RE::SpellItem>(req.spell);
     json items=json::array(),outputs=json::array(),bases=json::array();for(auto x:plan.ingredients)items.push_back({{"id",x.id},{"name",crafting::Name(RE::TESForm::LookupByID(x.id))},{"count",x.count},{"units",x.units}});
     for(auto x:plan.bases)bases.push_back({{"id",x.id},{"count",x.count}});

@@ -6,8 +6,14 @@
 namespace ammo_queue_rules {
 using ID=std::uint32_t;
 inline constexpr std::size_t limit=64;
-inline bool ValidRecord(std::span<const std::uint32_t> words){return words.size()>=2&&words.size()<=limit+2&&words[0]<=1&&words[1]==words.size()-2;}
+inline bool ValidRecord(std::span<const std::uint32_t> words,std::uint32_t version=1){return words.size()>=2&&words.size()<=limit+2&&(version==1||version==2)&&words[0]<=(version==1?1u:2u)&&words[1]==words.size()-2;}
 inline bool Contains(std::span<const ID> order,ID id){return id&&std::find(order.begin(),order.end(),id)!=order.end();}
+inline bool Promote(std::vector<ID>& order,ID id){
+    if(!id)return false;
+    std::erase(order,id);order.insert(order.begin(),id);
+    if(order.size()>limit)order.resize(limit);
+    return true;
+}
 template<class Available> ID Next(std::span<const ID> order,ID after,Available available){
     auto it=order.begin();if(after){it=std::find(it,order.end(),after);if(it==order.end())return 0;++it;}
     for(;it!=order.end();++it)if(*it&&available(*it))return *it;

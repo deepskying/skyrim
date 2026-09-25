@@ -16,10 +16,10 @@ inline int Keyword(std::string text){
         if(text.find(word)!=std::string::npos)return family;
     return -1;
 }
-inline crafting::Costs Costs(float cost,bool sustained=false,float alchemy=0.f){
+inline crafting::Costs Costs(float cost,bool sustained=false,float alchemy=0.f,float enchanting=0.f){
     if(!std::isfinite(cost)||cost<0)throw std::runtime_error("法术费用无效");
     cost=std::min(cost,2000.f)*(sustained?sustained_rules::seconds:1.f);
-    return crafting::WithAlchemy({std::clamp(static_cast<int>(std::ceil(std::min(cost,2000.f)/20)),1,100),std::clamp(static_cast<int>(std::ceil(std::min(cost,1000.f)*.5f)),1,500),std::clamp(static_cast<int>(std::ceil(std::min(cost,1000.f)*.25f)),1,250)},alchemy);
+    return crafting::WithEnchanting(crafting::WithAlchemy({std::clamp(static_cast<int>(std::ceil(std::min(cost,2000.f)/20)),1,100),std::clamp(static_cast<int>(std::ceil(std::min(cost,1000.f)*.5f)),1,500),std::clamp(static_cast<int>(std::ceil(std::min(cost,1000.f)*.25f)),1,250)},alchemy),enchanting);
 }
 // Source lists are interpreted by type, never by insertion order.
 struct SavedRefs {bool occupied=false,marker=false;int spellCount=0,baseCount=0,otherCount=0;};

@@ -30,15 +30,16 @@ assert binary.is_file(), 'Build native DLL first'
 shutil.copy2(binary,DATA/'SKSE/Plugins/MagicArrows.dll')
 web=DATA/'PrismaUI/views/MagicArrows';web.mkdir(parents=True,exist_ok=True)
 for name in ('index.html','style.css','app.js'):shutil.copy2(ROOT/'web'/name,web/name)
-meta='[General]\ngameName=Skyrim Special Edition\nmodid=0\nversion=0.9.9\ncategory=0\nnotes=Remove exhausted queue entries and prioritize the head while using a bow.\n'
+meta='[General]\ngameName=Skyrim Special Edition\nmodid=0\nversion=1.0.0\ncategory=0\nnotes=Queued magic arrow crafting paid per arrow, with a crafting progress HUD.\n'
 (DATA/'meta.ini').write_text(meta,encoding='utf-8')
 shutil.copy2(ROOT/'README.md',DATA/'README.md')
 (DATA/'docs').mkdir(exist_ok=True)
 shutil.copy2(ROOT/'docs/marc-compatibility.md',DATA/'docs/marc-compatibility.md')
 shutil.copy2(ROOT/'docs/arrow-identity.md',DATA/'docs/arrow-identity.md')
 shutil.copy2(ROOT/'docs/ammo-queue.md',DATA/'docs/ammo-queue.md')
+shutil.copy2(ROOT/'docs/craft-order.md',DATA/'docs/craft-order.md')
 release=ROOT/'release';release.mkdir(exist_ok=True)
-archive=release/'MagicArrows-0.9.9-MO2.zip'
+archive=release/'MagicArrows-1.0.0-MO2.zip'
 with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
     for path in sorted(DATA.rglob('*')):
         if path.is_file():z.write(path,path.relative_to(DATA).as_posix())
@@ -81,6 +82,6 @@ with zipfile.ZipFile(archive) as z:
     assert sorted(z.namelist())==sorted(f['path'] for f in files)
     for f in files:assert hashlib.sha256(z.read(f['path'])).hexdigest()==f['sha256']
 enabled=('+'+mod_name) in (profile/'modlist.txt').read_text(encoding='utf-8-sig').splitlines() and '*MagicArrows.esp' in (profile/'plugins.txt').read_text(encoding='utf-8-sig').splitlines()
-report=dict(version='0.9.9',visual_revision='queue-head-priority',installed=str(dest),profile=str(profile),profile_enabled=enabled,activation='Enabled in profile' if enabled else 'Refresh MO2 and enable mod/plugin',backup=str(backup),archive=str(archive),archive_sha256=sha(archive),config_preserved=saved_config is not None,files=files,game_tested=False)
+report=dict(version='1.0.0',visual_revision='queued-crafting',installed=str(dest),profile=str(profile),profile_enabled=enabled,activation='Enabled in profile' if enabled else 'Refresh MO2 and enable mod/plugin',backup=str(backup),archive=str(archive),archive_sha256=sha(archive),config_preserved=saved_config is not None,files=files,game_tested=False)
 (BUILD/'installation.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
 print(json.dumps({k:v for k,v in report.items() if k!='files'},ensure_ascii=True,indent=2))

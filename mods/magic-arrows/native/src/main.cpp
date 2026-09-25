@@ -14,6 +14,7 @@
 #include "runtime_impact.h"
 #include "follower_ammo.h"
 #include "ammo_queue.h"
+#include "craft_order.h"
 #include <ranges>
 #ifdef UNIFIED_WORKSHOP
 #include "workshop_bridge.h"
@@ -47,6 +48,7 @@ auto ConfigPath() { return std::filesystem::path(REL::Module::get().filePath().d
 void LoadConfig() {
     auto path=ConfigPath();wchar_t text[32]{};
     follower_ammo::consume=GetPrivateProfileIntW(L"Followers",L"ConsumeMagicArrows",1,path.c_str())!=0;
+    craft_order::pauseInCombat=GetPrivateProfileIntW(L"Crafting",L"PauseInCombat",1,path.c_str())!=0;
     GetPrivateProfileStringW(L"Hotkey",L"Key",L"W",text,32,path.c_str());
     std::string key;for(auto* ch=text;*ch;++ch){if(*ch>127){key.clear();break;}key.push_back(static_cast<char>(*ch));}
     std::transform(key.begin(),key.end(),key.begin(),[](unsigned char c){return static_cast<char>(std::toupper(c));});
@@ -131,7 +133,8 @@ json State(std::string message={}) {
     auto sort=[](json& xs){std::sort(xs.begin(),xs.end(),[](const json& a,const json& b){return a["name"].get<std::string>()<b["name"].get<std::string>();});};
     sort(arrows);sort(spells);sort(materials);sort(recipes);
     const auto access = loaded ? crafting_access::Nearby(p) : crafting_access::Access{};
-    return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","0.9.9"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
+    return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","1.0.0"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
+        {"orders",craft_order::State()},
         {"hotkey",{{"key",binding.key},{"shift",binding.shift},{"ctrl",binding.ctrl},{"alt",binding.alt}}},
         {"loaded",loaded},{"powerAvailable",RE::TESDataHandler::GetSingleton()&&RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(0x840,"MagicArrows.esp")!=nullptr}};
 }
@@ -152,7 +155,7 @@ void Close(){
 #endif
 }
 // Only the SKSE task mutates pending state; the frame hook merely schedules it.
-struct PendingEquip { RE::FormID id;std::uint64_t epoch;ULONGLONG started;unsigned frames=0;bool submitted=false;bool automatic=false;std::uint64_t queueRevision=0; };
+struct PendingEquip { RE::FormID id;std::uint64_t epoch;ULONGLONG started;unsigned frames=0;bool submitted=false;bool automatic=false;std::uint64_t queueRevision=0;};
 std::optional<PendingEquip> pendingEquip;
 std::atomic<bool> equipActive{false},equipTickQueued{false};
 void CancelEquip(){if(pendingEquip&&pendingEquip->automatic)ammo_queue::tracker.Cancel();pendingEquip.reset();equipActive=false;}
@@ -173,14 +176,14 @@ void EquipTick(){
     if(request.automatic&&(!ammo_queue::enabled||request.queueRevision!=ammo_queue::revision)){CancelEquip();return;}
     if(request.automatic){auto* object=p->GetEquippedObject(false);auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon||weapon->GetWeaponType()!=RE::WEAPON_TYPE::kBow){CancelEquip();return;}}
     if(p->GetCurrentAmmo()==ammo){logger::info("Equip confirmed form={:08X} elapsed={}ms",request.id,elapsed);const auto id=request.id;CancelEquip();ammo_queue::Observe(p,id);return;}
-    if(request.automatic&&(ammo_queue::order.empty()||ammo_queue::order.front()!=request.id||ammo_queue::Count(p,request.id)<=0)){CancelEquip();return;}
+    if(request.automatic&&(ammo_queue::order.empty()||!ammo_queue_rules::Contains(ammo_queue::order,request.id)||ammo_queue::order.front()!=request.id||ammo_queue::Count(p,request.id)<=0)){CancelEquip();return;}
     if(request.submitted||++request.frames<2||elapsed<250)return;
     if(ui->IsMenuOpen("Loading Menu")||ui->IsMenuOpen("Main Menu")||!p->Is3DLoaded())return;
     auto inventory=p->GetInventory();auto it=inventory.find(ammo);
     if(it==inventory.end()||it->second.first<=0){CancelEquip();return;}
     auto* manager=RE::ActorEquipManager::GetSingleton();if(!manager){CancelEquip();return;}
     request.submitted=true;
-    logger::info("Equip submit after resume form={:08X} model={} frames={} elapsed={}ms",request.id,ammo->GetModel(),request.frames,elapsed);
+    logger::info("Equip submit form={:08X} model={} frames={} elapsed={}ms",request.id,ammo->GetModel(),request.frames,elapsed);
     manager->EquipObject(p,ammo,nullptr,1,nullptr,true,false,true,false);
     logger::info("Equip request returned form={:08X}; awaiting current ammo",request.id);
 }
@@ -191,6 +194,14 @@ void EquipFrame(){
     if(equipTickQueued.exchange(true))return;lastQueueTick=now;
     if(auto* tasks=SKSE::GetTaskInterface())tasks->AddTask([]{equipTickQueued=false;
         if(pendingEquip){EquipTick();return;}
+        // Queued crafting advances on the game thread; every resource is already locked.
+        if(auto* player=RE::PlayerCharacter::GetSingleton())if(!craft_order::queue.empty()){
+            auto* ui=RE::UI::GetSingleton();
+            const bool panelOpen=panelVisible||(api&&api->HasAnyActiveFocus())||!loaded;
+            const bool loading=ui&&(ui->IsMenuOpen("Loading Menu")||ui->IsMenuOpen("Main Menu"));
+            craft_order::paused=craft_order_rules::Evaluate(panelOpen||(ui&&ui->GameIsPaused()),loading,player->IsDead(),player->IsInCombat(),craft_order::pauseInCombat);
+            if(craft_order::paused==craft_order_rules::Pause::none)craft_order::Tick(player,"");
+        }
         if(!loaded||panelVisible||ammo_queue::order.empty())return;
         auto* p=RE::PlayerCharacter::GetSingleton();auto* ui=RE::UI::GetSingleton();
         if(!p||p->IsDead()||!p->Is3DLoaded()||!ui||ui->GameIsPaused()||ui->IsMenuOpen("Loading Menu")||ui->IsMenuOpen("Main Menu")||(api&&api->HasAnyActiveFocus()))return;
@@ -198,7 +209,8 @@ void EquipFrame(){
         auto* item=p->GetEquippedObject(false);auto* bow=item?item->As<RE::TESObjectWEAP>():nullptr;
         if(!bow||bow->GetWeaponType()!=RE::WEAPON_TYPE::kBow){ammo_queue::tracker.Reset();return;}
         const auto inventory=p->GetInventory();auto count=[&](RE::FormID id){auto* a=ammo_queue::Ammo(id);auto it=inventory.find(a);return a&&it!=inventory.end()?std::max(0,it->second.first):0;};
-        auto* current=p->GetCurrentAmmo();auto next=ammo_queue::tracker.Tick(ammo_queue::order,current?current->GetFormID():0,count);
+        auto* current=p->GetCurrentAmmo();
+        auto next=ammo_queue::tracker.Tick(ammo_queue::order,current?current->GetFormID():0,count);
         if(next){logger::info("Ammo queue priority head={:08X}",next);RequestEquip(next,true);}
     });
     else equipTickQueued=false;
@@ -223,7 +235,7 @@ void Action(const char* raw){
     if(auto* tasks=SKSE::GetTaskInterface())tasks->AddTask([copy=std::move(copy)]{
         try{
             workshopReply=nullptr;auto q=json::parse(copy);auto type=q.value("type",std::string{});
-            if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft")workshopReply={{"type",type},{"requestID",q.value("requestID",std::uint64_t{})},{"ok",false}};
+            if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft"||type=="orderStart")workshopReply={{"type",type},{"requestID",q.value("requestID",std::uint64_t{})},{"ok",false}};
             if(type=="ready"){ready=true;if(api&&view&&api->HasFocus(view))Send();return;}
             if(type=="close"){if(q.value("reason",std::string{})!="hotkey"||GetTickCount64()-openedAt>250)Close();return;}
             if(!loaded||!api||!view||!api->HasFocus(view))return;
@@ -250,6 +262,8 @@ void Action(const char* raw){
             }
             if(type=="normalQuote"){runtime_binding::Reset();crafting::Reset();normal_crafting::Quote(player,q);workshopReply["ok"]=true;Send("普通箭费用已计算，请核对后确认");
             }else if(type=="normalCraft"){normal_crafting::Commit(player,q.at("token").get<std::uint64_t>());workshopReply["ok"]=true;Send("普通箭制作完成，成品已加入背包");
+            }else if(type=="orderStart"){const auto started=craft_order::Start(q);workshopReply["ok"]=true;
+                Send(started.value("chargeClamped",false)?"已加入制作队列；已达单批上限 100000 充能，超出部分不会增加产量":"已加入制作队列，离开附魔台后继续制作");
             }else if(type=="quote"){normal_crafting::Reset();runtime_binding::Reset();crafting::Reset();
                 if(q.value("runtime",false))runtime_binding::Quote(player,q);else crafting::Quote(player,q);workshopReply["ok"]=true;Send("费用已计算，请核对后确认制作");
             }else if(type=="craft"){
@@ -267,6 +281,12 @@ void Action(const char* raw){
                 auto inv=player->GetInventory();auto it=inv.find(ammo);
                 if(it==inv.end()||it->second.first<=0){Send("背包中已没有这组箭矢");return;}
                 auto* manager=RE::ActorEquipManager::GetSingleton();if(!manager){Send("装备管理器不可用");return;}
+                if(!ammo->IsBolt()){
+                    if(!ammo_queue::available){Send("队列保存组件不可用，无法将箭矢设为队首");return;}
+                    ammo_queue::Normalize();ammo_queue::Prune(player);
+                    if(!ammo_queue_rules::Promote(ammo_queue::order,id)){Send("无法将该箭矢设为队首");return;}
+                    ammo_queue::enabled=true;ammo_queue::Suspend();
+                }
                 logger::info("Equip validated form={:08X}; waiting for resumed frames",id);
                 Close();
                 ammo_queue::tracker.Reset();RequestEquip(id);
@@ -339,7 +359,7 @@ void Message(SKSE::MessagingInterface::Message* m){
     api->RegisterJSListener(view,"magicArrowsAction",Action);api->Hide(view);
     if(auto* device=RE::BSInputDeviceManager::GetSingleton())device->AddEventSink(&input);
 #endif
-    logger::info("MagicArrows 0.9.9 loaded; ability local ID 840; key {}",binding.key);
+    logger::info("MagicArrows 1.0.0 loaded; ability local ID 840; key {}",binding.key);
 }
 }
 #ifdef UNIFIED_WORKSHOP
@@ -353,11 +373,11 @@ void unified_workshop::ArrowAction(const char* json){Action(json);}
 void unified_workshop::SaveArrows(SKSE::SerializationInterface* serial){ammo_queue::Save(serial);}
 void unified_workshop::RevertArrows(SKSE::SerializationInterface* serial){ammo_queue::Revert(serial);}
 namespace {
-void RestoreQueueWords(SKSE::SerializationInterface* serial,const std::vector<std::uint32_t>& words){
-    if(!ammo_queue_rules::ValidRecord(words))return;
+void RestoreQueueWords(SKSE::SerializationInterface* serial,const std::vector<std::uint32_t>& words,std::uint32_t version=1){
+    if(!ammo_queue_rules::ValidRecord(words,version))return;
     std::vector<RE::FormID> restored;
     for(std::size_t i=2;i<words.size();++i){RE::FormID id=0;if(serial->ResolveFormID(words[i],id)&&id&&!ammo_queue_rules::Contains(restored,id))restored.push_back(id);}
-    ammo_queue::order=std::move(restored);ammo_queue::enabled=words[0]!=0;
+    ammo_queue::order=std::move(restored);ammo_queue::enabled=true; // Old mode values are intentionally ignored.
 }
 }
 void unified_workshop::BeginLoadArrows(SKSE::SerializationInterface* serial){
@@ -376,14 +396,18 @@ void unified_workshop::BeginLoadArrows(SKSE::SerializationInterface* serial){
     }catch(const std::exception& e){logger::warn("Legacy arrow queue import failed: {}",e.what());}
 }
 bool unified_workshop::LoadArrowRecord(SKSE::SerializationInterface* serial,std::uint32_t type,std::uint32_t version,std::uint32_t length){
+    if(craft_order::LoadRecord(serial,type,version,length))return true;
     if(type!=ammo_queue::record)return false;
-    if(version==1&&length>=8&&length<=264&&length%4==0){std::vector<std::uint32_t> words(length/4);if(serial->ReadRecordData(words.data(),length)==length)RestoreQueueWords(serial,words);}
+    if((version==1||version==2)&&length>=8&&length<=264&&length%4==0){std::vector<std::uint32_t> words(length/4);if(serial->ReadRecordData(words.data(),length)==length)RestoreQueueWords(serial,words,version);}
     return true;
 }
 bool unified_workshop::InstallArrows(){
+    // Both queues need the co-save, so they share one availability probe.
     ammo_queue::available=SKSE::GetSerializationInterface()!=nullptr;
+    craft_order::available=ammo_queue::available;
     return ammo_queue::available;
 }
+std::string unified_workshop::CraftOrderJson(){return craft_order::State().dump();}
 void unified_workshop::ArrowMessage(SKSE::MessagingInterface::Message* message){Message(message);}
 #else
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* skse){
@@ -392,6 +416,7 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* sks
         auto sink=std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir/"MagicArrows.log").string(),true);
         auto log=std::make_shared<spdlog::logger>("MagicArrows",sink);spdlog::set_default_logger(log);spdlog::flush_on(spdlog::level::info);
     }
-    ammo_queue::Install();auto* messaging=SKSE::GetMessagingInterface();return messaging&&messaging->RegisterListener("SKSE",Message);
+    ammo_queue::Install();craft_order::available=ammo_queue::available;
+    auto* messaging=SKSE::GetMessagingInterface();return messaging&&messaging->RegisterListener("SKSE",Message);
 }
 #endif

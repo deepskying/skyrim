@@ -16,8 +16,9 @@ inline std::unordered_map<RE::TESAmmo*,const Adapter*> ammoAdapters;
 inline const Adapter* ForAmmo(RE::TESAmmo* ammo){auto it=ammoAdapters.find(ammo);return it==ammoAdapters.end()?nullptr:it->second;}
 inline bool IsOutput(RE::TESAmmo* a){return ForAmmo(a)!=nullptr;}
 inline float Alchemy(RE::PlayerCharacter* p){return p?p->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kAlchemy):0.f;}
-inline Costs RecipeCosts(const Adapter& a,RE::PlayerCharacter* p){return WithAlchemy({a.gold,a.mana,a.charge},Alchemy(p));}
-inline json Info(const Adapter& a,RE::PlayerCharacter* p=nullptr){auto costs=RecipeCosts(a,p);return {{"family",a.family},{"material",a.material},{"damage",a.damage},{"radius",a.radius},{"gold",a.gold},{"mana",a.mana},{"charge",costs.charge},{"baseCharge",a.charge}};}
+inline float Enchanting(RE::PlayerCharacter* p){return p?p->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kEnchanting):0.f;}
+inline Costs RecipeCosts(const Adapter& a,RE::PlayerCharacter* p){return WithEnchanting(WithAlchemy({a.gold,a.mana,a.charge},Alchemy(p)),Enchanting(p));}
+inline json Info(const Adapter& a,RE::PlayerCharacter* p=nullptr){auto costs=RecipeCosts(a,p);return {{"family",a.family},{"material",a.material},{"damage",a.damage},{"radius",a.radius},{"gold",a.gold},{"mana",costs.mana},{"charge",costs.charge},{"baseCharge",a.charge}};}
 inline std::string Name(RE::TESForm* f){return f&&f->GetName()?f->GetName():"未命名";}
 inline MaterialKind Kind(RE::TESBoundObject* item){
     if(!item)return MaterialKind::unsupported;
@@ -53,9 +54,9 @@ inline void Sync(){
 }
 struct Request {RE::FormID spell=0;std::vector<Stack> bases;std::vector<Stack> materials;};
 inline std::vector<Stack> ReadMaterials(const json& rows){
-    if(!rows.is_array()||rows.size()>128)throw std::runtime_error("材料清单无效");
+    if(!rows.is_array()||rows.size()>materialKindLimit)throw std::runtime_error("材料清单无效");
     std::vector<Stack> result;
-    for(auto& row:rows){if(!row.at("count").is_number_integer()||row.at("count")<1||row.at("count")>10000)throw std::runtime_error("材料数量必须为 1–10000 的整数");result.push_back({row.at("id").get<RE::FormID>(),row.at("count").get<int>(),0});}
+    for(auto& row:rows){if(!row.at("count").is_number_integer()||row.at("count")<1||row.at("count")>inputCountMax)throw std::runtime_error("材料数量必须为 1–999 的整数");result.push_back({row.at("id").get<RE::FormID>(),row.at("count").get<int>(),0});}
     return result;
 }
 inline Plan Evaluate(RE::PlayerCharacter* p,const Request& request){
@@ -72,7 +73,9 @@ inline Plan Evaluate(RE::PlayerCharacter* p,const Request& request){
         if(units<=0||selected.count<1||found==inventory.end()||!found->second.second||found->second.second->IsQuestObject()||found->second.first<selected.count)throw std::runtime_error("充能材料不足、受任务保护或没有适用功效");
         ingredients.push_back({id,selected.count,units});
     }
-    auto plan=MakeChargedPlan(request.bases,stock,ingredients,Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xf)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),RecipeCosts(*a,p));
+    // Planning never requires magicka on hand: queued orders pay it one arrow at a time,
+    // and manual commit re-checks the current value before spending anything.
+    auto plan=MakeChargedPlan(request.bases,stock,ingredients,Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xf)),p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka),RecipeCosts(*a,p),false);
     if(!arrow_identity::Fits(Count(p,Output(0,*a)),plan.total))throw std::runtime_error("成品库存数量超限");return plan;
 }
 inline std::optional<Request> pending;inline json quote=nullptr;inline std::uint64_t serial=0;
@@ -80,8 +83,8 @@ inline void Reset(){pending.reset();quote=nullptr;++serial;}
 inline void Quote(RE::PlayerCharacter* p,const json& q){
     Reset();Request request;request.spell=q.at("spell").get<RE::FormID>();
     auto* a=ForSpell(RE::TESForm::LookupByID<RE::SpellItem>(request.spell));if(!a)throw std::runtime_error("该法术尚未适配");
-    if(q.at("bases").size()>8||q.at("materials").size()>128)throw std::runtime_error("选择数量过多");
-    for(auto& b:q.at("bases")){if(!b.at("count").is_number_integer()||b.at("count")<1||b.at("count")>100)throw std::runtime_error("数量必须为整数");request.bases.push_back({b.at("id").get<RE::FormID>(),b.at("count").get<int>(),0});}
+    if(q.at("bases").size()>8||q.at("materials").size()>materialKindLimit)throw std::runtime_error("选择数量过多");
+    for(auto& b:q.at("bases")){if(!b.at("count").is_number_integer()||b.at("count")<1||b.at("count")>inputCountMax)throw std::runtime_error("数量必须为 1–999 的整数");request.bases.push_back({b.at("id").get<RE::FormID>(),b.at("count").get<int>(),0});}
     request.materials=ReadMaterials(q.at("materials"));auto p1=Evaluate(p,request);
     json items=json::array(),outputs=json::array(),bases=json::array();
     for(auto x:p1.bases)bases.push_back({{"id",x.id},{"count",x.count}});
