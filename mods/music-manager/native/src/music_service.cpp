@@ -237,7 +237,7 @@ struct Service::Impl {
         float cursor = 0, length = 0;
         if (current) { ma_sound_get_cursor_in_seconds(&current->value, &cursor); ma_sound_get_length_in_seconds(&current->value, &length); }
         std::string status = !ready ? "音频设备不可用" : !enabled ? "已关闭接管" : !env.active ? "等待进入游戏" : env.story ? "剧情音乐优先" : paused ? "已暂停" : !current ? "当前分类与通用均无可用音乐" : preview ? "正在试听" : "正在播放";
-        json state{{"version", "0.4.0"}, {"categories", cats}, {"tracks", list}, {"scene", scene}, {"playlist", playlist}, {"current", current ? current->id : ""}, {"position", cursor}, {"duration", length}, {"volume", volume}, {"enabled", enabled.load()}, {"fallback", fallback}, {"paused", manualPause}, {"preview", preview}, {"status", status}, {"location", env.location}, {"nativeMusic", env.nativeMusic}, {"root", utf8(root)}, {"message", message}};
+        json state{{"version", "0.5.0"}, {"categories", cats}, {"tracks", list}, {"scene", scene}, {"playlist", playlist}, {"current", current ? current->id : ""}, {"position", cursor}, {"duration", length}, {"volume", volume}, {"enabled", enabled.load()}, {"fallback", fallback}, {"paused", manualPause}, {"preview", preview}, {"status", status}, {"location", env.location}, {"nativeMusic", env.nativeMusic}, {"root", utf8(root)}, {"message", message}};
         state["playback"] = playback.json();
         state["volumeRequestId"] = volumeRequestId;
         state["volumeError"] = volumeError;
@@ -276,7 +276,7 @@ struct Service::Impl {
                 if (!env.active || !enabled || env.story) {
                     current.reset(); outgoing.reset(); preview = false; playlist.clear(); gate.clear();
                 } else if (!paused) {
-                    const auto newScene = gate.update(classify(env, playback.dayStart, playback.dayEnd), seconds(), playback.sceneDelay, playback.combatExitDelay);
+                    const auto newScene = gate.update(classify(env), seconds(), playback.sceneDelay, playback.combatExitDelay);
                     const bool change = scene != newScene;
                     scene = newScene;
                     if (change) preview = false;

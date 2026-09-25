@@ -62,19 +62,28 @@ int wmain(int argc, wchar_t** argv) {
         await(service, [&](auto& j) { return j["current"] == general; }, "fallback toggles live");
         service.command({{"type", "disable"}, {"id", general}});
         await(service, [](auto& j) { return j["current"] == ""; }, "disabled fallback stays silent");
-        wave(library / L"野外白天" / L"新音乐.wav");
+        wave(library / L"野外" / L"新音乐.wav");
         service.command({{"type", "scan"}});
-        await(service, [](auto& j) { return j["current"] == "野外白天/新音乐.wav"; }, "rescan discovers new file");
+        await(service, [](auto& j) { return j["current"] == "野外/新音乐.wav"; }, "rescan discovers new file");
+        service.command({{"type", "pause"}});
+        await(service, [](auto& j) { return j["paused"] == true; }, "pause before time transition");
+        for (float hour : {23.f, 6.f, 12.f}) {
+            env.hour = hour; service.environment(env);
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+            auto current = service.snapshot();
+            check(current["scene"] == "explore" && current["current"] == "野外/新音乐.wav" && current["paused"] == true, "time transition preserves shared playlist and pause");
+        }
+        service.command({{"type", "pause"}});
         env.paused = true; service.environment(env);
         await(service, [](auto& j) { return j["status"] == "已暂停"; }, "real game pause");
         auto options=service.snapshot()["playback"];
         options["pauseWithGame"]=false;options["followMaster"]=false;options["fadeSeconds"]=.75;options["sceneDelay"]=0;
         service.command({{"type","configure"},{"value",options}});
         await(service, [](auto& j) { return j["status"] == "正在播放" && j["playback"]["pauseWithGame"] == false; }, "pause setting applies live");
-        auto invalid=options;invalid["dayStart"]=22;invalid["dayEnd"]=5;
+        auto invalid=options;invalid["fadeSeconds"]=-1;
         service.command({{"type","configure"},{"value",invalid}});
         auto rejected=await(service, [](auto& j) { return j["message"].template get<std::string>().starts_with("操作失败"); }, "bad config reported");
-        check(rejected["playback"]["dayStart"]==6,"bad config did not change active settings");
+        check(rejected["playback"]["fadeSeconds"]==.75,"bad config did not change active settings");
         env.active = false; service.environment(env);
         await(service, [](auto& j) { return j["current"] == ""; }, "leaving game stops audio");
         service.command({{"type", "volume"}, {"value", .7f}, {"requestId", "drag:1"}});

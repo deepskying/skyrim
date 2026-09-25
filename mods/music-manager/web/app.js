@@ -1,11 +1,11 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const labels = [['explore_day','野外白天','☀'],['explore_night','野外夜晚','☾'],['town','城镇','⌂'],['tavern','酒馆','♧'],['home','住宅','◇'],['castle','城堡','♜'],['cemetery','墓地','✧'],['temple','神殿','✦'],['dungeon','地牢','♜'],['combat','普通战斗','⚔'],['dragon','龙战','♆'],['general','通用','♫']];
-const descriptions = {explore_day:'阳光下的漫游，让音乐随旅途展开。',explore_night:'星空、营火与远方，陪伴夜色中的旅途。',town:'穿行街巷，在熟悉的城镇停留。',tavern:'卸下行囊，听一段温暖的旋律。',home:'回到属于自己的安静角落。',castle:'领主大厅与城堡中的庄严配乐。',cemetery:'墓园与亡者之厅，留一段安静的回响。',temple:'神殿中的祈祷与宁静。',dungeon:'深入洞穴与古老遗迹。',combat:'拔出武器，让节奏跟随战斗。',dragon:'巨龙盘旋，迎接天空中的挑战。',general:'其他环境的备用歌单。'};
-let state = {categories:labels.map(([id,label])=>({id,label,count:0})),tracks:[],scene:'explore_day',playlist:'',current:'',position:0,duration:0,volume:.5,enabled:true,fallback:true,paused:false,preview:false,status:'等待播放器',location:'',root:'',message:'正在读取音乐库…'};
-const playbackDefaults={pauseWithGame:true,followMaster:true,fadeSeconds:1.2,combatFadeSeconds:.35,sceneDelay:2,combatExitDelay:3,dayStart:6,dayEnd:20};
+const labels = [['explore','野外','☀'],['town','城镇','⌂'],['tavern','酒馆','♧'],['home','住宅','◇'],['castle','城堡','♜'],['cemetery','墓地','✧'],['temple','神殿','✦'],['dungeon','地牢','♜'],['combat','普通战斗','⚔'],['dragon','龙战','♆'],['general','通用','♫']];
+const descriptions = {explore:'从晨光到星空，让音乐陪伴每一段旅途。',town:'穿行街巷，在熟悉的城镇停留。',tavern:'卸下行囊，听一段温暖的旋律。',home:'回到属于自己的安静角落。',castle:'领主大厅与城堡中的庄严配乐。',cemetery:'墓园与亡者之厅，留一段安静的回响。',temple:'神殿中的祈祷与宁静。',dungeon:'深入洞穴与古老遗迹。',combat:'拔出武器，让节奏跟随战斗。',dragon:'巨龙盘旋，迎接天空中的挑战。',general:'其他环境的备用歌单。'};
+let state = {categories:labels.map(([id,label])=>({id,label,count:0})),tracks:[],scene:'explore',playlist:'',current:'',position:0,duration:0,volume:.5,enabled:true,fallback:true,paused:false,preview:false,status:'等待播放器',location:'',root:'',message:'正在读取音乐库…'};
+const playbackDefaults={pauseWithGame:true,followMaster:true,fadeSeconds:1.2,combatFadeSeconds:.35,sceneDelay:2,combatExitDelay:3};
 const defaultHotkey={scanCode:50,shift:true,ctrl:false,alt:false,label:'Shift + M'};
-const playbackFields={pauseWithGame:'pause-with-game',followMaster:'follow-master',fadeSeconds:'fade-seconds',combatFadeSeconds:'combat-fade-seconds',sceneDelay:'scene-delay',combatExitDelay:'combat-exit-delay',dayStart:'day-start',dayEnd:'day-end'};
+const playbackFields={pauseWithGame:'pause-with-game',followMaster:'follow-master',fadeSeconds:'fade-seconds',combatFadeSeconds:'combat-fade-seconds',sceneDelay:'scene-delay',combatExitDelay:'combat-exit-delay'};
 const keyScans=[30,48,46,32,18,33,34,35,23,36,37,38,50,49,24,25,16,19,31,20,22,47,17,45,21,44];
 const keyOptions=keyScans.map((scanCode,i)=>({scanCode,key:String.fromCharCode(65+i),code:'Key'+String.fromCharCode(65+i)}));
 for(let i=1;i<=12;i++)keyOptions.push({scanCode:i<=10?58+i:i===11?87:88,key:'F'+i,code:'F'+i});
@@ -29,11 +29,11 @@ function selectSettingsTab(which){for(const tab of ['playback','hotkey']){const 
 for(const tab of ['playback','hotkey']){$('tab-'+tab).onclick=()=>selectSettingsTab(tab);$('tab-'+tab).onkeydown=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();const next=tab==='playback'?'hotkey':'playback';selectSettingsTab(next);$('tab-'+next).focus();}};}
 $('playback-form').oninput=()=>{playbackDirty=true;pendingPlayback=null;$('playback-message').classList.remove('invalid');text('playback-message','有未保存的修改');};
 $('hotkey-form').oninput=()=>{hotkeyDirty=true;pendingHotkey=null;text('draft-hotkey',hotkeyLabel(readHotkey()));text('hotkey-message','有未保存的修改');$('hotkey-message').classList.remove('invalid');};
-$('playback-form').onsubmit=e=>{e.preventDefault();const value={};for(const [key,id]of Object.entries(playbackFields))value[key]=typeof playbackDefaults[key]==='boolean'?$(id).checked:Number($(id).value);if(value.dayStart>=value.dayEnd){text('playback-message','白天开始时间必须早于结束时间');$('playback-message').classList.add('invalid');return;}playbackDirty=true;pendingPlayback=value;$('playback-message').classList.remove('invalid');text('playback-message','正在保存…');send('configure',{value});};
+$('playback-form').onsubmit=e=>{e.preventDefault();const value={};for(const [key,id]of Object.entries(playbackFields))value[key]=typeof playbackDefaults[key]==='boolean'?$(id).checked:Number($(id).value);playbackDirty=true;pendingPlayback=value;$('playback-message').classList.remove('invalid');text('playback-message','正在保存…');send('configure',{value});};
 $('hotkey-form').onsubmit=e=>{e.preventDefault();hotkeyDirty=true;pendingHotkey=readHotkey();$('hotkey-message').classList.remove('invalid');text('hotkey-message','正在保存…');send('hotkey',{value:pendingHotkey});};
 $('playback-reset').onclick=()=>{playbackDirty=true;pendingPlayback=null;fillPlayback(playbackDefaults);text('playback-message','已填入默认值，点击保存后生效');};
 $('hotkey-reset').onclick=()=>{hotkeyDirty=true;pendingHotkey=null;fillHotkey(defaultHotkey);text('hotkey-message','已填入 Shift + M，点击保存后生效');};
-let selected = 'explore_day', query = '', listKey = '', nativeReceived = false, previousFocus;
+let selected = 'explore', query = '', listKey = '', nativeReceived = false, previousFocus;
 let deleteTarget = null, deletePreviousFocus = null;
 function closeDelete() {
   $('delete-dialog').hidden = true; deleteTarget = null;
@@ -196,7 +196,7 @@ setTimeout(()=>{
   try{const saved=JSON.parse(localStorage.getItem('musicManagerPreviewSettings')||'{}');state.playback=saved.playback||playbackDefaults;state.hotkey=saved.hotkey||defaultHotkey;}catch{}
   document.body.classList.add('preview');$('demo-label').hidden=false;
   const names=['远山与晨光','漫步白漫领','Ancient Stones','穿过松林的风','From Past to Present','旅途未尽','晨雾中的溪流'];
-  state.tracks=names.map((name,i)=>({id:`野外白天/${name}.mp3`,name,category:'explore_day',disabled:i===5,error:''}));
-  state.tracks.push({id:'野外夜晚/夜空下.flac',name:'夜空下',category:'explore_night',disabled:false,error:''});
-  state.current=state.tracks[0].id;state.duration=243;state.position=78;state.playlist='explore_day';state.location='白漫领 · 西部哨塔';state.root='Data / Music / MusicManager';state.message='预览数据 · 游戏内显示实际导入的音乐';demoAction('ready',{});
+  state.tracks=names.map((name,i)=>({id:`野外/${name}.mp3`,name,category:'explore',disabled:i===5,error:''}));
+  state.tracks.push({id:'野外/夜空下.flac',name:'夜空下',category:'explore',disabled:false,error:''});
+  state.current=state.tracks[0].id;state.duration=243;state.position=78;state.playlist='explore';state.location='白漫领 · 西部哨塔';state.root='Data / Music / MusicManager';state.message='预览数据 · 游戏内显示实际导入的音乐';demoAction('ready',{});
 },700);

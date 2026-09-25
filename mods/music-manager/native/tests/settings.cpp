@@ -9,13 +9,15 @@ int main(){
     auto defaults=PlaybackSettings::parse(nlohmann::json::object());
     check(defaults.fadeSeconds==1.2&&defaults.pauseWithGame,"legacy defaults");
     auto j=defaults.json();j["fadeSeconds"]=-1;rejects([&]{PlaybackSettings::parse(j);});
-    j=defaults.json();j["dayStart"]=20;j["dayEnd"]=6;rejects([&]{PlaybackSettings::parse(j);});
+    j=defaults.json();j["dayStart"]=20;j["dayEnd"]=6;
+    check(PlaybackSettings::parse(j).json()==defaults.json(),"legacy day bounds ignored without losing other settings");
     j=defaults.json();j["pauseWithGame"]="true";rejects([&]{PlaybackSettings::parse(j);});
     j=defaults.json();j["combatFadeSeconds"]=100;rejects([&]{PlaybackSettings::parse(j);});
     music::Environment env;env.hour=7;
-    check(music::classify(env,8,18)=="explore_night","custom dawn ignored");
-    env.hour=18;check(music::classify(env,8,18)=="explore_night","custom dusk boundary");
-    check(music::classify(env,0,24)=="explore_day","full day");
+    for (int hour=0;hour<24;++hour) {
+        env.hour=static_cast<float>(hour);
+        check(music::classify(env)=="explore","exploration shared at every hour");
+    }
     music::SceneGate gate;gate.update("town",0);
     check(gate.update("dungeon",1,0,0)=="dungeon","zero scene wait");
     gate.update("combat",2);check(gate.update("town",3,0,5)=="combat","custom exit wait");

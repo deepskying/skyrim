@@ -1,7 +1,7 @@
 set_xmakever("2.8.2")
 includes("../../../reference/example-skse-plugin/lib/commonlibsse-ng")
 set_project("MusicManager")
-set_version("0.4.0")
+set_version("0.5.0")
 set_languages("c++23", "c11")
 set_warnings("allextra")
 add_requires("nlohmann_json")

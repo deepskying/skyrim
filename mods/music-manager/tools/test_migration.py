@@ -32,8 +32,8 @@ class MigrationTests(unittest.TestCase):
             'Music/00DCS/CEMETERY/Cemetery01.mp3': ['cemetery'],
             'Music/00DCS/TEMPLE/Music01.xwm': ['temple'],
             'Music/00DCS/TAVERN/ALL/Tavern01.xwm': ['tavern'],
-            'Music/00DCS/EXPLORE/ALL/NIGHT/Explore01.xwm': ['explore_night'],
-            'Music/00DCS/EXPLORE/ALL/ANY/Explore01.xwm': ['explore_day', 'explore_night'],
+            'Music/00DCS/EXPLORE/ALL/NIGHT/Explore01.xwm': ['explore'],
+            'Music/00DCS/EXPLORE/ALL/ANY/Explore01.xwm': ['explore'],
             'Music/00DCS/ALL/ANY/CombatBoss01.xwm': ['combat'],
             'Music/00DCS/ALL/ANY/CombatDragon01.xwm': ['dragon'],
             'Music/00DCS/ALL/ANY/CombatDragonEnd.xwm': [],
@@ -43,7 +43,7 @@ class MigrationTests(unittest.TestCase):
         for path, expected in cases.items():
             with self.subTest(path=path):
                 self.assertEqual(categories_for(Path(path)), expected)
-        self.assertEqual(len(CATEGORIES), 12)
+        self.assertEqual(len(CATEGORIES), 11)
 
     def test_sync_preserves_music_and_disabled_preferences(self):
         with tempfile.TemporaryDirectory() as temporary:

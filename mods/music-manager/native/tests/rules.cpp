@@ -5,8 +5,8 @@
 void check(bool result, const char* name) { if (!result) { std::cerr << name << '\n'; std::exit(1); } }
 int main() {
     music::Environment e; e.hour = 23;
-    check(music::classify(e) == "explore_night", "night");
-    e.hour = 6; check(music::classify(e) == "explore_day", "dawn");
+    check(music::classify(e) == "explore", "night");
+    e.hour = 6; check(music::classify(e) == "explore", "dawn");
     e.town = true; e.tavern = true; e.interior = true;
     check(music::classify(e) == "tavern", "inn beats city parent");
     e.combat = true; e.dragon = true;
@@ -24,7 +24,7 @@ int main() {
     e.combat = true;
     check(music::classify(e) == "combat", "combat beats cemetery");
     e = {}; e.castle = true; e.temple = true;
-    check(music::classify(e) == "explore_day", "interior categories do not leak outdoors");
+    check(music::classify(e) == "explore", "interior categories do not leak outdoors");
     music::SceneGate gate;
     check(gate.update("town", 0) == "town", "initial scene");
     check(gate.update("dungeon", 1) == "town", "debounce");

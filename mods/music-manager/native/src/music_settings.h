@@ -7,9 +7,9 @@
 namespace music {
 struct PlaybackSettings {
     bool pauseWithGame = true, followMaster = true;
-    double fadeSeconds = 1.2, combatFadeSeconds = .35, sceneDelay = 2, combatExitDelay = 3, dayStart = 6, dayEnd = 20;
+    double fadeSeconds = 1.2, combatFadeSeconds = .35, sceneDelay = 2, combatExitDelay = 3;
     nlohmann::json json() const {
-        return {{"pauseWithGame",pauseWithGame},{"followMaster",followMaster},{"fadeSeconds",fadeSeconds},{"combatFadeSeconds",combatFadeSeconds},{"sceneDelay",sceneDelay},{"combatExitDelay",combatExitDelay},{"dayStart",dayStart},{"dayEnd",dayEnd}};
+        return {{"pauseWithGame",pauseWithGame},{"followMaster",followMaster},{"fadeSeconds",fadeSeconds},{"combatFadeSeconds",combatFadeSeconds},{"sceneDelay",sceneDelay},{"combatExitDelay",combatExitDelay}};
     }
     static PlaybackSettings parse(const nlohmann::json& j) {
         if (!j.is_object()) throw std::runtime_error("播放设置格式错误");
@@ -22,8 +22,7 @@ struct PlaybackSettings {
         };
         s.fadeSeconds = number("fadeSeconds",1.2,0,10); s.combatFadeSeconds = number("combatFadeSeconds",.35,0,5);
         s.sceneDelay = number("sceneDelay",2,0,15); s.combatExitDelay = number("combatExitDelay",3,0,15);
-        s.dayStart = number("dayStart",6,0,23); s.dayEnd = number("dayEnd",20,1,24);
-        if (s.dayStart >= s.dayEnd) throw std::runtime_error("白天开始时间必须早于结束时间");
+        // Legacy dayStart/dayEnd values are ignored; exploration now shares one playlist.
         return s;
     }
 };

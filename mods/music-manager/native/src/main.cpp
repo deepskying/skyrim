@@ -248,7 +248,7 @@ void onMessage(SKSE::MessagingInterface::Message* message) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(250));
             }
         });
-        logger::info("Music Manager 0.4.0 initialized; music category found: {}", musicCategory != nullptr);
+        logger::info("Music Manager 0.5.0 initialized; music category found: {}", musicCategory != nullptr);
         break;
     }
     default: break;

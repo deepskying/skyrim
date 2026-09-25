@@ -1,1 +1,1 @@
-{"name":"skyrim-music-manager-ui","version":"0.4.0","private":true,"scripts":{"build":"node build.cjs","check":"node --check app.js && node --check volume-control.js","test":"node --test volume-control.test.cjs"}}
+{"name":"skyrim-music-manager-ui","version":"0.5.0","private":true,"scripts":{"build":"node build.cjs","check":"node --check app.js && node --check volume-control.js","test":"node --test volume-control.test.cjs"}}

@@ -7,8 +7,8 @@
 
 namespace music {
 struct Category { const char* id; const char* folder; };
-inline constexpr std::array<Category, 12> categories{{
-    {"explore_day", "野外白天"}, {"explore_night", "野外夜晚"}, {"town", "城镇"},
+inline constexpr std::array<Category, 11> categories{{
+    {"explore", "野外"}, {"town", "城镇"},
     {"tavern", "酒馆"}, {"home", "住宅"}, {"castle", "城堡"},
     {"cemetery", "墓地"}, {"temple", "神殿"}, {"dungeon", "地牢"},
     {"combat", "普通战斗"}, {"dragon", "龙战"}, {"general", "通用"}
@@ -22,7 +22,7 @@ struct Environment {
     std::string location, nativeMusic;
     unsigned epoch = 0;
 };
-inline std::string classify(const Environment& e, double dayStart = 6, double dayEnd = 20) {
+inline std::string classify(const Environment& e) {
     if (e.combat) return e.dragon ? "dragon" : "combat";
     if (e.interior && e.tavern) return "tavern";
     if (e.interior && e.home) return "home";
@@ -33,7 +33,7 @@ inline std::string classify(const Environment& e, double dayStart = 6, double da
     if (e.dungeon) return "dungeon";
     if (e.town) return "town";
     if (e.interior) return "general";
-    return e.hour >= dayStart && e.hour < dayEnd ? "explore_day" : "explore_night";
+    return "explore";
 }
 // A complete shuffled cycle, no immediate repeat across cycles or category changes.
 class ShuffleBag {

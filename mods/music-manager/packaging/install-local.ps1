@@ -15,16 +15,20 @@ if (-not $taskDestination.StartsWith($taskModsRoot + '\', [StringComparison]::Or
 if (Test-Path -LiteralPath $taskDestination) { throw 'This installer creates a new mod only; destination already exists.' }
 if (Test-Path -LiteralPath $taskProfile) { throw 'Test profile already exists; refusing to overwrite it.' }
 $taskRelease = Join-Path $PSScriptRoot 'release'
+$taskVersion = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\web\package.json') -Raw | ConvertFrom-Json).version
+$taskArchive = Join-Path $PSScriptRoot "MusicManager-$taskVersion-MO2.zip"
+$taskPython = (Get-Command python -ErrorAction Stop).Source
 $taskMigration = Join-Path $PSScriptRoot 'migration\mp3-v0.3.0'
 $taskReport = Get-Content -LiteralPath (Join-Path $taskMigration 'migration-report.json') -Raw -Encoding utf8 | ConvertFrom-Json
 if ($taskReport.errors.Count -gt 0) { throw 'Migration has unresolved errors.' }
 $taskDependencies = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'validation\dcs-dependencies.json') -Raw -Encoding utf8 | ConvertFrom-Json
 if ($taskDependencies.dependents.Count -gt 0 -or $taskDependencies.missing.Count -gt 0) { throw 'DCS dependency check has unresolved entries.' }
-foreach ($taskRequired in @((Join-Path $taskRelease 'Data\MusicManager.esp'),(Join-Path $taskRelease 'Data\SKSE\Plugins\MusicManager.dll'),(Join-Path $taskSource 'modlist.txt'),(Join-Path $taskMigration 'Data\Music\MusicManager'))) {
+foreach ($taskRequired in @($taskArchive,(Join-Path $taskRelease 'Data\MusicManager.esp'),(Join-Path $taskRelease 'Data\SKSE\Plugins\MusicManager.dll'),(Join-Path $taskSource 'modlist.txt'),(Join-Path $taskMigration 'Data\Music\MusicManager'))) {
     if (-not (Test-Path -LiteralPath $taskRequired)) { throw "Missing: $taskRequired" }
 }
 New-Item -ItemType Directory -Path $taskDestination,$taskProfile | Out-Null
-Get-ChildItem -LiteralPath (Join-Path $taskRelease 'Data') | Copy-Item -Destination $taskDestination -Recurse
+# Use the package whitelist rather than potentially stale release staging folders.
+Expand-Archive -LiteralPath $taskArchive -DestinationPath $taskDestination
 $taskMusicSource = Join-Path $taskMigration 'Data\Music\MusicManager'
 $taskMusicDestination = Join-Path $taskDestination 'Music\MusicManager'
 Get-ChildItem -LiteralPath $taskMusicSource -Directory | ForEach-Object {
@@ -32,12 +36,18 @@ Get-ChildItem -LiteralPath $taskMusicSource -Directory | ForEach-Object {
     New-Item -ItemType Directory -Force -Path $taskCategoryTarget | Out-Null
     Get-ChildItem -LiteralPath $_.FullName -File | Copy-Item -Destination $taskCategoryTarget
 }
+if ((Test-Path -LiteralPath (Join-Path $taskMusicDestination '野外白天')) -or (Test-Path -LiteralPath (Join-Path $taskMusicDestination '野外夜晚'))) {
+    $taskMergeBackup = Join-Path $PSScriptRoot ('validation\install-exploration-' + [Guid]::NewGuid().ToString('N'))
+    & $taskPython (Join-Path $PSScriptRoot '..\tools\merge_exploration.py') --library $taskMusicDestination --backup $taskMergeBackup
+    if ($LASTEXITCODE -ne 0) { throw 'Exploration merge failed; see backup before continuing installation.' }
+    Copy-Item -LiteralPath (Join-Path $taskMergeBackup 'merge-receipt.json') -Destination (Join-Path $taskDestination 'exploration-merge-report.json')
+}
 Copy-Item -LiteralPath (Join-Path $taskMigration 'migration-report.json'),(Join-Path $taskRelease 'README.md'),(Join-Path $taskRelease 'LICENSE.miniaudio') -Destination $taskDestination
 $taskIni = Get-Content -LiteralPath (Join-Path $taskDestination 'SKSE\Plugins\MusicManager.ini') -Raw
 $taskIni = $taskIni -replace '(?m)^Path=.*$', ('Path=' + $taskMusicDestination)
 # Win32 INI APIs need UTF-16 for Chinese physical paths.
 [IO.File]::WriteAllText((Join-Path $taskDestination 'SKSE\Plugins\MusicManager.ini'),$taskIni,[Text.Encoding]::Unicode)
-$taskMeta = "[General]`r`ngameName=SkyrimSE`r`nversion=0.3.0`r`nmodid=0`r`nrepository=Local`r`nnotes=Shift+M music manager; tested in separate profile.`r`n"
+$taskMeta = "[General]`r`ngameName=SkyrimSE`r`nversion=$taskVersion`r`nmodid=0`r`nrepository=Local`r`nnotes=Shift+M music manager; tested in separate profile.`r`n"
 [IO.File]::WriteAllText((Join-Path $taskDestination 'meta.ini'),$taskMeta,[Text.UTF8Encoding]::new($false))
 foreach ($taskFile in @('archives.txt','initweaks.ini','loadorder.txt','lockedorder.txt','settings.ini','skyrim.ini','skyrimcustom.ini','skyrimprefs.ini','plugins.txt','modlist.txt')) {
     $taskSourceFile = Join-Path $taskSource $taskFile

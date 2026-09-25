@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 CATEGORIES = {
-    'explore_day': '野外白天', 'explore_night': '野外夜晚', 'town': '城镇',
+    'explore': '野外', 'town': '城镇',
     'tavern': '酒馆', 'home': '住宅', 'castle': '城堡', 'cemetery': '墓地',
     'temple': '神殿', 'dungeon': '地牢', 'combat': '普通战斗',
     'dragon': '龙战', 'general': '通用',
@@ -32,11 +32,7 @@ def categories_for(path):
         if directory in parts or name.startswith(directory):
             return [category]
     if name.startswith('EXPLORE') or 'EXPLORE' in parts:
-        if 'NIGHT' in parts:
-            return ['explore_night']
-        if parts.intersection({'DAY', 'DAWN', 'DUSK'}):
-            return ['explore_day']
-        return ['explore_day', 'explore_night']
+        return ['explore']
     return ['general']
 
 

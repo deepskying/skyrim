@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$OutputDirectory = (Join-Path $PSScriptRoot 'release'), [string]$Version = '0.4.0')
+param([string]$OutputDirectory = (Join-Path $PSScriptRoot 'release'), [string]$Version = '0.5.0')
 $ErrorActionPreference = 'Stop'
 $taskModule = Split-Path $PSScriptRoot -Parent
 $taskDll = Join-Path $taskModule 'native\build\windows\x64\release\MusicManager.dll'
@@ -17,7 +17,7 @@ foreach ($taskConfig in @('MusicManager.ini','MusicManager.rules.json')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $taskConfig) -Destination $taskPlugins -Force
 }
 Get-ChildItem -LiteralPath $taskWeb -File | Copy-Item -Destination $taskView -Force
-foreach ($taskFolder in @('野外白天','野外夜晚','城镇','酒馆','住宅','城堡','墓地','神殿','地牢','普通战斗','龙战','通用')) {
+foreach ($taskFolder in @('野外','城镇','酒馆','住宅','城堡','墓地','神殿','地牢','普通战斗','龙战','通用')) {
     $taskFolderPath = Join-Path $OutputDirectory "Data\Music\MusicManager\$taskFolder"
     New-Item -ItemType Directory -Force -Path $taskFolderPath | Out-Null
     Set-Content -LiteralPath (Join-Path $taskFolderPath '放入音乐.txt') -Value '将 MP3、FLAC 或 WAV 放入此文件夹，无须重命名。在游戏内 Shift+M → 重新扫描。' -Encoding utf8
@@ -41,7 +41,7 @@ try {
         'PrismaUI/views/MusicManager/volume-control.js',
         'PrismaUI/views/MusicManager/styles.css'
     )
-    foreach ($taskFolder in @('野外白天','野外夜晚','城镇','酒馆','住宅','城堡','墓地','神殿','地牢','普通战斗','龙战','通用')) {
+    foreach ($taskFolder in @('野外','城镇','酒馆','住宅','城堡','墓地','神殿','地牢','普通战斗','龙战','通用')) {
         $taskEntries += "Music/MusicManager/$taskFolder/放入音乐.txt"
     }
     foreach ($taskEntry in $taskEntries) {
