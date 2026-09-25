@@ -1,0 +1,119 @@
+#include "Config/IniConfig.h"
+
+#include <iostream>
+
+namespace
+{
+    int g_failureCount = 0;
+
+    void Expect(bool a_condition, const char* a_message)
+    {
+        if (!a_condition)
+        {
+            ++g_failureCount;
+            std::cerr << "FAILED: " << a_message << '\n';
+        }
+    }
+}
+
+int main()
+{
+    {
+        using Meridian::Render::BrowserTransport;
+        const auto cpu = Meridian::Config::ParseIni("[Compatibility]\nBrowserTransport=cpuupload\nCpuUploadFrameRate=45\n");
+        Expect(cpu.browserTransport == BrowserTransport::CpuUpload && cpu.cpuUploadFrameRate == 45, "CPU transport settings parse");
+        Expect(Meridian::Config::ParseIni("[Compatibility]\nBrowserTransport=Auto\n").browserTransport == BrowserTransport::Auto, "auto transport parses");
+        Expect(Meridian::Config::ParseIni("[Compatibility]\nBrowserTransport=SharedTexture\n").browserTransport == BrowserTransport::SharedTexture, "shared transport parses");
+        const auto bad = Meridian::Config::ParseIni("[Compatibility]\nBrowserTransport=Vulkan\nCpuUploadFrameRate=61\n");
+        Expect(!bad.browserTransport && !bad.cpuUploadFrameRate, "invalid transport and out-of-range frame rate ignored");
+        Expect(!Meridian::Config::ParseIni("[Compatibility]\nCpuUploadFrameRate=0\n").cpuUploadFrameRate, "zero frame rate rejected");
+    }
+    // Full INI parses.
+    {
+        const auto o = Meridian::Config::ParseIni(
+            "[General]\nRendererType = synccopy\nNativeMenuLangSwitching = false\nAllowRemoteContent = true\n"
+            "[Compatibility]\nCompositorTiming = beforerendererend\n"
+            "[Debug]\nRemoteDebuggingEnabled = true\nRemoteDebuggingPort = 9111\nLogLevel = debug\n");
+        Expect(o.rendererType.has_value() && *o.rendererType == Meridian::UI::RendererType::SyncCopy, "renderer parsed case-insensitively");
+        Expect(o.compositorTiming.has_value() && *o.compositorTiming == Meridian::Config::CompositorTiming::BeforeRendererEnd, "compositor timing parsed case-insensitively");
+        Expect(o.nativeMenuLangSwitching.has_value() && !*o.nativeMenuLangSwitching, "bool parsed");
+        Expect(o.allowRemoteContent.has_value() && *o.allowRemoteContent, "remote-content development opt-in parsed");
+        Expect(o.remoteDebuggingPort.has_value() && *o.remoteDebuggingPort == 9111, "port parsed");
+        Expect(o.logLevel.has_value(), "log level parsed");
+    }
+    // Empty text = all nullopt.
+    {
+        const auto o = Meridian::Config::ParseIni("");
+        Expect(!o.rendererType && !o.compositorTiming && !o.allowRemoteContent && !o.remoteDebuggingEnabled && !o.remoteDebuggingPort && !o.nativeMenuLangSwitching && !o.logLevel, "empty ini overrides nothing");
+    }
+    // Malformed values stay nullopt.
+    {
+        const auto o = Meridian::Config::ParseIni("[General]\nRendererType = Turbo\n[Compatibility]\nCompositorTiming = DuringLunch\n[Debug]\nRemoteDebuggingPort = fast\n");
+        Expect(!o.rendererType, "unknown renderer name ignored");
+        Expect(!o.compositorTiming, "unknown compositor timing ignored");
+        Expect(!o.remoteDebuggingPort, "non-numeric port ignored");
+    }
+    // The shipping order is accepted explicitly as well.
+    {
+        const auto o = Meridian::Config::ParseIni("[Compatibility]\nCompositorTiming = AfterRendererEnd\n");
+        Expect(o.compositorTiming.has_value() && *o.compositorTiming == Meridian::Config::CompositorTiming::AfterRendererEnd, "shipping compositor timing parsed");
+    }
+    // Numeric but out-of-range port stays nullopt.
+    {
+        const auto o = Meridian::Config::ParseIni("[Debug]\nRemoteDebuggingPort = 99999\n");
+        Expect(!o.remoteDebuggingPort, "out-of-range port ignored");
+    }
+    // ApplyOverrides: present wins, absent falls through.
+    {
+        Meridian::UI::Settings s{};
+        s.remoteDebuggingPort = 9009;
+        Meridian::Config::IniOverrides o{};
+        o.rendererType = Meridian::UI::RendererType::SyncCopy;
+        o.allowRemoteContent = true;
+        Meridian::Config::ApplyOverrides(o, s);
+        Expect(s.rendererType == Meridian::UI::RendererType::SyncCopy, "present override wins");
+        Expect(s.allowRemoteContent, "remote-content opt-in overrides the secure default");
+        Expect(s.remoteDebuggingPort == 9009, "absent override preserves an explicit consumer opt-in");
+    }
+    // RemoteDebuggingEnabled=false disables regardless of consumer port.
+    {
+        Meridian::UI::Settings s{};
+        Meridian::Config::IniOverrides o{};
+        o.remoteDebuggingEnabled = false;
+        Meridian::Config::ApplyOverrides(o, s);
+        Expect(s.remoteDebuggingPort == 0, "debugging disabled maps to port 0");
+    }
+    // INI port alone is not a development opt-in; the master switch is required.
+    {
+        Meridian::UI::Settings s{};
+        Meridian::Config::IniOverrides o{};
+        o.remoteDebuggingPort = 9009;
+        Meridian::Config::ApplyOverrides(o, s);
+        Expect(s.remoteDebuggingPort == 0, "port-only INI does not enable remote debugging");
+
+        o.remoteDebuggingEnabled = true;
+        Meridian::Config::ApplyOverrides(o, s);
+        Expect(s.remoteDebuggingPort == 9009, "enabled plus port explicitly opts into remote debugging");
+    }
+
+    {
+        const auto o=Meridian::Config::ParseIni("[Controller]\nEnabled=false\nTraceInput=true\nDeadZone=0.4\nExitDeadZone=0.2\nCursorSpeed=1200\nRepeatDelay=0.5\nRepeatInterval=0.1\nGlyphFamily=PlayStation\n");
+        Expect(!o.controller.enabled && o.controller.trace,"controller switches parsed");
+        Expect(o.controller.deadZone==0.4f && o.controller.exitDeadZone==0.2f,"controller dead zones parsed");
+        Expect(o.controller.cursorSpeed==1200 && o.controller.repeatDelay==0.5 && o.controller.repeatInterval==0.1,"controller timing parsed");
+        Expect(o.controller.glyphFamily==Meridian::UI::Input::GlyphFamily::PlayStation,"prompt family parsed");
+        const auto bad=Meridian::Config::ParseIni("[Controller]\nEnabled=maybe\nDeadZone=nan\nExitDeadZone=0.8\nCursorSpeed=inf\nRepeatDelay=-1\nRepeatInterval=2\nGlyphFamily=unknown\n");
+        Expect(bad.controller.enabled && bad.controller.deadZone==0.25f && bad.controller.cursorSpeed==900,"malformed controller settings retain defaults");
+        Expect(bad.controller.exitDeadZone<bad.controller.deadZone,"exit threshold repaired below enter threshold");
+        Expect(bad.controller.repeatDelay==0.350 && bad.controller.repeatInterval==0.090,"out-of-range repeat settings rejected");
+    }
+
+    if (g_failureCount != 0)
+    {
+        std::cerr << g_failureCount << " IniConfig test(s) failed\n";
+        return 1;
+    }
+
+    std::cout << "All IniConfig tests passed\n";
+    return 0;
+}

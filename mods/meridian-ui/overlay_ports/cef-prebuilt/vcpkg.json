@@ -1,0 +1,5 @@
+{
+    "name": "cef-prebuilt",
+    "version-semver": "152.0.6",
+    "supports": "windows & x64"
+}

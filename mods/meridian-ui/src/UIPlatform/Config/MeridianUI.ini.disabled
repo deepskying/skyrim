@@ -1,0 +1,69 @@
+; MeridianUI configuration template.
+; Rename this file to MeridianUI.ini (drop the .disabled suffix) to activate.
+; Location: Data\SKSE\Plugins\MeridianUI.ini
+; Any value set here OVERRIDES what consumer plugins pass in Settings
+; (INI wins). Every entry is optional; commented entries keep defaults.
+
+[General]
+; Renderer for SharedTexture browser transport: RingBuffer (default) or SyncCopy.
+; CpuUpload transport ignores this selection.
+;RendererType=RingBuffer
+
+; Allow language switching in native game menus (console, race menu, ...).
+; Default: true
+;NativeMenuLangSwitching=true
+
+; Development-only escape hatch for browsers that intentionally load ordinary
+; HTTP/HTTPS pages without native bindings. The secure release default is false,
+; which restricts all browsers to one pinned mod:// host.
+;AllowRemoteContent=false
+
+[Compatibility]
+; Browser frame transport, selected once at startup. Restart Skyrim to change.
+; Auto selects CpuUpload for a detected DXVK device on Windows. Native D3D11
+; and Wine/Proton retain SharedTexture. Explicit values override detection.
+; Valid values: Auto, SharedTexture, CpuUpload. Default: Auto
+;BrowserTransport=Auto
+
+; Maximum browser paint rate in CpuUpload mode, 1-60. Default: 30
+; A mod's lower requested frame rate still applies. Skyrim's frame rate is not
+; limited. CPU uploads cost additional CPU work and memory bandwidth.
+;CpuUploadFrameRate=30
+
+; Controls when Meridian composites its surfaces around Skyrim's renderer-end
+; call. AfterRendererEnd is the shipping default. SkyrimUpscaler Build 14 with
+; DLSS Neural Reconstruction may replace or consume the game backbuffer during
+; that call; use BeforeRendererEnd for the DLSS 5 compatibility path.
+; Default: AfterRendererEnd
+;CompositorTiming=AfterRendererEnd
+
+[Debug]
+; Master switch for the CEF remote debugger. Setting false forces the port
+; off and takes precedence over RemoteDebuggingPort below.
+; Default: false. Enable only for local development.
+;RemoteDebuggingEnabled=false
+
+; Remote debugger port (http://localhost:<port>). Valid range 1024-65535;
+; 0 disables. Default: 0. Set RemoteDebuggingEnabled=true and choose a port
+; explicitly for local development.
+;RemoteDebuggingPort=9009
+
+; MeridianUI log verbosity: trace, debug, info, warn, error.
+; Default: info
+;LogLevel=info
+
+[Controller]
+; Input/1 views must also opt in. False overrides every view's enablement.
+;Enabled=true
+; Normalized stick thresholds. ExitDeadZone must be lower than DeadZone.
+;DeadZone=0.25
+;ExitDeadZone=0.18
+; Cursor speed at a 1080-pixel-tall view, scaled to current view height.
+;CursorSpeed=900
+; Repeat times in real seconds; only navigation repeats.
+;RepeatDelay=0.350
+;RepeatInterval=0.090
+; Xbox, PlayStation, or Generic. Translation layers may hide physical identity.
+;GlyphFamily=Xbox
+; Diagnostic controller IDs/values in MeridianUI.log. Normally leave disabled.
+;TraceInput=false

@@ -1,0 +1,45 @@
+From 60c78fb20ed090c895d2f7f365f84e24e8fe10ce Mon Sep 17 00:00:00 2001
+From: codex <codex@local>
+Date: Fri, 25 Sep 2026 12:14:40 +0800
+Subject: [PATCH] Fall back to game-device NIF rendering when the shared
+ transport is unusable
+
+The private device already probes the cross-device shared-keyed ring and
+reports the result through SupportsSharedKeyedTransport(), but the NIF
+preview ignored it: InitializeGraphics still initialised FrameTransport and
+every preview failed composition on a machine that cannot create those
+textures (FrameTransport: slot texture creation failed, cross-device frame
+transport initialization failed, NifPreviewRenderer: scene composition
+failed with 0 shapes). Render on the game device instead - the deferred path
+Windows DXVK already uses - so the frame never needs a shared handle.
+---
+ src/UIPlatform/Render/NifPreviewRenderer.cpp | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/src/UIPlatform/Render/NifPreviewRenderer.cpp b/src/UIPlatform/Render/NifPreviewRenderer.cpp
+index 26982a7..1a4bbfd 100644
+--- a/src/UIPlatform/Render/NifPreviewRenderer.cpp
++++ b/src/UIPlatform/Render/NifPreviewRenderer.cpp
+@@ -618,8 +618,18 @@ namespace Meridian::Render::NifPreview
+         m_graphicsInitializationAttempted = true;
+ 
+         auto platformDevice = a_renderData.platformDevice;
+-        if (a_renderData.gameDeviceNifRendering)
++        // The private device already reports whether the cross-device shared-keyed ring can be
++        // created against this game device. When it cannot, the frame has nothing to travel over,
++        // so the preview has to render on the game device itself - the same deferred path Windows
++        // DXVK uses. Without this, a machine that fails the transport probe still selects the
++        // shared-texture path and every preview fails composition.
++        const bool sharedTransportUnusable =
++            platformDevice != nullptr && !platformDevice->SupportsSharedKeyedTransport();
++        if (a_renderData.gameDeviceNifRendering || sharedTransportUnusable)
+         {
++            if (sharedTransportUnusable)
++                spdlog::info("{}: shared-keyed transport unsupported on this game device; rendering on the game device",
++                             NameOf(NifPreviewRenderer));
+             platformDevice = std::make_shared<RenderDevice>();
+             if (!platformDevice->CreateDeferred(a_renderData.device)) return false;
+         }
+-- 
+2.51.2.windows.1
+
