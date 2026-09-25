@@ -44,15 +44,24 @@ const assert=require('node:assert/strict');
   await page.locator('dialog[open]').waitFor();
   assert.match(await page.locator('dialog input').inputValue(),/^法恩达尔/);
   await page.getByRole('button',{name:'取消',exact:true}).click();
-  // The manual slot page was removed: the panel keeps only the saved-set and wear tabs, and an
-  // entry that still asks for "part" lands on the wear page instead of a page that no longer exists.
+  // 伙伴穿搭 is the saved-set list and nothing else: the tabs are gone, so an entry that still asks
+  // for "part" or "wear" lands here and the per-item list never renders in the dashboard.
   await entry('000A2C94','part');
-  await page.locator('.cm-wear-list').waitFor();
+  await page.locator('.cm-outfit-presets').waitFor();
+  assert.equal(await page.locator('.cm-outfit-toolbar .tabs').count(),0);
+  assert.equal(await page.getByRole('button',{name:'随从装备',exact:true}).count(),0);
   assert.equal(await page.getByRole('button',{name:'手动调整',exact:true}).count(),0);
-  assert.equal(await page.locator('.cm-outfit-toolbar .tabs button').count(),2);
-  // The dialogue's 调整穿搭 line now opens the wear page: one flat apparel list, hover preview,
-  // arrow-key selection and a click that equips or unequips the exact instance.
+  assert.equal(await page.locator('.cm-wear-list').count(),0);
   await entry('000A2C94','wear');
+  assert.equal(await page.locator('.cm-outfit-presets').count(),1);
+  assert.equal(await page.getByRole('button',{name:'保存当前套装',exact:true}).count(),1);
+  // The dialogue's 调整穿搭 opens the compact overlay, and that overlay is where the per-item wear
+  // page lives: one flat apparel list, hover preview, arrow-key selection and a click to toggle.
+  await page.evaluate(()=>{window.__focusCalls=[];const original=window.companionRequest;window.companionRequest=payload=>{const r=JSON.parse(payload);if(r.type==='focus')window.__focusCalls.push(r);return original(payload);};});
+  await entry('000A2C94','compact');
+  await page.locator('.cm-compact').waitFor();
+  // The panel tells native which companion's inventory it needs, so the snapshot stays small.
+  assert.equal((await page.evaluate(()=>window.__focusCalls)).some(call=>call.actorId==='000A2C94'),true);
   await page.locator('.cm-wear-list').waitFor();
   const wearRows=page.locator('.cm-wear-row');
   assert.equal(await wearRows.count(),6);
@@ -87,7 +96,7 @@ const assert=require('node:assert/strict');
   await page.locator('.cm-wear-list').hover();
   await page.mouse.wheel(0,600);
   assert.equal(await page.evaluate(()=>document.scrollingElement.scrollTop),0);
-  assert.equal(await page.locator('.cm-management').first().evaluate(e=>e.scrollTop),0);
+  assert.equal(await page.locator('.cm-compact').first().evaluate(e=>e.scrollTop),0);
   // Every row carries a type icon from the shared icon font, and the font really loads.
   const wearIcons=page.locator('.cm-wear-row .cm-wear-icon');
   assert.equal(await wearIcons.count(),6);
@@ -112,11 +121,8 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>{const r=document.querySelectorAll('.cm-wear-row');return !r[0].className.includes('is-worn')&&r[1].className.includes('is-worn');});
   await wearRows.nth(3).click(); // necklace: an unworn piece in a free slot goes on
   await page.waitForFunction(()=>document.querySelectorAll('.cm-wear-row.is-worn').length===3);
-  await page.getByLabel('搜索随从装备').fill('皮甲');
-  assert.equal(await wearRows.count(),2);
-  await page.getByLabel('搜索随从装备').fill('不存在');
-  assert.equal(await wearRows.count(),0);
-  await page.getByLabel('搜索随从装备').fill('');
+  // The compact rail has no search box; the whole apparel list is what the rail scrolls.
+  assert.equal(await page.locator('.cm-compact .cm-wear-search').count(),0);
   assert.equal(await wearRows.count(),6);
   // The 3D area reports its viewport and follows the previewed item; the HTTP preview stands in for
   // the game renderer, so each native status can be checked without a GPU.
@@ -150,16 +156,8 @@ const assert=require('node:assert/strict');
   assert.equal(await page.getByRole('button',{name:'重置视角',exact:true}).isDisabled(),true);
   await page.evaluate(()=>{window.__companionPreviewStatus='unavailable';});
   await page.getByText('模型预览未连接',{exact:true}).waitFor();
-  // Leaving the page drops the model instead of leaving a surface over the other tabs.
-  await page.getByRole('button',{name:'已保存套装',exact:true}).click();
-  await page.waitForFunction(()=>window.__previewCalls.some(call=>call.type==='previewClear'));
-  // The dialogue's 调整穿搭 opens the compact overlay: no sidebar, no tabs, a transparent
-  // viewport over the game and one translucent info card.
-  await page.evaluate(()=>{window.__focusCalls=[];const original=window.companionRequest;window.companionRequest=payload=>{const r=JSON.parse(payload);if(r.type==='focus')window.__focusCalls.push(r);return original(payload);};});
-  await entry('000A2C94','compact');
-  await page.locator('.cm-compact').waitFor();
-  // The panel tells native which companion's inventory it needs, so the snapshot stays small.
-  assert.equal((await page.evaluate(()=>window.__focusCalls)).some(call=>call.actorId==='000A2C94'),true);
+  // The overlay carries no dashboard chrome: no sidebar, no toolbar, a transparent viewport over
+  // the game and one translucent info card.
   assert.equal(await page.locator('.sidebar').count(),0);
   assert.equal(await page.locator('.cm-outfit-toolbar').count(),0);
   assert.equal(await page.locator('.cm-compact .cm-wear-list').count(),1);
@@ -191,7 +189,12 @@ const assert=require('node:assert/strict');
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await page.waitForFunction(before=>document.querySelectorAll('.cm-wear-row.is-worn').length!==before,wornBefore);
+  // Leaving the overlay drops the model instead of leaving a surface over the game.
+  await entry('000A2C94','save');
+  await page.waitForFunction(()=>window.__previewCalls.some(call=>call.type==='previewClear'));
+  assert.equal(await page.locator('.cm-compact').count(),0);
+  await page.getByRole('button',{name:'取消',exact:true}).click();
   assert.deepEqual(errors,[]);
-  console.log('PASS save once, companion switch, delayed actor, dialogue ownership, worn slot highlights, the wear page and its model viewport');
+  console.log('PASS save once, companion switch, delayed actor, saved-set-only dashboard, the compact wear overlay and its model viewport');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

@@ -55,6 +55,7 @@
 .cm-compact .cm-wear-info{display:flex;flex-direction:column;gap:14px;padding:18px 20px 20px;border:1px solid rgba(255,255,255,.10);border-radius:4px;background:rgba(8,10,12,.66)}
 .cm-compact .cm-empty{padding:24px;border:1px solid rgba(255,255,255,.10);border-radius:4px;background:rgba(8,10,12,.66)}/* 1.8.19: the saved-set cards get a delete affordance; the wear list keeps one row colour for all. */
 .cm-outfit-presets .cm-outfit-preset{position:relative;display:flex}
+.cm-outfit-toolbar p{margin:0;flex:1;min-width:260px}/* 1.8.20: the toolbar is the save button plus the note now that the tabs are gone. */
 .cm-outfit-presets .cm-outfit-preset-body{flex:1;min-width:0}
 .cm-outfit-presets .cm-outfit-preset-delete{position:absolute;top:8px;right:8px;width:26px;height:26px;padding:0;display:grid;place-items:center;border:1px solid rgba(255,255,255,.18);border-radius:2px;background:rgba(8,10,12,.72);color:#d9a79f;font-size:13px;line-height:1;cursor:pointer}
 .cm-outfit-presets .cm-outfit-preset-delete:hover:not(:disabled){border-color:#8c5a52;background:rgba(96,38,32,.9);color:#ffd8d0}
