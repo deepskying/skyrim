@@ -4,6 +4,7 @@
 #include "PrismaUI_API.h"
 #include "input_handler.h"
 #include "enhancement_rules.h"
+#include "reinforced_name.h"
 #include "enhancement_drafts.h"
 #include "enchantment_ranking.h"
 #include "enchantment_cache.h"
@@ -200,9 +201,9 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.3.4";
+    constexpr std::string_view kPluginVersion = "2.3.5";
 #else
-    constexpr std::string_view kPluginVersion = "0.1.53";
+    constexpr std::string_view kPluginVersion = "0.1.54";
 #endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -1470,41 +1471,11 @@ namespace
         return a_value;
     }
 
-    // The engine appends its tempering marker (" (上等)") at display time, and our own "+N" can end
-    // up inside the baseline after a reload. Strip those trailing decorations first, so syncing the
-    // level can never stack "+1 (上等)" over and over.
-    [[nodiscard]] std::string StripReinforcedSuffix(std::string a_name)
-    {
-        for (;;)
-        {
-            const auto end = a_name.find_last_not_of(' ');
-            if (end == std::string::npos) return {};
-            a_name.resize(end + 1);
-            if (a_name.size() > 3 && a_name.back() == ')')
-            {
-                const auto open = a_name.rfind(" (");
-                if (open == std::string::npos) return a_name;
-                const auto inner = a_name.substr(open + 2, a_name.size() - open - 3);
-                if (inner.empty() || inner.find('(') != std::string::npos || inner.find(')') != std::string::npos) return a_name;
-                a_name.resize(open);
-                continue;
-            }
-            const auto plus = a_name.rfind(" +");
-            if (plus == std::string::npos) return a_name;
-            const auto digits = a_name.substr(plus + 2);
-            if (digits.empty() || !std::all_of(digits.begin(), digits.end(), [](unsigned char c) { return c >= '0' && c <= '9'; }))
-                return a_name;
-            a_name.resize(plus);
-        }
-    }
-
     [[nodiscard]] std::string ReinforcedDisplayName(
         const std::string_view a_baseline,
         const std::uint32_t a_level)
     {
-        auto clean = StripReinforcedSuffix(std::string(a_baseline));
-        if (a_level == 0) return clean;
-        return clean + " +" + std::to_string(a_level);
+        return durability::name::Reinforced(a_baseline, a_level);
     }
 
     bool SyncDisplayNameRuntimeEffect(
@@ -1528,7 +1499,7 @@ namespace
             if (!durability.displayNameBridgeInitialized) {
                 // Store the undecorated name: a baseline that already carries our own suffix is what
                 // used to make every reload append another "+N (上等)".
-                durability.displayNameBaseline = StripReinforcedSuffix(LimitPersistedDisplayName(
+                durability.displayNameBaseline = durability::name::StripDecorations(LimitPersistedDisplayName(
                     playerNamed ? currentName : DisplayName(a_item)));
                 durability.displayNameApplied.clear();
                 durability.displayNameBridgeInitialized = true;
@@ -1550,7 +1521,7 @@ namespace
                 a_key.uniqueID);
             return false;
         }
-        if (currentName != targetName || !playerNamed) {
+        if (!durability::name::AlreadyReinforced(currentName, targetName) || !playerNamed) {
             if (textData) textData->SetName(targetName.c_str());
             else a_extraList->Add(new RE::ExtraTextDisplayData(targetName.c_str()));
         }
