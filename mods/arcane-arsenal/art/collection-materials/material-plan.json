@@ -1,0 +1,23 @@
+{
+  "scope": "156 existing standard weapons; two historical material trials excluded",
+  "newly_updated": 140,
+  "already_textured": 16,
+  "mapping": {
+    "red": "熔光脉络",
+    "green": "星砂琉璃",
+    "blue": "层叠晶片",
+    "purple": "云雾光晶"
+  },
+  "preserved": [
+    "geometry",
+    "UV",
+    "skinning flags and weights",
+    "collision",
+    "edge shaders",
+    "bowstrings",
+    "particles",
+    "emission strengths",
+    "weapon records"
+  ],
+  "preview": "42 representative actual NIF imports; Blender render, not game capture"
+}

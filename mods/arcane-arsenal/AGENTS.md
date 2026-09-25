@@ -2,6 +2,7 @@
 
 - Preserve Chinese names and user-approved geometric designs. Concepts first when requested; implement only after approval.
 - Keep existing reduced emission. Bows use base damage 90 and Speed 1.5; greatswords use base damage 99 and Speed 1.2.
+- Approved four-color materials: R5 绯玉霜华 (red), G7 青碧层晶 (green), B7 海蓝层晶 (blue), P3 幻紫欧泊 with the 0.51.9 anti-whitening correction (purple). Use the current greatsword3 material blocks/textures as references when applying to the next user-requested weapon group. Purple body emission is 1.3, edge 3.6 with color (0.58, 0.14, 1.0); do not restore the older pale P3. Roll out one selected weapon category at a time for in-game review.
 - Maces use base damage 90 and Speed 1.0, as confirmed for the first mace set.
 - Two-handed battleaxes use base damage 99 and Speed 1.2, confirmed for the first battleaxe set.
 - Two-handed scythes use base damage 99 and Speed 1.2, confirmed for the first scythe set; use the existing TwoHandAxe animation type and WeaponBack attachment.
@@ -18,5 +19,7 @@
 - Scope changes to this mod; unrelated workspace mods may be under active development. Commit or push only when requested.
 
 - Crossbows use damage 95 and Speed 1.4, confirmed for the first set. Preserve the native Dawnguard crossbow skeleton, embedded controllers, BGED and bolt ammunition. The ESP masters are Skyrim.esm, Update.esm, Dawnguard.esm; self index is 3 (plugin-local identities unchanged).
+
+- All staves were removed at user request in 0.51.1. Keep local range 0xB00–0xB7F retired; do not rebuild/install staff_plugin, staff assets, scripts or ArcaneStaves.dll unless explicitly reauthorized.
 
 - First shield set: 绯玉日蚀、青碧折叶、海蓝潮门、幻紫星棱. User confirmed base armor 90 and SPID distribution in the existing `-item_DISTR.ini`. Preserve native SHIELD attachment, light-armor shield equipment, both-sex/race support, and local IDs 0xBA0–0xBAC. Shields use a separate `shields_catalog.json` and ARMO/ARMA records; do not count them as WEAP. Reuse the current 0.52.2 reduced weapon emission (body red/green/blue/purple: 0.45/0.55/0.55/0.50; edge: 1.20/1.35/1.45/1.20).
