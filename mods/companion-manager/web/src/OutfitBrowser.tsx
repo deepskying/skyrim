@@ -7,6 +7,7 @@ type Props={
   self?:SelfCard;
   followers:GameFollower[];
   session?:string;
+  sequence?:number;
   selected?:OutfitTarget;
   onSelect:(id:string)=>void;
   onBack:()=>void;
@@ -28,7 +29,7 @@ function followerStatus(f:GameFollower) {
 // The wardrobe page keeps two levels: a card per companion (the player first) and, once a card is
 // opened, that actor's saved-set list. Nothing else in the dashboard treats the player as a
 // follower, so the player card is merged here instead of in the shared follower snapshot.
-export function OutfitBrowser({self,followers,session,selected,onSelect,onBack,enabled,chance,mode,onEntryConsumed,notice,command}:Props){
+export function OutfitBrowser({self,followers,session,sequence,selected,onSelect,onBack,enabled,chance,mode,onEntryConsumed,notice,command}:Props){
   const [query,setQuery]=useState("");
   const cards=useMemo<Card[]>(()=>{
     const rows:Card[]=[];
@@ -39,7 +40,7 @@ export function OutfitBrowser({self,followers,session,selected,onSelect,onBack,e
   },[self,followers,query]);
   if(selected) return <div className="cm-outfits">
     <div className="cm-outfit-crumbs"><button type="button" className="cm-outfit-back" onClick={onBack}>← 全部伙伴</button><span>{selected.self?"你自己的衣橱":"伙伴衣橱"}</span></div>
-    <OutfitPanel key={`${session}-${selected.id}-${mode}`} f={selected} enabled={enabled} chance={chance} mode={mode} onEntryConsumed={onEntryConsumed} notice={notice} command={command}/>
+    <OutfitPanel key={`${session}-${selected.id}-${mode}-${sequence??0}`} f={selected} enabled={enabled} chance={chance} mode={mode} onEntryConsumed={onEntryConsumed} notice={notice} command={command}/>
   </div>;
   return <div className="cm-outfits">
     <div className="cm-management-bar"><div><h2>每位伙伴的独立衣橱</h2><p>先选一位伙伴（或你自己），再保存、换上一整套穿搭。</p></div><input aria-label="搜索伙伴" placeholder="搜索伙伴…" value={query} onChange={e=>setQuery(e.target.value)}/></div>
