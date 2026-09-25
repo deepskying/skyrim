@@ -1,0 +1,7 @@
+{
+  "config": "C:\\Users\\linos\\Desktop\\games\\+skyrim\\MO2\\mods\\基础模组-MeridianUI\\SKSE\\Plugins\\MeridianUI.ini",
+  "backup": "C:\\Users\\linos\\Desktop\\games\\+skyrim\\MO2\\backups\\MeridianUI-before-reload-compatibility-20260913-223931",
+  "changed": "CompositorTiming=AfterRendererEnd",
+  "runtimeValidation": "pending game restart and death reload",
+  "sha256": "96bac9a1270fcc023cd0dd7e7eac2d1e8969f1e9c65c9bfa93544532e31f9015"
+}
