@@ -7,7 +7,7 @@
 | 上游 | https://github.com/heathbrownkeyworks/MeridianUI |
 | 基础版本 | `5707877322c85a1bd1c2e3309487f266d0647ca9`（Release 1.5.0） |
 | 修改日期 | 2026-09-25 |
-| 修改内容 | ① NIF 预览在跨设备共享纹理不可用时改用游戏设备渲染（`src/UIPlatform/Render/NifPreviewRenderer.cpp` 一处条件，补丁见 `patches/`）；② 新增本声明与 `FORK-NOTES.md`；③ 新增 `build-local.ps1`（本机构建脚本，上游没有）。除此之外与 1.5.0 源码一致。 |
+| 修改内容 | ① NIF 预览在跨设备共享纹理不可用时改用游戏设备渲染（`InitializeGraphics` 一处条件）；② 取景不再把模型半径抬到最小 1 单位——戒指、项链与按米级导出的掉落模型因此被当成半径 1 取景、缩在视口中央；③ 新增本声明与 `FORK-NOTES.md`；④ 新增 `build-local.ps1`（本机构建脚本，上游没有）。①② 都在 `src/UIPlatform/Render/NifPreviewRenderer.cpp`，补丁见 `patches/`；除此之外与 1.5.0 源码一致。 |
 | 许可 | 实现部分 **GPL-3.0-or-later + EXCEPTIONS.md 的额外许可**；`src/UIPlatform/MeridianUIAPI/*.h` 为 **MIT**。完整文本见 `LICENSE`、`LICENSING.md`、`THIRD_PARTY_NOTICES.md`、`LICENSES/`。 |
 
 Meridian UI 是 `GPL-3.0-or-later`（含附加许可）。本副本随其许可文件一并分发；
@@ -34,6 +34,15 @@ Meridian UI 是 `GPL-3.0-or-later`（含附加许可）。本副本随其许可�
 - 改法：探测不可用时改用游戏设备延迟上下文（DXVK 已在用的路径，`SubmitDeferredFrame` 以
   `ExecuteCommandList(commands, TRUE)` 恢复游戏管线状态），全程不需要共享句柄。
 - 验证：本机 ENB 开启下实测通过（`MeridianUI.log` 出现新增回退日志，`scene composition failed` 归零）。
+
+### 2. `a40b4b3` 取景不再把小于 1 单位的模型缩小
+
+- 文件：`src/UIPlatform/Render/NifPreviewRenderer.cpp`（相机取景，`radius = std::max(1.0f, …)`）
+- 原因：上游把模型包围球半径**下限设为 1 单位**，不少网格（戒指、项链，以及按"米"级导出的装备
+  掉落模型）半径远小于 1，于是按半径 1 取景，模型缩在视口正中间（实测约占高度 16%，正常应约 80%）。
+- 改法：半径只保留防退化下限 `0.05f`；取景公式
+  （`radius * 1.25 * aspect / tan(fov/2) * distanceScale`）不变，半径大于 1 的模型行为完全不变。
+- 验证：随从管理「随从装备」页实测（盾牌/戒指类取景恢复正常），同时预览区高度由 230px 提到 340px。
 
 ## 构建（可复现）
 

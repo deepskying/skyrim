@@ -1,7 +1,10 @@
 // [local modification] Relative to Meridian UI 1.5.0 this file is modified in this repository:
-// NifPreviewRenderer::InitializeGraphics falls back to game-device rendering when the private
-// device reports the cross-device shared-keyed transport as unusable. Keep the change and the
-// upstream-applicable patch in sync - see FORK-NOTES.md and patches/ at the tree root.
+// 1) NifPreviewRenderer::InitializeGraphics falls back to game-device rendering when the private
+//    device reports the cross-device shared-keyed transport as unusable.
+// 2) The camera fit no longer floors the model radius at one unit, which framed every smaller mesh
+//    (rings, amulets, metre-scale world models) as if it were radius one and left it tiny in the
+//    middle of its viewport.
+// Keep the changes and the upstream-applicable patches in sync - see FORK-NOTES.md and patches/.
 
 #include "Render/NifPreviewRenderer.h"
 
@@ -1030,7 +1033,9 @@ namespace Meridian::Render::NifPreview
             (m_bounds.maximum.y - m_bounds.minimum.y) * 0.5f,
             (m_bounds.maximum.z - m_bounds.minimum.z) * 0.5f,
         };
-        const auto radius = std::max(1.0f, std::sqrt(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z));
+        // Only guard against a degenerate bound: the upstream floor of one unit assumed Skyrim-unit
+        // sized meshes and shrank anything smaller in frame.
+        const auto radius = std::max(0.05f, std::sqrt(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z));
         constexpr float fov = std::numbers::pi_v<float> / 4.0f;
         const auto aspect = static_cast<float>(a_width) / static_cast<float>(a_height);
         const auto aspectAdjustment = aspect < 1.0f ? 1.0f / aspect : 1.0f;

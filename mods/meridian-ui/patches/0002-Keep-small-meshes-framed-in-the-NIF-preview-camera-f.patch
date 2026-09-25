@@ -1,0 +1,40 @@
+From a40b4b3b4996ccdf8c64deaa9d81a74ba7be56e3 Mon Sep 17 00:00:00 2001
+From: linos <G762117907gmail.com>
+Date: Fri, 25 Sep 2026 13:28:47 +0800
+Subject: [PATCH 2/2] Keep small meshes framed in the NIF preview camera fit
+
+The camera fit floored the model radius at one unit, so any mesh smaller than that - rings, amulets, and the many world models authored at metre scale - was framed as if it were radius one and sat tiny in the middle of its viewport. Only a degenerate-bound guard is needed.
+---
+ src/UIPlatform/Render/NifPreviewRenderer.cpp | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/src/UIPlatform/Render/NifPreviewRenderer.cpp b/src/UIPlatform/Render/NifPreviewRenderer.cpp
+index 1a4bbfd..5ec05da 100644
+--- a/src/UIPlatform/Render/NifPreviewRenderer.cpp
++++ b/src/UIPlatform/Render/NifPreviewRenderer.cpp
+@@ -1,3 +1,11 @@
++// [local modification] Relative to Meridian UI 1.5.0 this file is modified in this repository:
++// 1) NifPreviewRenderer::InitializeGraphics falls back to game-device rendering when the private
++//    device reports the cross-device shared-keyed transport as unusable.
++// 2) The camera fit no longer floors the model radius at one unit, which framed every smaller mesh
++//    (rings, amulets, metre-scale world models) as if it were radius one and left it tiny in the
++//    middle of its viewport.
++// Keep the changes and the upstream-applicable patches in sync - see FORK-NOTES.md and patches/.
++
+ #include "Render/NifPreviewRenderer.h"
+ 
+ #include "Render/NifCameraMath.h"
+@@ -1025,7 +1033,9 @@ namespace Meridian::Render::NifPreview
+             (m_bounds.maximum.y - m_bounds.minimum.y) * 0.5f,
+             (m_bounds.maximum.z - m_bounds.minimum.z) * 0.5f,
+         };
+-        const auto radius = std::max(1.0f, std::sqrt(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z));
++        // Only guard against a degenerate bound: the upstream floor of one unit assumed Skyrim-unit
++        // sized meshes and shrank anything smaller in frame.
++        const auto radius = std::max(0.05f, std::sqrt(extent.x * extent.x + extent.y * extent.y + extent.z * extent.z));
+         constexpr float fov = std::numbers::pi_v<float> / 4.0f;
+         const auto aspect = static_cast<float>(a_width) / static_cast<float>(a_height);
+         const auto aspectAdjustment = aspect < 1.0f ? 1.0f / aspect : 1.0f;
+-- 
+2.51.2.windows.1
+
