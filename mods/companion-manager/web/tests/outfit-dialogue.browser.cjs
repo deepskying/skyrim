@@ -15,6 +15,17 @@ const assert=require('node:assert/strict');
   await page.locator('dialog input').fill('回归测试套装');
   await page.getByRole('button',{name:'保存并收藏',exact:true}).click();
   await page.locator('dialog[open]').waitFor({state:'hidden'}); // two dialogs exist, only one opens
+  // 伙伴穿搭 is only the saved-set list now: click the card to wear it, ✕ to delete it, and the
+  // old current-outfit card plus the per-item list are gone.
+  await page.evaluate(()=>{window.__cmds=[];const original=window.companionRequest;window.companionRequest=p=>{const r=JSON.parse(p);if(r.type==='command')window.__cmds.push(r);return original(p);};});
+  assert.equal(await page.locator('.cm-outfit-list').count(),0);
+  assert.equal(await page.getByRole('button',{name:'整套随机',exact:true}).count(),0);
+  const savedCard=page.locator('.cm-outfit-preset').filter({hasText:'回归测试套装'});
+  await savedCard.locator('.cm-outfit-preset-body').click();
+  assert.equal((await page.evaluate(()=>window.__cmds)).some(c=>c.command==='applyNamedOutfit'),true);
+  await savedCard.locator('.cm-outfit-preset-delete').click();
+  await page.waitForFunction(()=>!Array.from(document.querySelectorAll('.cm-outfit-preset')).some(e=>e.textContent.includes('回归测试套装')));
+  assert.equal((await page.evaluate(()=>window.__cmds)).some(c=>c.command==='removeNamedOutfit'),true);
   await page.locator('.cm-companion-trigger').click();
   await page.getByRole('option',{name:/伊奥拉/}).click();
   assert.equal(await page.locator('dialog[open]').count(),0);
@@ -52,8 +63,15 @@ const assert=require('node:assert/strict');
   // individual rows instead of one block of stripes.
   assert.equal(await page.locator('.cm-wear-list').evaluate(e=>getComputedStyle(e).rowGap),'2px');
   // Favourited rows carry a light blue background, and the list stretches to the column height.
+  // Every row shares one background now: the favourite marker is the ★ badge, not a row tint.
   assert.equal(await page.locator('.cm-wear-row.is-favorite').count(),2);
-  assert.match(await page.locator('.cm-wear-row.is-favorite').first().evaluate(e=>getComputedStyle(e).backgroundColor),/122, 176, 226/);
+  // No stylesheet paints a background for favourites any more - only hover/selection does.
+  assert.equal(await page.evaluate(()=>{
+    for(const sheet of document.styleSheets){
+      try{ for(const rule of sheet.cssRules){ if(rule.selectorText&&rule.selectorText.includes('.cm-wear-row.is-favorite')&&/background/.test(rule.style.cssText)) return rule.selectorText; } }catch{}
+    }
+    return '';
+  }),'');
   assert.ok(await page.locator('.cm-wear-list').evaluate(e=>e.getBoundingClientRect().height)>=400);
   // Plain rows are flat again - no card background, no radius - and the type icon is the marker.
   const plainRow=page.locator('.cm-wear-row').filter({hasText:'皮甲（火焰抗性）'});
@@ -133,7 +151,7 @@ const assert=require('node:assert/strict');
   await page.evaluate(()=>{window.__companionPreviewStatus='unavailable';});
   await page.getByText('模型预览未连接',{exact:true}).waitFor();
   // Leaving the page drops the model instead of leaving a surface over the other tabs.
-  await page.getByRole('button',{name:'整套随机',exact:true}).click();
+  await page.getByRole('button',{name:'已保存套装',exact:true}).click();
   await page.waitForFunction(()=>window.__previewCalls.some(call=>call.type==='previewClear'));
   // The dialogue's 调整穿搭 opens the compact overlay: no sidebar, no tabs, a transparent
   // viewport over the game and one translucent info card.
