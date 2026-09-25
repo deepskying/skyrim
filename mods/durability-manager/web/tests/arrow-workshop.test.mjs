@@ -124,3 +124,13 @@ test('queued crafting gates the start button on the co-save and the per-spell ce
   assert.doesNotMatch(panel, /craft-order-queue/);
   assert.doesNotMatch(panel, /aria-label="制作队列"/);
 });
+
+test('the charge section offers a potion-only filler beside fill charge', () => {
+  const panel = readFileSync(new URL('../src/arrows/MagicCrafting.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /补足充能/);
+  assert.match(panel, /补足药水/);
+  assert.match(panel, /fillCharge\(state, previous, true\)/);
+  assert.match(panel, /plan\.materials\.some\(m => m\.kind === 'potion'\)/);
+  const quantity = readFileSync(new URL('../src/arrows/quantity.ts', import.meta.url), 'utf8');
+  assert.match(quantity, /potionsOnly && material\.kind !== 'potion'/);
+});

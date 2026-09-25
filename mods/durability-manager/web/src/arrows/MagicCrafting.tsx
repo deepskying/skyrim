@@ -52,14 +52,17 @@ export function MagicCrafting({ state, action, active }: { state: ArrowState; ac
           <footer><button disabled={busy || !selection.bases.length} onClick={() => setSelection(previous => ({ ...previous, bases: [] }))}>清空箭矢</button><span>0 表示不使用</span></footer>
         </section>
         <section className="craft-stock-card arrow-card" aria-label="充能材料用量">
-          <header className="craft-section-heading"><div><small>药水 · 原材料</small><h2>充能材料</h2></div><button className="charge-fill" disabled={busy || !plan.spell?.craftable || !plan.target || plan.energy >= plan.target * plan.charge || !plan.materials.length} onClick={() => setSelection(previous => fillCharge(state, previous))}>补足充能</button></header>
+          <header className="craft-section-heading"><div><small>药水 · 原材料</small><h2>充能材料</h2></div><div className="craft-charge-actions">
+            <button className="charge-fill" disabled={busy || !plan.spell?.craftable || !plan.target || plan.energy >= plan.target * plan.charge || !plan.materials.length} onClick={() => setSelection(previous => fillCharge(state, previous))}>补足充能</button>
+            <button className="charge-fill" title="只用药水补足，不消耗毒药和原材料" disabled={busy || !plan.spell?.craftable || !plan.target || plan.energy >= plan.target * plan.charge || !plan.materials.some(m => m.kind === 'potion')} onClick={() => setSelection(previous => fillCharge(state, previous, true))}>补足药水</button>
+          </div></header>
           <div className="craft-material-tools"><span>{plan.energy} / {plan.target * plan.charge} 充能</span>{!!plan.spell?.craftable && <span>接受：{plan.spell.adapter?.material ?? '任意数值型功效'}{state.materialGenericPercent ? `，其他数值型功效按 ${state.materialGenericPercent}% 计入` : ''}</span>}</div>
           <div className="craft-stock-list">{plan.spell?.craftable ? plan.materials.map(m => {
             const count = selection.materials.find(x => x.id === m.id)?.count ?? 0;
             const kind = m.kind === 'potion' ? '药水' : m.kind === 'poison' ? '毒药' : '原材料';
             return <article key={m.id} className={count ? 'selected' : ''}><div className="craft-item-info"><b>{m.name}</b><small className="craft-stock-badge">库存 {m.count}</small><div className="craft-material-meta"><span className={m.kind}>{kind}</span><span>每份 +{m.units} 充能</span></div></div><QuantityInput name={m.name} count={count} maximum={Math.min(craftInputMax, m.count)} disabled={busy} onChange={n => changeQuantity('materials', m.id, n)} /></article>;
           }) : <p className="craft-empty">选定法术后显示匹配的充能材料。</p>}{plan.spell?.craftable && !plan.materials.length && <p className="craft-empty">背包里没有可充能的药水或材料。本配方接受：{plan.spell.adapter?.material ?? '任意数值型功效'}。</p>}</div>
-          <footer><button disabled={busy || !selection.materials.length} onClick={() => setSelection(previous => ({ ...previous, materials: [] }))}>清空材料</button><span>补足时优先使用药水</span></footer>
+          <footer><button disabled={busy || !selection.materials.length} onClick={() => setSelection(previous => ({ ...previous, materials: [] }))}>清空材料</button><span>补足充能按 药水→毒药→原材料，补足药水只消耗药水</span></footer>
         </section>
       </div>
     </div>

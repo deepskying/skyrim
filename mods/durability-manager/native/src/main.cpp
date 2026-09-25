@@ -200,9 +200,9 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.1.1";
+    constexpr std::string_view kPluginVersion = "2.2.0";
 #else
-    constexpr std::string_view kPluginVersion = "0.1.47";
+    constexpr std::string_view kPluginVersion = "0.1.48";
 #endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)

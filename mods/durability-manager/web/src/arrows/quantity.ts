@@ -45,8 +45,12 @@ export function resourceSegments(current: number | undefined, cost: number) {
     spendingPercent: held > 0 ? Math.min(held, spending) / held * 100 : 0 };
 }
 
-/** Adds just enough compatible charge, preserving the user's selected materials. */
-export function fillCharge(state: ArrowState, selection: Selection): Selection {
+/**
+ * Adds just enough compatible charge, preserving the user's selected materials. With
+ * potionsOnly the filler never spends poisons or raw ingredients, so an existing basket can
+ * still fall short of the target and the caller keeps showing the shortage.
+ */
+export function fillCharge(state: ArrowState, selection: Selection, potionsOnly = false): Selection {
   const next = reconcileSelection(state, selection);
   const spell = state.spells.find(s => s.id === next.spell);
   if (!spell?.craftable) return next;
@@ -56,6 +60,7 @@ export function fillCharge(state: ArrowState, selection: Selection): Selection {
   let missing = target - next.materials.reduce((n, m) => n + m.count * (available.find(a => a.id === m.id)?.units ?? 0), 0);
   for (const material of available) {
     if (missing <= 0) break;
+    if (potionsOnly && material.kind !== 'potion') continue;
     const count = next.materials.find(m => m.id === material.id)?.count ?? 0;
     if (!count && next.materials.length >= 128) continue;
     const add = clampQuantity(Math.ceil(missing / material.units), Math.min(craftInputMax, material.count) - count);
