@@ -1,0 +1,22 @@
+{
+  "version": "1.7.4",
+  "mod": "C:\\Users\\linos\\Desktop\\games\\+skyrim\\MO2\\mods\\随从管理-CompanionManager-只读测试-Shift+F",
+  "backup": "C:\\Users\\linos\\Desktop\\games\\+skyrim\\MO2\\backups\\CompanionManager-before-1.7.4-20260920-220835",
+  "updated": [
+    "CompanionManager.esp",
+    "Meridian-SDK-LICENSE.txt",
+    "README.md",
+    "MeridianUI\\companion-manager\\index.html",
+    "MeridianUI\\companion-manager\\assets\\index-Ca595B7G.css",
+    "MeridianUI\\companion-manager\\assets\\index-CVfpMf2b.js",
+    "Scripts\\CMController.pex",
+    "Scripts\\CMDialogue.pex",
+    "Scripts\\CMRandomOutfitTopic.pex",
+    "SEQ\\CompanionManager.seq",
+    "SKSE\\Plugins\\CompanionManager.dll",
+    "manifest.json"
+  ],
+  "dllSha256": "0f96440bf07f96bdd0fc83afa6f73970b90e5833a5de1d7d9521deb81a3a47ed",
+  "preservedConfigsAndProfile": true,
+  "gameRuntimeVerified": false
+}

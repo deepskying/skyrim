@@ -55,6 +55,9 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.cm-wear').getByText('铁剑',{exact:true}).count(),0);
   assert.equal(await page.locator('.cm-wear').getByText('治疗药剂',{exact:true}).count(),0);
   assert.equal(await page.locator('.cm-wear-row.is-worn').count(),2);
+  // Rows are separated by a 2px gap over a transparent list background, so the cards read as
+  // individual rows instead of one block of stripes.
+  assert.equal(await page.locator('.cm-wear-list').evaluate(e=>getComputedStyle(e).rowGap),'2px');
   const armorStat=page.locator('.cm-wear-stats > div').first();
   await wearRows.nth(1).hover();
   assert.equal(await page.locator('.cm-wear-detail h3').innerText(),'皮甲（火焰抗性）');
@@ -84,6 +87,9 @@ const assert=require('node:assert/strict');
   await page.evaluate(()=>{window.__companionPreviewStatus='ready';});
   await wearRows.nth(5).hover(); // shield, so the requested base form is unambiguous
   await page.getByText('拖动旋转 · 滚轮缩放',{exact:true}).waitFor();
+  // The model needs room to read: the viewport stays at least 300px tall.
+  const previewHeight=await page.locator('.cm-preview-viewport').evaluate(e=>e.getBoundingClientRect().height);
+  assert.ok(previewHeight>=300,`preview viewport too short: ${previewHeight}`);
   const calls=await page.evaluate(()=>window.__previewCalls);
   const select=calls.find(call=>call.type==='previewSelect');
   assert.equal(select.id,'00012EB6');assert.equal(select.actorId,'000A2C94');
