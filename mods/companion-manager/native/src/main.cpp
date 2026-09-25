@@ -160,7 +160,9 @@ bool CanOpen()
            !ui->IsMenuOpen(RE::DialogueMenu::MENU_NAME) && !ui->IsMenuOpen(RE::RaceSexMenu::MENU_NAME);
 }
 
-bool Open()
+// The compact wardrobe overlay is meant to feel like a menu: it pauses the game while it is up.
+// The full dashboard keeps the game running, because it is used to watch companions move.
+bool Open(bool pauseGame = false)
 {
     if (!views || !panel || !CanOpen() || views->HasAnyFocus())
         return false;
@@ -171,7 +173,7 @@ bool Open()
     }
     if (!views->Show(panel))
         return false;
-    const auto focus = views->TryFocus(panel, View::FocusMode::Unpaused);
+    const auto focus = views->TryFocus(panel, pauseGame ? View::FocusMode::PauseGame : View::FocusMode::Unpaused);
     if (focus != View::FocusResult::Granted && focus != View::FocusResult::AlreadyFocused)
     {
         views->Hide(panel);
@@ -282,7 +284,7 @@ void companion::CloseManagerView(){Close();}
 bool companion::ManagerViewOpen() { return views && views->HasAnyFocus(); }
 void companion::OpenPartnerWardrobe(RE::FormID actor,std::string mode)
 {
-    if(Open()) {
+    if(Open(mode=="compact")) {
         SendSnapshot();
         const auto detail=json{{"actorId",std::format("{:08X}",actor)},{"mode",mode},{"session",SessionToken()}}.dump();
         const auto js=std::format("window.dispatchEvent(new CustomEvent('companion:wardrobe',{{detail:{}}}));",detail);

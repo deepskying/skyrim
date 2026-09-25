@@ -209,14 +209,20 @@ export function GameApp() {
     return (
       <div className="preview-world cm-runtime is-compact" style={style}>
         <main className="cm-compact">
-          <header className="cm-compact-bar">
-            <div><p className="cm-compact-eyebrow">EQUIPMENT</p><h2>{f?.name ?? "调整穿搭"}</h2></div>
-            <button type="button" className="cm-compact-close" onClick={() => request("close")} aria-label="关闭">×</button>
-          </header>
           {f ? (
-            <WearPanel f={f} enabled={enabled} pending={!!f.outfits?.pending} command={game.command}/>
+            <WearPanel f={f} enabled={enabled} pending={!!f.outfits?.pending} command={game.command} compact
+              header={<header className="cm-compact-bar">
+                <div><p className="cm-compact-eyebrow">EQUIPMENT</p><h2>{f.name}</h2></div>
+                <button type="button" className="cm-compact-close" onClick={() => request("close")} aria-label="关闭">×</button>
+              </header>}/>
           ) : (
-            <div className="cm-empty">{managementActor ? "等待目标伙伴的数据，请刷新或重新选择伙伴。" : "先招募一位伙伴，即可调整穿搭。"}</div>
+            <>
+              <header className="cm-compact-bar">
+                <div><p className="cm-compact-eyebrow">EQUIPMENT</p><h2>调整穿搭</h2></div>
+                <button type="button" className="cm-compact-close" onClick={() => request("close")} aria-label="关闭">×</button>
+              </header>
+              <div className="cm-empty">{managementActor ? "等待目标伙伴的数据，请刷新或重新选择伙伴。" : "先招募一位伙伴，即可调整穿搭。"}</div>
+            </>
           )}
         </main>
       </div>

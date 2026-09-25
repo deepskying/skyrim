@@ -145,6 +145,17 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('.cm-compact-bar h2').innerText(),'莱迪亚');
   assert.equal(await page.locator('.cm-preview-viewport').evaluate(e=>getComputedStyle(e).backgroundColor),'rgba(0, 0, 0, 0)');
   assert.match(await page.locator('.cm-wear-info').evaluate(e=>getComputedStyle(e).backgroundColor),/rgba\(8, 10, 12, 0\.66\)/);
+  // The list is a flush, translucent left rail with roomier rows and no search box.
+  assert.equal(await page.locator('.cm-compact .cm-wear-search').count(),0);
+  const pane=await page.locator('.cm-compact .cm-wear-list-pane').evaluate(e=>{
+    const r=e.getBoundingClientRect();
+    return {left:Math.round(r.left),top:Math.round(r.top),bottom:Math.round(r.bottom),height:Math.round(r.height),
+      bg:getComputedStyle(e).backgroundColor,viewport:window.innerHeight};
+  });
+  assert.equal(pane.left,0);assert.equal(pane.top,0);
+  assert.ok(Math.abs(pane.bottom-pane.viewport)<=1,`left rail does not reach the bottom: ${pane.bottom}/${pane.viewport}`);
+  assert.match(pane.bg,/rgba\(8, 10, 12, 0\.62\)/);
+  assert.ok(await page.locator('.cm-compact .cm-wear-row').first().evaluate(e=>e.getBoundingClientRect().height)>=44);
   // Keyboard and mouse keep working in the overlay.
   const wornBefore=await page.locator('.cm-wear-row.is-worn').count();
   await page.locator('.cm-wear-list').focus();

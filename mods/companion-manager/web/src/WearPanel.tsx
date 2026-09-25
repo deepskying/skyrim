@@ -1,16 +1,16 @@
-import {useEffect,useMemo,useRef,useState,type KeyboardEvent as ReactKeyboardEvent} from "react";
+import {useEffect,useMemo,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type ReactNode} from "react";
 import type {GameFollower} from "./bridge";
 import {armorTypeNames} from "./behavior";
 import {canToggle,nextSelection,searchWear,wearIcon,wearOutcome,wearRows,wearSlotNames,type WearRow} from "./wear";
 import {ModelPreview} from "./ModelPreview";
 import "./outfits.css";
 
-type Props={f:GameFollower;enabled:boolean;pending:boolean;command:(op:string,data?:Record<string,unknown>)=>boolean};
+type Props={f:GameFollower;enabled:boolean;pending:boolean;command:(op:string,data?:Record<string,unknown>)=>boolean;compact?:boolean;header?:ReactNode};
 
 // The wear page lists the companion's whole apparel half at once - no slot grid, no category tabs -
 // and turns one click into one equip or unequip. Hovering and the arrow keys only move the preview;
 // nothing is sent until the player clicks a row or presses Enter on it.
-export function WearPanel({f,enabled,pending,command}:Props){
+export function WearPanel({f,enabled,pending,command,compact=false,header}:Props){
   const rows=useMemo(()=>wearRows(f.wardrobe),[f.wardrobe]);
   const [query,setQuery]=useState(""),[selectedKey,setSelectedKey]=useState(""),[hovered,setHovered]=useState("");
   // The 3D model follows the preview slowly on purpose: sweeping the mouse across the list must not
@@ -53,11 +53,11 @@ export function WearPanel({f,enabled,pending,command}:Props){
   };
   return <div className="cm-wear">
     <div className="cm-wear-list-pane">
-      <div className="cm-wear-search">
+      {!compact&&<div className="cm-wear-search">
         <input aria-label="搜索随从装备" placeholder="搜索装备…" value={query} onChange={e=>setQuery(e.target.value)}
           onKeyDown={e=>{if(e.key!=="ArrowDown"&&e.key!=="ArrowUp")return;e.preventDefault();list.current?.focus();move(e.key==="ArrowDown"?1:-1);}}/>
         <small>{shown.length} / {rows.length} 件服饰</small>
-      </div>
+      </div>}
       <div className="cm-wear-list" role="listbox" aria-label="随从装备" tabIndex={0} ref={list} onKeyDown={onKey} onMouseLeave={()=>setHovered("")}>
         <div className="cm-wear-head" aria-hidden="true"><span>名称</span><span>数量</span><span>重量</span><span>价值</span></div>
         {shown.map(row=>{const icon=wearIcon(row);return <div key={row.key} role="option" aria-selected={row.key===selectedKey} aria-disabled={blocked(row)}
@@ -71,6 +71,7 @@ export function WearPanel({f,enabled,pending,command}:Props){
       {!!rows.length&&!shown.length&&<div className="cm-empty">没有匹配「{query.trim()}」的服饰。</div>}
     </div>
     <div className="cm-wear-detail">
+      {header}
       <ModelPreview actorId={f.id} id={modelId}/>
       {preview&&outcome?<>
         <div className="cm-wear-info">

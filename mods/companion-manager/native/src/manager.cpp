@@ -477,7 +477,13 @@ void Tick()
         return;
     auto *ui = RE::UI::GetSingleton();
     auto *player = RE::PlayerCharacter::GetSingleton();
-    if (!ui || ui->GameIsPaused() || !player || !player->GetParentCell())
+    // A paused game normally stops the manager outright. While our own panel is the thing holding
+    // the pause, the outfit confirmations it just asked for still have to run, so only the
+    // follower automation below is skipped.
+    const bool paused = ui ? ui->GameIsPaused() : false;
+    if (!ui || !player || !player->GetParentCell())
+        return;
+    if (paused && !ManagerViewOpen())
         return;
     const auto now = ActivityTime();
     try { CheckOutfits(); } catch(const std::exception& e) { outfitChecks.clear(); logger::warn("Outfit confirmation: {}",e.what()); }
@@ -519,7 +525,8 @@ void Tick()
             } else RE::DebugNotification("同伴当前无法换装，请在非战斗时重试");
         }
     }
-    try { ClearRetiredNeeds(); TickActivities(); if(ManagerViewOpen()){static double refreshAt=0;if(ActivityTime()>refreshAt){refreshAt=ActivityTime()+5;RefreshManagerView();}} } catch(const std::exception& e) { CancelActivity(); ActivityLog(e.what()); }
+    if(!paused) try { ClearRetiredNeeds(); TickActivities(); } catch(const std::exception& e) { CancelActivity(); ActivityLog(e.what()); }
+    if(ManagerViewOpen()){static double refreshAt=0;if(ActivityTime()>refreshAt){refreshAt=ActivityTime()+5;RefreshManagerView();}}
     for (auto &[id, r] : members)
         if (auto *actor = Actor(id))
         {
