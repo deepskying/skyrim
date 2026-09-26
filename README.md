@@ -18,6 +18,10 @@ This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preservi
 
 Both mods can be installed together: they use separate DLLs, views, and INI files. Shared Iconfont source is under `shared/iconfont`; the external build dependencies stay in `reference/`.
 
+## Tools
+
+- `tools/weapon-balancer` — local web GUI that reads the active MO2 load order and normalises mod-added weapon damage and attack speed per animation type. It lists every weapon record with the effective (post-override) values, takes per-category caps and per-weapon overrides, previews the change list, exports it as CSV, and generates the ESL patch plugin `武器平衡-WeaponRebalance` that applies the changes without touching any original mod file. See `tools/weapon-balancer/README.md`.
+
 ## Follower Spellbook Manager
 
 > Removed from this repository on 2026-09-25; the sections below are kept as history.

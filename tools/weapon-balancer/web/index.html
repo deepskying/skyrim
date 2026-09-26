@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>武器平衡工具 · Skyrim SE</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <strong>武器平衡工具</strong>
+    <span class="brand-sub">Skyrim SE 武器数值规范化</span>
+    <span class="pill">本地工具</span>
+  </div>
+  <div class="meta" id="meta">正在加载…</div>
+  <div class="topbar-actions">
+    <label class="kfield">
+      K 值
+      <input type="number" id="k-value" value="3" min="1" max="10" step="0.5">
+    </label>
+    <button id="suggest-all" class="ghost">按 K 生成全部类别上限</button>
+    <button id="rescan" class="ghost">重新扫描</button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+
+<main class="layout">
+  <section class="main-col">
+    <div class="panel cap-panel">
+      <div class="cap-head">
+        <h2 id="cap-title">—</h2>
+        <span class="hint" id="cap-hint"></span>
+      </div>
+      <div class="cap-grid">
+        <label>
+          伤害上限
+          <input type="number" id="cap-damage" min="0" max="100" step="1" placeholder="不设上限">
+          <span class="field-error" id="cap-damage-error"></span>
+        </label>
+        <label>
+          攻速上限
+          <input type="number" id="cap-speed" min="0" max="2" step="0.05" placeholder="不设上限">
+          <span class="field-error" id="cap-speed-error"></span>
+        </label>
+        <label>
+          超出上限时
+          <select id="cap-mode">
+            <option value="clamp">压到上限</option>
+            <option value="ratio">整类等比缩小</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="opt-crit" checked>
+          暴击同步（伤害 × 50%）
+        </label>
+        <label class="check">
+          <input type="checkbox" id="opt-animmult" checked>
+          攻击倍率归 1.0
+        </label>
+      </div>
+      <div class="cap-actions">
+        <button id="apply-cap" class="primary">一键调整本类</button>
+        <button id="clear-cap" class="ghost">清除本类上限</button>
+        <span class="hint" id="cap-summary"></span>
+      </div>
+    </div>
+
+    <div class="panel filters">
+      <input type="search" id="search" placeholder="搜索名称 / EditorID / 插件">
+      <label class="check"><input type="checkbox" id="f-mod" checked> 只看模组新增</label>
+      <label class="check"><input type="checkbox" id="f-vanilla"> 含原版武器</label>
+      <label class="check"><input type="checkbox" id="f-enchanted"> 含附魔副本</label>
+      <label class="check"><input type="checkbox" id="f-nonplayable"> 含 NPC 专用</label>
+      <label class="check"><input type="checkbox" id="f-staff"> 含法杖</label>
+      <label class="check"><input type="checkbox" id="f-dummy"> 含无伤害</label>
+      <label class="check"><input type="checkbox" id="f-changed"> 只看会变动</label>
+    </div>
+
+    <div class="table-wrap">
+      <table id="weapons">
+        <thead>
+          <tr>
+            <th class="col-check"></th>
+            <th>名称</th>
+            <th>EditorID</th>
+            <th class="num">伤害</th>
+            <th class="num">新伤害</th>
+            <th class="num">攻速</th>
+            <th class="num">新攻速</th>
+            <th class="num">重量</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="table-foot">
+        <span id="table-count"></span>
+        <button id="load-more" class="ghost">显示更多</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side-col">
+    <div class="panel preview">
+      <h2>变更预览</h2>
+      <div class="preview-summary" id="preview-summary">—</div>
+      <div class="preview-list" id="preview-list"></div>
+      <div class="preview-actions">
+        <button id="refresh-plan" class="ghost">刷新预览</button>
+        <button id="export-csv" class="primary">导出清单 CSV</button>
+        <button id="write-patch" class="primary">生成补丁插件</button>
+      </div>
+      <div class="hint" id="export-result"></div>
+      <div class="hint" id="write-result"></div>
+    </div>
+  </aside>
+</main>
+
+<footer class="statusbar" id="statusbar"></footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

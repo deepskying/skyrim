@@ -16,3 +16,8 @@ output/
 mods/music-manager/packaging/migration/
 mods/music-manager/packaging/validation/
 **/__pycache__/
+tools/weapon-balancer/cache/
+tools/weapon-balancer/state.json
+tools/weapon-balancer/dist/
+tools/weapon-balancer/build_exe/
+tools/weapon-balancer/*.spec
