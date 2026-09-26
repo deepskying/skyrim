@@ -580,6 +580,9 @@ export function GameApp() {
                             aria-pressed={f.waiting} onClick={() => act("wait", {value: !f.waiting})}>
                             {f.waiting ? "继续跟随" : "等待"}
                           </button>
+                          <button className="cm-action-summon" disabled={!editable}
+                            title="把这位同伴移动到你身边；队伍归属、名册记录与个人设置都不变"
+                            onClick={() => act("summon")}>召唤</button>
                           <button className="cm-action-dismiss" disabled={!editable}
                             onClick={() => ask(
                               f.group === "party" ? "解散随从" : "重新入队",

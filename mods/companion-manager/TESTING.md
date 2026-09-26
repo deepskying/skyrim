@@ -1,3 +1,10 @@
+## 1.9.12（2026-09-26）人物概览加「召唤」按钮
+
+- 前端：人物概览顶部快捷按钮由「等待」「解散」「设置居所」三个改为「等待」「召唤」「解散」「设置居所」四个；召唤按钮发既有的 `summon` 指令（原生 `actor->MoveTo(PlayerCharacter)`），队伍与名册归属不变，浏览器预览里同步把距离设为 0；新增 `.cm-action-summon` 蓝紫配色，四列排布在窗口窄于 650px 时折成两列。
+- 验证：网页 60 项测试通过；`npm run build`（含 `tsc --noEmit`）通过；浏览器预览里确认概览四个按钮的渲染、提示文本与四列 / 窄窗口两列两种排布。原生源码未改，但版本号变了，因此重新链接 Release DLL 以便版本资源同步（`FileVersion=1.9.12.0`），8 个测试目标 exit=0。
+- 发布：`CompanionManager-1.9.12-fulltest-20260926-153733` 完整包已生成并安装到 MO2；旧安装备份在 `MO2/companion-manager-backups/20260926-153737`，安装后逐文件哈希校验通过，`meta.ini` 版本与插件版本均为 1.9.12。MO2 配置文件未改动。
+- 待办：游戏内人工复核「召唤」按钮，含离队（名册中）人物与剧情中人物的表现。
+
 ## 1.9.11（2026-09-25）伙伴收藏 + 交付装备保护
 
 - 原生：`Wardrobe()` 增加 `filterBase` / `apparelOnly` 过滤；`WardrobeSnapshot` 只发护甲；新增 `ProtectedItems()`（按 key 解析保护清单，来源含 套装／玩家交付／手动锁定）与 `collect` 载荷；`LockPlayerGift` 改为只解析该 base FormID 并走整份库存，同时记录 `giftLocks` 来源；新增 `unprotect` 指令；`RemapWardrobe` 一并迁移 `giftLocks`；`favorite` 指令改用整份库存解析。
