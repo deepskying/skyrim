@@ -201,9 +201,9 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.3.5";
+    constexpr std::string_view kPluginVersion = "2.3.6";
 #else
-    constexpr std::string_view kPluginVersion = "0.1.54";
+    constexpr std::string_view kPluginVersion = "0.1.55";
 #endif
 
     [[nodiscard]] std::string Normalize(std::string a_value)
@@ -1504,10 +1504,13 @@ namespace
                 durability.displayNameApplied.clear();
                 durability.displayNameBridgeInitialized = true;
             } else if (playerNamed && !durability.displayNameApplied.empty() &&
-                       currentName != durability.displayNameApplied) {
-                // A different explicit name was applied after our last sync.
-                // Treat it as the new player-authored baseline.
-                durability.displayNameBaseline = currentName;
+                       durability::name::StripDecorations(currentName) !=
+                           durability::name::StripDecorations(durability.displayNameApplied)) {
+                // A different explicit name was applied after our last sync. The engine appends its
+                // quality marker at display time, so the *rendered* name of our own last write never
+                // matches it byte for byte; comparing what both names mean keeps that marker and the
+                // stored level out of the baseline, which is what the panel used to show.
+                durability.displayNameBaseline = durability::name::CleanStoredBaseline(currentName);
             }
             if (durability.displayNameBaseline.empty()) durability.displayNameBaseline = DisplayName(a_item);
             targetName = ReinforcedDisplayName(durability.displayNameBaseline, durability.enhancementLevel);
@@ -3881,8 +3884,14 @@ namespace
                     durability.performanceAppliedHealth = durability.performanceBaselineHealth;
                     durability.performanceBridgeInitialized = false;
                 }
-                durability.displayNameBaseline = LimitPersistedDisplayName(durability.displayNameBaseline);
-                durability.displayNameApplied = LimitPersistedDisplayName(durability.displayNameApplied);
+                // Records written before the level-aware comparison keep the engine's quality marker
+                // and a stale "+N" inside the baseline; the sync then froze that name at the level it
+                // had been captured with. Repair both strings on load, so an existing save recovers
+                // without the player doing anything.
+                durability.displayNameBaseline = durability::name::CleanStoredBaseline(
+                    LimitPersistedDisplayName(std::move(durability.displayNameBaseline)));
+                durability.displayNameApplied = durability::name::CleanStoredBaseline(
+                    LimitPersistedDisplayName(std::move(durability.displayNameApplied)));
                 if (!durability.displayNameBridgeInitialized) {
                     durability.displayNameBaseline.clear();
                     durability.displayNameApplied.clear();

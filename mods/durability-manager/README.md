@@ -4,6 +4,8 @@ An SKSE + PrismaUI durability mod for Skyrim SE 1.5.97.
 
 ## Current foundation
 
+- Version 0.1.55 / Equipment Workshop 2.3.6 finishes the reinforced-name repair that 0.1.53 and 0.1.54 started. The engine appends its tempering marker (` (上等)`) at display time, so the rendered name of our own last write never matched it byte for byte: the sync treated its own suffix as an external rename, stored `名称 +1 (上等)` as the baseline, and then - because the "already synced" test dropped the level - never rewrote the name, leaving the panel showing `+1 (上等) +4` while the instance itself stayed at `+1`. `reinforced_name.h` now strips the engine marker and our own `+N` separately, `AlreadyReinforced` keeps the level when it compares, the re-baseline path stores the marker-free name, and loading a pre-0.1.55 co-save repairs both stored strings, so the panel, the instance name and the level agree again without the player doing anything. `WorkshopReinforcedNameTests` covers the round-by-round pollution, both marker positions, the stale-level rewrite and the baseline repair; the release DLL and the web bundle are rebuilt for this version.
+
 - Version 0.1.52 / Equipment Workshop 2.3.3 hides the bottom-left HUD whenever *any* Meridian panel has focus, not just this workshop's own panel, so another mod's dashboard no longer leaves the attribute and durability HUD on screen.
 
 - Version 0.1.51 / Equipment Workshop 2.3.2 names the prepared filler 补足药水 again: the player's term for the button means every finished product (potions and poisons) and only excludes alchemy ingredients, which is what 2.3.1 already did. Button label, tooltip and the footer wording now say so explicitly; behaviour is unchanged.
