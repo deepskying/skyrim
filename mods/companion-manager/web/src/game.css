@@ -495,6 +495,7 @@
   gap: 20px;
 }
 .cm-follower-card {
+  position: relative;
   text-align: left;
   padding: 23px;
   border: 1px solid #acc8cc32;
@@ -502,11 +503,36 @@
   border-radius: 14px;
   min-width: 0;
 }
-.cm-follower-card:hover:not(:disabled) {
+.cm-follower-card:hover {
   transform: translateY(-2px);
-  background: #92d7c818;
-  border-color: #a6e0cc88;
+  box-shadow: 0 10px 24px #0007;
 }
+/* The party state owns the card surface, exactly as in the wardrobe grid, so hovering only lifts the
+   card and lets the tint stay readable. */
+.cm-follower-card.party { border-color: #7fd0b055; background: rgba(22,50,42,.72); }
+.cm-follower-card.waiting { border-color: #d8b46a55; background: rgba(56,44,20,.72); }
+.cm-follower-card.registry { border-color: #8a94a044; background: rgba(18,20,24,.72); }
+.cm-follower-card.nearby { border-color: #7fa8d044; background: rgba(20,32,44,.72); }
+.cm-follower-card.dead { border-color: #a4686844; background: rgba(34,20,22,.72); }
+.cm-card-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.72em;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.cm-follower-card.party .cm-card-badge { border-color: #7fd0b066; background: #7fd0b026; color: #c3f2e0; }
+.cm-follower-card.waiting .cm-card-badge { border-color: #d8b46a55; background: #d8b46a22; color: #f2ddb0; }
+.cm-follower-card.registry .cm-card-badge { border-color: #8a94a055; background: #8a94a020; color: #c6ced7; }
+.cm-follower-card.nearby .cm-card-badge { border-color: #7fa8d055; background: #7fa8d020; color: #c6def7; }
+.cm-follower-card.dead .cm-card-badge { border-color: #a4686855; background: #a4686820; color: #e9c4c4; }
+.cm-follower-card .cm-card-top { padding-right: 78px; }
+.cm-follower-card .cm-level { margin-right: auto; }
 .cm-card-top {
   display: flex;
   align-items: center;

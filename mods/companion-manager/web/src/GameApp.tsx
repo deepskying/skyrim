@@ -1,7 +1,7 @@
 import {CompanionVitals} from "./Vitals";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { pinnedCompanionId } from "./companion-selection";
-import { cardAlpha, cardStrongAlpha } from "./card-style";
+import { cardAlpha, cardStrongAlpha, followerState } from "./card-style";
 import { closeKey, focusWardrobe, request, type Settings } from "./bridge";
 import { useGame } from "./useGame";
 import type { Section as DemoSection } from "./demo";
@@ -452,9 +452,11 @@ export function GameApp() {
                     />
                   </div>
                   <div className="cm-follower-grid">
-                    {rows.map((a) => (
+                    {rows.map((a) => {
+                      const state = followerState(a);
+                      return (
                       <button
-                        className="cm-follower-card"
+                        className={`cm-follower-card ${state.tone}`}
                         key={a.id}
                         aria-label={`查看${a.name}详情`}
                         onClick={() => {
@@ -464,32 +466,22 @@ export function GameApp() {
                         <div className="cm-card-top">
                           <h3>{a.name}</h3>
                           <span className="cm-level">Lv. {a.level}</span>
+                          <span className="cm-card-badge">{state.badge}</span>
                         </div>
                         <p className="cm-card-meta" title={`${a.race} · ${a.role} · 居所：${a.home}`}>
                           {a.race} · {a.role} · <span>{a.home === "未设置" ? "未设置居所" : a.home}</span>
                         </p>
                         <CompanionVitals f={a}/>
                         <div className="cm-card-bottom">
-                          <span>
-                            {a.dead
-                              ? "已死亡"
-                              : a.managed
-                                ? a.group === "registry"
-                                  ? "已离队"
-                                  : a.waiting
-                                    ? "原地等待"
-                                    : "正在同行"
-                                : a.canRecruit
-                                  ? "待纳入管理"
-                                  : "外部随从"}
-                          </span>
+                          <span>{state.status}</span>
                           <span>
                             {a.distance === null ? "异地" : `${a.distance} m`} ·
                             查看 →
                           </span>
                         </div>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                   {!rows.length && (
                     <div className="cm-welcome">
