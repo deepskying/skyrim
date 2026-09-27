@@ -2,6 +2,7 @@
 #include "soul_capture_rules.h"
 #include "runtime_binding.h"
 #include "soul_pool.h"
+#include <cstring>
 namespace soul_capture {
 // Every soul capture in the game ends up in the engine's Actor::TrapSoul: the vanilla Soul
 // Trap script, weapon enchantments, the engine's soul trap archetype and our sealed arrows.
@@ -45,12 +46,28 @@ inline bool TrapSoul(RE::Actor* caster,RE::Actor* victim){
 }
 inline void Install(){
     if(REL::Module::get().version()!=REL::Version(1,5,97,0))return;
-    // Hooking a plain function needs the SKSE trampoline; without reserved space the
-    // write_branch below would fail at load instead of degrading.
-    if(SKSE::GetTrampoline().empty()||SKSE::GetTrampoline().free_size()<64){logger::error("No trampoline space reserved; unconditional soul capture disabled");return;}
-    REL::Relocation<std::uintptr_t> function{REL::ID(37863)}; // Actor::TrapSoul
-    original=function.write_branch<5>(TrapSoul);
+    // Hooking a function prologue needs our own copy of the displaced bytes: write_branch
+    // only reports the target of an existing branch, it does not build a callable copy, so
+    // calling its return value would jump into the middle of the prologue's data.
+    auto& trampoline=SKSE::GetTrampoline();
+    if(trampoline.empty()||trampoline.free_size()<64){logger::error("No trampoline space reserved; unconditional soul capture disabled");return;}
+    auto* address=reinterpret_cast<std::byte*>(REL::ID(37863).address()); // Actor::TrapSoul
+    // The prologue is "mov rax, rsp / push rsi / push rdi": exactly five bytes, no relative
+    // operands, so the copy plus an absolute jump back is enough to chain the original.
+#pragma pack(push, 1)
+    struct AbsoluteJump {std::uint8_t opcode=0xFF,modrm=0x25;std::int32_t disp=0;std::uint64_t target=0;};
+#pragma pack(pop)
+    constexpr std::size_t displaced=5;
+    auto* copy=static_cast<std::byte*>(trampoline.allocate(displaced+sizeof(AbsoluteJump)));
+    if(!copy){logger::error("Soul capture trampoline allocation failed");return;}
+    std::memcpy(copy,address,displaced);
+    AbsoluteJump jump{};jump.target=reinterpret_cast<std::uint64_t>(address+displaced);
+    std::memcpy(copy+displaced,&jump,sizeof(jump));
+    original=reinterpret_cast<std::uintptr_t>(copy);
+    trampoline.write_branch<5>(reinterpret_cast<std::uintptr_t>(address),reinterpret_cast<std::uintptr_t>(&TrapSoul));
     installed=true;
-    logger::info("Unconditional soul capture hook installed");
+    const auto byte=[](std::byte value){return static_cast<unsigned>(value);};
+    logger::info("Unconditional soul capture hook installed (target={:08X} prologue={:02X}{:02X}{:02X}{:02X}{:02X} copy={:p})",
+        REL::ID(37863).offset(),byte(address[0]),byte(address[1]),byte(address[2]),byte(address[3]),byte(address[4]),static_cast<void*>(copy));
 }
 }

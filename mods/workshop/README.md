@@ -1,4 +1,10 @@
-# 装备工坊 · Equipment Workshop 2.3.22
+# 装备工坊 · Equipment Workshop 2.3.23
+
+## 2.3.23 修复吸魂钩子导致的闪退
+
+2.3.8 起用 `SKSE::Trampoline::write_branch<5>` 在 `Actor::TrapSoul` 函数开头做 detour，但 CommonLib 的这个函数是给「jmp/call 站点」用的：它返回的是**原跳转目标**，对普通函数开头则是把前导字节当成位移算出的垃圾地址。我们把这个返回值当 `original` 调用，于是每次真正吸魂时都会跳到一段不可读内存——2026-09-27 19:23 的崩溃日志正是这样：`EXCEPTION_ACCESS_VIOLATION ... Tried to execute memory at 0x7FF6A0D80D90`，`RAX` 等于该地址、`RCX` 是玩家、`RDX` 是被吸魂的强盗，栈里同时出现 `EquipmentWorkshop.dll` 与 Papyrus 的 `NativeFunction1<Actor,bool,Actor*>`。
+
+现在改为标准的函数序言 detour：先用 `trampoline.allocate` 在目标附近（SKSE 跳板页内）分配一块缓冲，把 `Actor::TrapSoul` 的前 5 字节（`mov rax,rsp / push rsi / push rdi`，恰好三个完整指令、无相对操作数）复制过去，紧跟一条绝对跳转回到 `+5`，把它作为 `original`；再用 `write_branch<5>` 把原函数改跳我们的钩子。安装日志会打印目标偏移、前导五字节与复制地址，方便确认。已通过两个 DLL 编译；实机吸魂待验收。
 
 ## 2.3.22 灵魂池分段条改成扁平
 
