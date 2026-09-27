@@ -15,9 +15,14 @@ int main(){
     check(Convertible(4,10000,GemCost(5))==0);   // four points never buy a grand gem
     check(Convertible(15,10000,BlackGemCost())==3);
     check(UpgradeGold(0)==500&&UpgradeGold(2)==1500);
-    check(UpgradeKinds(0)==1&&UpgradeKinds(1)==2&&UpgradeKinds(5)==3);
+    check(maxMaterials==5&&upgradeOptions==2);
+    check(UpgradeKinds(0)==1&&UpgradeKinds(1)==2&&UpgradeKinds(2)==3&&UpgradeKinds(3)==4);
+    check(UpgradeKinds(4)==5&&UpgradeKinds(9)==5);  // the kind count stops at the pool ceiling
     for(int tier=0;tier<5;++tier)for(int roll=0;roll<8;++roll){const int count=UpgradeCount(tier,roll);check(count>=2&&count<=9);}
-    check(ValidPool(20,0,20,500,1)&&!ValidPool(21,0,21,500,1)&&!ValidPool(0,0,0,500,4));
+    for(int tier=0;tier<8;++tier)check(UpgradeKinds(tier+1)>=UpgradeKinds(tier)&&UpgradeGold(tier+1)>UpgradeGold(tier));
+    for(int tier=0;tier<8;++tier)for(int roll=0;roll<4;++roll)check(UpgradeCount(tier+1,roll)>UpgradeCount(tier,roll));
+    check(ValidPool(20,0,20,500,1)&&!ValidPool(21,0,21,500,1)&&!ValidPool(0,0,0,500,11));
+    check(ValidPool(20,0,20,500,upgradeOptions*maxMaterials));
     check(filledGems.size()==5&&emptyGems.size()==6&&filledGems[0]<filledGems[1]);
     std::cout<<"PASS: soul pool values, capacity, acceptance gate, gem costs, conversion math, upgrade roll ranges and save validation\n";
 }

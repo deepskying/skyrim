@@ -10,7 +10,8 @@ export type NormalQuote = { token: number; recipe: number; batches: number; tota
 export type SoulPool = {
   available: boolean; enabled: boolean; points: number; capacity: number; tier: number; absorbed: number;
   upgradeGold: number; gold: number;
-  materials: { id: number; name: string; count: number; owned: number }[];
+  // Two interchangeable plans per tier: same kind count, quantity and gold, different materials.
+  options: { id: number; materials: { id: number; name: string; count: number; owned: number }[] }[];
   gems: { level: number; name: string; points: number; gold: number; id: number; can: number }[];
   deposit: { id: number; name: string; count: number; points: number; room: number }[];
 };

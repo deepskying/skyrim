@@ -6,7 +6,10 @@ export const arrowDemo: ArrowState = {
   followers: { available: true, consumeMagicArrows: true },
   soulPool: {
     available: true, enabled: true, points: 12, capacity: 20, tier: 1, absorbed: 37, upgradeGold: 1000, gold: 1850,
-    materials: [{ id: 203, name: '火盐', count: 4, owned: 8 }, { id: 205, name: '死亡钟花', count: 6, owned: 5 }],
+    options: [
+      { id: 0, materials: [{ id: 203, name: '火盐', count: 4, owned: 8 }, { id: 205, name: '死亡钟花', count: 6, owned: 5 }] },
+      { id: 1, materials: [{ id: 207, name: '寒霜盐', count: 5, owned: 9 }, { id: 211, name: '巨魔脂肪', count: 3, owned: 4 }] },
+    ],
     gems: [
       { level: 1, name: '微型灵魂石（充满）', points: 1, gold: 60, id: 0x2E4E3, can: 12 },
       { level: 2, name: '小型灵魂石（充满）', points: 2, gold: 120, id: 0x2E4E5, can: 6 },

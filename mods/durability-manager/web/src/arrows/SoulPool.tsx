@@ -3,6 +3,7 @@ import type { WorkshopAction } from '../bridge';
 import type { ArrowState } from './types';
 import { SoulGemIcon } from './SoulGemIcon';
 
+type UpgradePlan = NonNullable<ArrowState['soulPool']>['options'][number];
 // The pool banks every soul the player or a follower captures, and the panel is the only
 // way back out: points plus gold buy filled gems the vanilla enchanting table accepts.
 // Requirements stay inline so the upgrade card does not grow a row per material.
@@ -16,7 +17,11 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
   const totalGold = gems.reduce((sum, gem) => sum + wanted(gem) * gem.gold, 0);
   if (!pool) return <section className="arrows-page" hidden={!active}><p className="arrow-status">灵魂池数据尚未同步，请重新读档。</p></section>;
   const ratio = pool.capacity > 0 ? Math.max(0, Math.min(1, pool.points / pool.capacity)) : 0;
-  const ready = pool.materials.every(material => material.owned >= material.count) && pool.gold >= pool.upgradeGold;
+  const plans = pool.options ?? [];
+  // Every plan costs the same gold and the same kind/quantity budget; only the materials differ,
+  // so a plan is affordable the moment its own list is covered.
+  const planLabel = (index: number) => `方案${['甲', '乙', '丙', '丁'][index] ?? index + 1}`;
+  const planReady = (plan: UpgradePlan) => plan.materials.length > 0 && plan.materials.every(material => material.owned >= material.count) && pool.gold >= pool.upgradeGold;
   return <section className="arrows-page soul-page" hidden={!active}>
     <section className="arrow-card soul-meter-card">
       <header><div><small>SOUL POOL</small><h2>灵魂池</h2></div><span className="soul-tier">{pool.tier} 级 · 上限 {pool.capacity}</span></header>
@@ -29,25 +34,35 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
     </section>
     <div className="soul-columns">
       <section className="arrow-card">
-        <header><div><small>NEXT TIER</small><h2>灵魂池扩容</h2></div><span className="soul-tier">上限 +10</span></header>
-        <p className="arrow-muted">扩容材料在本次随机后随角色存档保存，读完存档不会改变；扩容成功后才会重新随机下一级需求。</p>
-        <div className="soul-requirements" role="list">
-          <span className="soul-requirements-label">扩容需求</span>
-          {pool.materials.map(material => {
-            const missing = Math.max(0, material.count - material.owned);
-            return <span key={material.id} role="listitem" className={`soul-requirement${missing ? '' : ' met'}`}
-              title={`${material.name}：已有 ${material.owned}，需要 ${material.count}`}>
-              {material.name}<b>{material.owned}/{material.count}</b>
-            </span>;
+        <header><div><small>NEXT TIER</small><h2>灵魂池扩容</h2></div><span className="soul-tier">上限 {pool.capacity + 10} 点</span></header>
+        <p className="arrow-muted">每一级给出两套方案：材料种类数、每种数量与金币完全相同，只有材料本身不同，可以挑一套更好凑齐的。需求随角色存档保存，读完存档不会改变；扩容成功后才会重新随机下一级。</p>
+        <div className="soul-plans" role="list">
+          {plans.map(plan => {
+            const ready = planReady(plan);
+            return <article key={plan.id} role="listitem" className={`soul-plan${ready ? ' ready' : ''}`}>
+              <header><b>{planLabel(plan.id)}</b><span>{plan.materials.length} 种材料 · {pool.upgradeGold} 金币</span></header>
+              <div className="soul-requirements" role="list">
+                {plan.materials.map(material => {
+                  const missing = Math.max(0, material.count - material.owned);
+                  return <span key={material.id} role="listitem" className={`soul-requirement${missing ? '' : ' met'}`}
+                    title={`${material.name}：已有 ${material.owned}，需要 ${material.count}`}>
+                    {material.name}<b>{material.owned}/{material.count}</b>
+                  </span>;
+                })}
+                {(() => {
+                  const missing = Math.max(0, pool.upgradeGold - pool.gold);
+                  return <span role="listitem" className={`soul-requirement gold${missing ? '' : ' met'}`} title={`金币：${pool.gold} / ${pool.upgradeGold}`}>
+                    金币<b>{pool.gold}/{pool.upgradeGold}</b>
+                  </span>;
+                })()}
+              </div>
+              <button className="arrow-primary soul-plan-action" disabled={!ready}
+                onClick={() => action('soulUpgrade', { option: plan.id })}>
+                {ready ? `按${planLabel(plan.id)}扩容` : '材料或金币不足'}
+              </button>
+            </article>;
           })}
-          {(() => {
-            const missing = Math.max(0, pool.upgradeGold - pool.gold);
-            return <span role="listitem" className={`soul-requirement gold${missing ? '' : ' met'}`} title={`金币：${pool.gold} / ${pool.upgradeGold}`}>
-              金币<b>{pool.gold}/{pool.upgradeGold}</b>
-            </span>;
-          })()}
         </div>
-        <button className="arrow-primary" disabled={!ready} onClick={() => action('soulUpgrade')}>扩容到 {pool.capacity + 10} 点</button>
       </section>
       <section className="arrow-card">
         <header><div><small>WITHDRAW</small><h2>兑换灵魂石</h2></div><span className="soul-tier">点数 + 金币</span></header>

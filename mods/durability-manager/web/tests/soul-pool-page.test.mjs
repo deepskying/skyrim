@@ -35,9 +35,15 @@ test('the deposit list still renders and the pool meter is bordered', () => {
   assert.match(markup, /soul-meter-fill/);
 });
 
-test('upgrade requirements are inline badges with a count', () => {
+test('upgrade requirements are inline badges with a count, one set per plan', () => {
+  assert.match(markup, /soul-plans/);
+  assert.equal((markup.match(/class="soul-plan(?: ready)?"/g) ?? []).length, 2, 'the tier offers two plans');
+  assert.match(markup, /方案甲/);
+  assert.match(markup, /方案乙/);
   assert.match(markup, /soul-requirement/);
   assert.match(markup, /8\/4/);
   assert.match(markup, /1850\/1000/);
+  assert.match(markup, /按方案乙扩容/, 'the affordable plan keeps its own confirm button');
+  assert.match(markup, /材料或金币不足/, 'the plan that is short stays locked');
   assert.equal(markup.includes('缺 1'), false, 'the missing hint is gone');
 });

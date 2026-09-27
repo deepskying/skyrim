@@ -62,7 +62,6 @@
 .soul-tier{font-size:calc(13px * var(--workshop-font-scale,1));color:#9bc7b8}
 .soul-columns{display:grid;gap:18px}
 .soul-requirements{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:14px 0}
-.soul-requirements-label{font-size:calc(12px * var(--workshop-font-scale,1));color:#8fafa3;margin-right:2px}
 .soul-requirement{display:inline-flex;align-items:baseline;gap:6px;border:1px solid #c79a7a44;border-radius:6px;padding:8px 13px;background:#c79a7a10;color:#d8b79c;font-size:calc(16px * var(--workshop-font-scale,1))}
 .soul-requirement b{color:#e6cbb0;font-weight:500}
 .soul-requirement i{font-style:normal;color:#d08f74;font-size:calc(12px * var(--workshop-font-scale,1))}
@@ -71,6 +70,14 @@
 .soul-requirement.gold{border-color:#d9b78038;background:#d9b7800b;color:#e2c28e}
 .soul-requirement.gold b{color:#f0d8ab}
 .soul-requirement.gold.met{border-color:#8fd3b566;background:#8fd3b512;color:#bdf0dc}
+.soul-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+.soul-plan{display:grid;gap:10px;align-content:start;border:1px solid #819eaa2d;border-radius:9px;padding:14px;background:#0d1a2455}
+.soul-plan.ready{border-color:#9bdec78a;background:#95d9c312}
+.soul-plan>header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px}
+.soul-plan>header b{font-size:calc(17px * var(--workshop-font-scale,1));color:#d8f4ea}
+.soul-plan>header span{font-size:calc(12px * var(--workshop-font-scale,1));color:#95b0b6}
+.soul-plan .soul-requirements{margin:0}
+.soul-plan-action{width:100%;padding:12px;font-size:calc(15px * var(--workshop-font-scale,1))}
 .soul-gem-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px}
 .soul-gem-list article{border:1px solid #819eaa2d;border-radius:8px;padding:12px;display:grid;gap:8px;background:#0d1a2455;color:#dbe9ed}
 .soul-gem-list article.locked{opacity:.55}

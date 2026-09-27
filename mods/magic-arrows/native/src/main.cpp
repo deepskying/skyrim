@@ -310,7 +310,7 @@ void Action(const char* raw){
                 if(!code||(!b.shift&&!b.ctrl&&!b.alt&&b.key.size()==1)){Send("字母快捷键至少需要一个修饰键；也可以单独使用 F1–F12");return;}
                 b.code=*code;if(!SaveConfig(b)){Send("配置文件保存失败，快捷键未更改");return;}binding=b;Send("快捷键已保存，立即生效");
             }else if(type=="soulUpgrade"){
-                soul_pool::Upgrade(player);Send("灵魂池已扩容");
+                soul_pool::Upgrade(player,q.value("option",0));Send("灵魂池已扩容");
             }else if(type=="soulConvert"){
                 std::vector<soul_pool::Request> requests;
                 if(q.contains("items")&&q.at("items").is_array())

@@ -6,11 +6,13 @@
 namespace soul_pool {
 using json=nlohmann::json;
 struct Material {RE::FormID form=0;int count=0;};
+// One upgrade plan: the material list plus, implicitly, the shared gold price.
+struct UpgradeOption {std::vector<Material> materials;};
 struct Pool {
     int points=0,tier=0,absorbed=0,gold=0;
-    std::vector<Material> next;
+    std::array<UpgradeOption,soul_pool_rules::upgradeOptions> options;
     bool rolled=false;
-    void Reset(){points=0;tier=0;absorbed=0;gold=0;next.clear();rolled=false;}
+    void Reset(){points=0;tier=0;absorbed=0;gold=0;for(auto& option:options)option.materials.clear();rolled=false;}
 };
 inline Pool pool;
 inline bool available=false,enabled=true;
@@ -48,30 +50,40 @@ inline std::vector<RE::TESBoundObject*> Candidates(){
     return list;
 }
 inline void RollNext(){
-    pool.next.clear();pool.gold=soul_pool_rules::UpgradeGold(pool.tier);pool.rolled=true;
+    for(auto& option:pool.options)option.materials.clear();
+    pool.gold=soul_pool_rules::UpgradeGold(pool.tier);pool.rolled=true;
     auto list=Candidates();if(list.empty()){logger::warn("Soul pool upgrade roll found no materials");return;}
     std::mt19937 rng{static_cast<std::uint32_t>(GetTickCount64())^static_cast<std::uint32_t>(pool.tier*2654435761u)};
     const int kinds=std::min<int>(soul_pool_rules::UpgradeKinds(pool.tier),static_cast<int>(list.size()));
-    std::vector<std::size_t> picked;
-    for(int i=0;i<kinds;++i){
-        std::size_t index=0;bool unique=false;
-        for(int attempt=0;attempt<32&&!unique;++attempt){
-            index=std::uniform_int_distribution<std::size_t>(0,list.size()-1)(rng);
-            unique=std::find(picked.begin(),picked.end(),index)==picked.end();
+    // Deal both plans from one shuffled deck: the alternatives then share as few materials
+    // as the candidate pool allows, and each plan still keeps its own picks unique.
+    std::vector<std::size_t> deck(list.size());
+    for(std::size_t i=0;i<deck.size();++i)deck[i]=i;
+    std::shuffle(deck.begin(),deck.end(),rng);
+    std::size_t cursor=0;
+    for(auto& option:pool.options){
+        std::vector<std::size_t> picked;
+        while(static_cast<int>(picked.size())<kinds){
+            if(cursor>=deck.size()){std::shuffle(deck.begin(),deck.end(),rng);cursor=0;}
+            const std::size_t index=deck[cursor++];
+            if(std::find(picked.begin(),picked.end(),index)!=picked.end())continue;
+            picked.push_back(index);
+            option.materials.push_back({list[index]->GetFormID(),soul_pool_rules::UpgradeCount(pool.tier,static_cast<int>(rng()))});
         }
-        if(!unique)continue;
-        picked.push_back(index);
-        pool.next.push_back({list[index]->GetFormID(),soul_pool_rules::UpgradeCount(pool.tier,static_cast<int>(rng()))});
     }
-    logger::info("Soul pool tier={} next upgrade needs {} material kind(s), {} gold",pool.tier,pool.next.size(),pool.gold);
+    logger::info("Soul pool tier={} next upgrade offers {} plan(s) of {} kind(s), {} gold",pool.tier,pool.options.size(),kinds,pool.gold);
 }
 inline void EnsureRolled(){if(enabled&&!pool.rolled)RollNext();}
 inline json State(RE::PlayerCharacter* player){
     const int capacity=Capacity();
-    json materials=json::array();
-    for(const auto& material:pool.next){
-        auto* item=Bound(material.form);
-        materials.push_back({{"id",material.form},{"name",item?crafting::Name(item):"来源缺失的材料"},{"count",material.count},{"owned",player&&item?crafting::Count(player,item):0}});
+    json options=json::array();
+    for(std::size_t index=0;index<pool.options.size();++index){
+        json materials=json::array();
+        for(const auto& material:pool.options[index].materials){
+            auto* item=Bound(material.form);
+            materials.push_back({{"id",material.form},{"name",item?crafting::Name(item):"来源缺失的材料"},{"count",material.count},{"owned",player&&item?crafting::Count(player,item):0}});
+        }
+        options.push_back({{"id",static_cast<int>(index)},{"materials",materials}});
     }
     json gems=json::array();
     for(int level=1;level<=5;++level){
@@ -95,19 +107,22 @@ inline json State(RE::PlayerCharacter* player){
         }
     }
     return {{"available",available},{"enabled",enabled},{"points",pool.points},{"capacity",capacity},{"tier",pool.tier},{"absorbed",pool.absorbed},
-        {"upgradeGold",pool.gold},{"materials",materials},{"gems",gems},{"deposit",deposit},
+        {"upgradeGold",pool.gold},{"options",options},{"gems",gems},{"deposit",deposit},
         {"gold",player?crafting::Count(player,Bound(0xF)):0}};
 }
 // The bottom-left HUD only needs the readout, so it never walks the inventory.
 inline json Hud(){return {{"enabled",enabled&&available},{"points",pool.points},{"capacity",Capacity()},{"tier",pool.tier}};}
-inline bool Upgrade(RE::PlayerCharacter* player){
+inline bool Upgrade(RE::PlayerCharacter* player,int option=0){
     EnsureRolled();if(!player)throw std::runtime_error("尚未准备好");
-    for(const auto& material:pool.next){auto* item=Bound(material.form);if(!item||crafting::Count(player,item)<material.count)throw std::runtime_error("扩容材料不足");}
+    if(option<0||static_cast<std::size_t>(option)>=pool.options.size())throw std::runtime_error("无效的扩容方案");
+    const auto chosen=pool.options[static_cast<std::size_t>(option)].materials;
+    if(chosen.empty())throw std::runtime_error("扩容需求尚未准备好");
+    for(const auto& material:chosen){auto* item=Bound(material.form);if(!item||crafting::Count(player,item)<material.count)throw std::runtime_error("扩容材料不足");}
     if(crafting::Count(player,Bound(0xF))<pool.gold)throw std::runtime_error("金币不足");
-    for(const auto& material:pool.next)player->RemoveItem(Bound(material.form),material.count,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);
+    for(const auto& material:chosen)player->RemoveItem(Bound(material.form),material.count,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);
     if(pool.gold>0)player->RemoveItem(Bound(0xF),pool.gold,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);
     ++pool.tier;RollNext();
-    logger::info("Soul pool expanded tier={} capacity={}",pool.tier,Capacity());
+    logger::info("Soul pool expanded tier={} capacity={} plan={}",pool.tier,Capacity(),option);
     return true;
 }
 struct Request {int level=0;int count=0;};
@@ -162,34 +177,58 @@ inline int Deposit(RE::PlayerCharacter* player,RE::FormID form,int count){
 inline void Reset(){pool.Reset();banked.clear();epoch=runtime_binding::generation.load();}
 inline void Save(SKSE::SerializationInterface* api){
     if(!api)return;
-    std::vector<std::uint32_t> words{0u,static_cast<std::uint32_t>(pool.points),static_cast<std::uint32_t>(pool.tier),static_cast<std::uint32_t>(pool.absorbed),
-        static_cast<std::uint32_t>(pool.gold),static_cast<std::uint32_t>(pool.next.size())};
-    for(const auto& material:pool.next){words.push_back(material.form);words.push_back(static_cast<std::uint32_t>(material.count));}
-    if(!api->WriteRecord(soul_pool_rules::record,1,words.data(),static_cast<std::uint32_t>(words.size()*sizeof(std::uint32_t))))logger::error("Soul pool save failed");
+    // [planCount, points, tier, absorbed, gold, then per plan: count, (form,count)*]
+    std::vector<std::uint32_t> words{static_cast<std::uint32_t>(pool.options.size()),
+        static_cast<std::uint32_t>(pool.points),static_cast<std::uint32_t>(pool.tier),static_cast<std::uint32_t>(pool.absorbed),
+        static_cast<std::uint32_t>(pool.gold)};
+    for(const auto& option:pool.options){
+        words.push_back(static_cast<std::uint32_t>(option.materials.size()));
+        for(const auto& material:option.materials){words.push_back(material.form);words.push_back(static_cast<std::uint32_t>(material.count));}
+    }
+    if(!api->WriteRecord(soul_pool_rules::record,2,words.data(),static_cast<std::uint32_t>(words.size()*sizeof(std::uint32_t))))logger::error("Soul pool save failed");
 }
 inline void Revert(SKSE::SerializationInterface*){Reset();}
 inline bool LoadRecord(SKSE::SerializationInterface* api,std::uint32_t type,std::uint32_t version,std::uint32_t length){
     if(type!=soul_pool_rules::record)return false;
-    const std::size_t maxWords=6+soul_pool_rules::maxMaterials*2;
-    if(version!=1||length<6*4||length>maxWords*4||length%4)return true;
+    // Both shapes keep the pool header at words[1..4]; version 1 then stored one requirement
+    // list, version 2 stores one list per plan behind a count in words[0].
+    constexpr std::size_t maxWords=5+soul_pool_rules::upgradeOptions*(1+soul_pool_rules::maxMaterials*2);
+    if((version!=1&&version!=2)||length<6*4||length>maxWords*4||length%4)return true;
     std::vector<std::uint32_t> words(length/4);
     if(api->ReadRecordData(words.data(),length)!=length)return true;
-    const std::size_t kinds=words[5];
-    if(kinds>soul_pool_rules::maxMaterials||words.size()!=6+kinds*2)return true;
-    if(!soul_pool_rules::ValidPool(static_cast<int>(words[1]),static_cast<int>(words[2]),static_cast<int>(words[3]),static_cast<int>(words[4]),kinds))return true;
+    const int points=static_cast<int>(words[1]),tier=static_cast<int>(words[2]);
+    const int absorbed=static_cast<int>(words[3]),gold=static_cast<int>(words[4]);
+    if(!soul_pool_rules::ValidPool(points,tier,absorbed,gold,0))return true;
     Pool restored;
-    restored.points=static_cast<int>(words[1]);restored.tier=static_cast<int>(words[2]);restored.absorbed=static_cast<int>(words[3]);
-    restored.gold=static_cast<int>(words[4]);restored.rolled=true;
-    bool valid=true;
-    for(std::size_t i=0;i<kinds;++i){
-        RE::FormID id=0;
-        if(!api->ResolveFormID(words[6+i*2],id)||!id||!Bound(id)){valid=false;break;}
-        const int count=static_cast<int>(words[7+i*2]);
-        if(count<=0||count>1000){valid=false;break;}
-        restored.next.push_back({id,count});
+    restored.points=points;restored.tier=tier;restored.absorbed=absorbed;restored.gold=gold;
+    // A legacy record still carries the pool, so only the requirement list is re-rolled.
+    bool valid=version==2;
+    if(version==2){
+        const std::size_t plans=words[0];
+        std::size_t cursor=5;
+        valid=plans==soul_pool_rules::upgradeOptions;
+        for(std::size_t index=0;index<plans&&valid;++index){
+            if(cursor>=words.size()){valid=false;break;}
+            const std::size_t count=words[cursor++];
+            if(count>soul_pool_rules::maxMaterials||count*2>words.size()-cursor){valid=false;break;}
+            for(std::size_t i=0;i<count;++i){
+                RE::FormID id=0;
+                const int materialCount=static_cast<int>(words[cursor+1]);
+                if(!api->ResolveFormID(words[cursor],id)||!id||!Bound(id)||materialCount<=0||materialCount>1000){valid=false;break;}
+                restored.options[index].materials.push_back({id,materialCount});
+                cursor+=2;
+            }
+        }
+        if(valid&&cursor!=words.size())valid=false;
     }
+    if(valid)restored.rolled=true;
     pool=std::move(restored);
-    if(!valid){pool.rolled=false;pool.next.clear();logger::warn("Soul pool upgrade requirement could not be resolved; it will be rolled again");}
+    if(!valid){
+        for(auto& option:pool.options)option.materials.clear();
+        pool.rolled=false;
+        if(version==1)logger::warn("Soul pool legacy record kept one requirement list; the plans will be rolled again");
+        else logger::warn("Soul pool upgrade requirement could not be resolved; it will be rolled again");
+    }
     pool.points=std::min(pool.points,Capacity());
     logger::info("Soul pool loaded points={}/{} tier={} absorbed={}",pool.points,Capacity(),pool.tier,pool.absorbed);
     return true;
