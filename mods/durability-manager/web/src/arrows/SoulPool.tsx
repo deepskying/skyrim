@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import type { WorkshopAction } from '../bridge';
 import type { ArrowState } from './types';
 
@@ -5,6 +6,12 @@ import type { ArrowState } from './types';
 // way back out: points plus gold buy filled gems the vanilla enchanting table accepts.
 export function SoulPoolPage({ state, action, active }: { state: ArrowState; action: WorkshopAction; active: boolean }) {
   const pool = state.soulPool;
+  const gems = pool?.gems ?? [];
+  const [level, setLevel] = useState(0);
+  const [count, setCount] = useState(1);
+  const choice = gems.find(gem => gem.level === level) ?? gems.find(gem => gem.can > 0) ?? gems[0];
+  const maximum = Math.max(0, choice?.can ?? 0);
+  useEffect(() => { setCount(current => Math.max(1, Math.min(current, Math.max(1, maximum)))); }, [maximum]);
   if (!pool) return <section className="arrows-page" hidden={!active}><p className="arrow-status">灵魂池数据尚未同步，请重新读档。</p></section>;
   const ratio = pool.capacity > 0 ? Math.max(0, Math.min(1, pool.points / pool.capacity)) : 0;
   const ready = pool.materials.every(material => material.owned >= material.count) && pool.gold >= pool.upgradeGold;
@@ -30,15 +37,29 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
       </section>
       <section className="arrow-card">
         <header><div><small>WITHDRAW</small><h2>兑换灵魂石</h2></div><span className="soul-tier">点数 + 金币</span></header>
-        <p className="arrow-muted">换回来的填好灵魂石直接进背包，附魔台与武器充能照原版使用。</p>
-        <div className="soul-gem-list">
-          {pool.gems.map(gem => <article key={gem.level} className={gem.can > 0 ? '' : 'locked'}>
-            <span>{gem.name}</span>
-            <small>{gem.points} 点 · {gem.gold} 金币 · 可兑 {gem.can}</small>
-            <div><button disabled={gem.can < 1} onClick={() => action('soulConvert', { level: gem.level, count: 1 })}>兑换 1</button>
-              <button disabled={gem.can < 1} onClick={() => action('soulConvert', { level: gem.level, count: gem.can })}>全部 {gem.can}</button></div>
-          </article>)}
+        <p className="arrow-muted">先挑一张候选卡片，再拖下面的滑条决定数量；换回来的填好灵魂石直接进背包，附魔台与武器充能照原版使用。</p>
+        <div className="soul-gem-cards" role="radiogroup" aria-label="兑换候选">
+          {pool.gems.map(gem => {
+            const selected = gem === choice;
+            return <button key={gem.level} type="button" role="radio" aria-checked={selected} disabled={gem.can < 1}
+              className={`soul-gem-card${selected ? ' selected' : ''}`}
+              onClick={() => { setLevel(gem.level); setCount(1); }}>
+              <i className={`soul-gem-icon level-${gem.level}`} aria-hidden="true">◆</i>
+              <b>{gem.name}</b>
+              <small>{gem.points} 点 + {gem.gold} 金币</small>
+              <em>{gem.can > 0 ? `可兑 ${gem.can}` : '不足'}</em>
+            </button>;
+          })}
         </div>
+        <div className={`soul-gem-slider${maximum < 1 ? ' locked' : ''}`}>
+          <div className="soul-gem-slider-head"><span>{choice ? choice.name : '灵魂石'} · 兑换数量</span><b>{maximum > 0 ? `${count} / ${maximum}` : '—'}</b></div>
+          <input type="range" min={1} max={Math.max(1, maximum)} step={1} value={Math.min(count, Math.max(1, maximum))} disabled={maximum < 1}
+            onChange={event => setCount(Math.max(1, Math.min(Number(event.target.value), Math.max(1, maximum))))} aria-label="兑换数量" />
+        </div>
+        <button className="arrow-primary soul-gem-action" disabled={maximum < 1}
+          onClick={() => action('soulConvert', { level: choice.level, count })}>
+          {maximum < 1 ? '点数或金币不足' : `兑换 ${count} 颗`}
+        </button>
       </section>
       <section className="arrow-card">
         <header><div><small>DEPOSIT</small><h2>存入灵魂石</h2></div><span className="soul-tier">{pool.points} / {pool.capacity}</span></header>
