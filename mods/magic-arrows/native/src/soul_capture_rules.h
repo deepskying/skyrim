@@ -10,7 +10,7 @@ namespace soul_capture_rules {
 // reproduces its own choice instead of inventing a second rule set.
 inline constexpr std::array<std::uint32_t,6> emptyGems{0x2E4E2,0x2E4E4,0x2E4E6,0x2E4F4,0x2E4FC,0x2E500};
 inline constexpr std::uint64_t windowMilliseconds=300000;
-inline constexpr std::size_t capacity=64;
+inline constexpr std::size_t capacity=128;
 struct Entry {std::uint32_t victim=0,shooter=0;std::uint64_t until=0,epoch=0;};
 // A soul only ever needs the gem matching its size plus the black gem for humanoids.
 inline std::vector<std::uint32_t> Candidates(int soulLevel){

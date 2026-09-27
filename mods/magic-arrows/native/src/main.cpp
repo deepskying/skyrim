@@ -197,6 +197,8 @@ void EquipTick(){
     logger::info("Equip request returned form={:08X}; awaiting current ammo",request.id);
 }
 void EquipFrame(){
+    // Cheap while nothing is marked; banks the soul of any marked victim that has died.
+    soul_capture::Poll();
     // Every frame while equipping; otherwise only four inventory checks a second.
     static std::atomic<ULONGLONG> lastQueueTick{0};const auto now=GetTickCount64();
     if(!equipActive.load()&&now-lastQueueTick.load()<250)return;

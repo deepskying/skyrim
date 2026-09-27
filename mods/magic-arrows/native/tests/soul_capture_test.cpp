@@ -11,6 +11,7 @@ int main(){
     for(std::size_t i=1;i<emptyGems.size();++i)check(emptyGems[i-1]<emptyGems[i]);
 
     std::vector<Entry> list;
+    check(capacity==128&&windowMilliseconds==300000);      // marks survive a five minute fight
     Arm(list,0x100,0x14,1000,7);
     check(Armed(list,0x100,1000,7));
     check(!Armed(list,0x101,1000,7));

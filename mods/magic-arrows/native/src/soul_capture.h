@@ -22,6 +22,29 @@ inline void Arm(RE::Actor* victim,RE::Actor* shooter){
     soul_capture_rules::Arm(armed,victim->GetFormID(),shooter?shooter->GetFormID():0,GetTickCount64(),runtime_binding::generation.load());
 }
 inline void Reset(){armed.clear();}
+// With the pool enabled the sealed arrow no longer waits for the engine's own soul trap to
+// fire. The hit already marked the victim (five minute window), so the frame tick banks the
+// soul as soon as that actor dies - high-health targets that outlive the helper caster that
+// carries the spell's effect are covered too.
+inline void Poll(){
+    if(!soul_pool::enabled||armed.empty())return;
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    const auto now=GetTickCount64(),epoch=runtime_binding::generation.load();
+    for(auto it=armed.begin();it!=armed.end();){
+        if(it->epoch!=epoch||it->until<now){it=armed.erase(it);continue;}
+        auto* victim=RE::TESForm::LookupByID<RE::Actor>(it->victim);
+        if(!victim||victim->IsDeleted()){it=armed.erase(it);continue;}
+        if(!victim->IsDead()){++it;continue;}
+        auto* shooter=RE::TESForm::LookupByID<RE::Actor>(it->shooter);
+        const bool ours=shooter&&(shooter==player||shooter->IsPlayerTeammate());
+        if(!ours){
+            logger::info("Soul pool marked victim={:08X} died outside the player's party; left to the vanilla capture",victim->GetFormID());
+        }else if(!soul_pool::Bank(victim)){
+            logger::info("Soul pool rejected marked victim={:08X} soul={}",victim->GetFormID(),static_cast<int>(victim->GetSoulSize()));
+        }
+        it=armed.erase(it);
+    }
+}
 inline bool TrapSoul(RE::Actor* caster,RE::Actor* victim){
     if(soul_pool::enabled&&caster&&victim&&victim->IsDead()&&(caster==RE::PlayerCharacter::GetSingleton()||caster->IsPlayerTeammate()))
         if(soul_pool::Bank(victim))return true;

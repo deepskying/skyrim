@@ -1,4 +1,12 @@
-# 装备工坊 · Equipment Workshop 2.3.29
+# 装备工坊 · Equipment Workshop 2.3.30
+
+## 2.3.30 灵魂箭吸魂不再依赖引擎的摄魂效果
+
+实机反馈「用灵魂箭杀了三眼巨魔却没吸到魂」。日志对齐后确认：箭没错（`FE27EC1C` 封存的是原版摄魂术 `0004DBA4`，`family=soul`），池子也没满（当时 `2/30`），33 个被命中的目标只吸到 18 个。规律是**只有中箭后几乎立刻死亡的目标能吸到**——因为箭上的摄魂术是由命中点的临时「助手施法者」代放的（`runtime_sustained`），这个助手最多只活 1 秒，上下文一结束 [Stop()](mods/magic-arrows/native/src/runtime_sustained.h) 就把助手 `Disable + SetDelete` 掉，挂在它身上的摄魂效果随之失效。血厚的目标中箭后还活着，等它真正死掉时效果早没了。
+
+现在灵魂池开启时不再等引擎那次摄魂：命中时本来就已把目标记进「已标记」列表（[soul_capture::Arm](mods/magic-arrows/native/src/soul_capture.h)，窗口 5 分钟），新增的 [Poll()](mods/magic-arrows/native/src/soul_capture.h) 每帧检查被标记的目标，一旦它死亡就直接把魂收进池子，同时按「射手是玩家或随从」校验、由 `Bank` 负责容量与去重。血厚目标中箭后隔多久死都能吸到，5 分钟窗口也终于名副其实。标记上限从 64 提到 128，避免长时间战斗里标记被挤掉。
+
+为方便以后排查，新增两条日志：目标死亡但不在玩家阵营 → `marked victim ... died outside the player's party`；池子装不下 → `Soul pool rejected marked victim=... soul=N`。成功入池仍是原来的 `Soul pool absorbed ...`。
 
 ## 2.3.29 扩容材料徽章显示来源插件
 
