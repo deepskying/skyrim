@@ -75,6 +75,10 @@ inline void RollNext(){
 }
 inline void EnsureRolled(){if(enabled&&!pool.rolled)RollNext();}
 inline json State(RE::PlayerCharacter* player){
+    // The panel only reads, so the roll has to happen here too: a fresh save, or a record
+    // migrated from the single-list shape, arrives unrolled and would otherwise dead-end on
+    // two empty plans with nothing left to trigger the roll.
+    EnsureRolled();
     const int capacity=Capacity();
     json options=json::array();
     for(std::size_t index=0;index<pool.options.size();++index){
@@ -210,7 +214,9 @@ inline bool LoadRecord(SKSE::SerializationInterface* api,std::uint32_t type,std:
         for(std::size_t index=0;index<plans&&valid;++index){
             if(cursor>=words.size()){valid=false;break;}
             const std::size_t count=words[cursor++];
-            if(count>soul_pool_rules::maxMaterials||count*2>words.size()-cursor){valid=false;break;}
+            // A stored plan always lists at least one material; an empty one means the roll
+            // never happened, so treat the record as unresolved and roll again.
+            if(count<1||count>soul_pool_rules::maxMaterials||count*2>words.size()-cursor){valid=false;break;}
             for(std::size_t i=0;i<count;++i){
                 RE::FormID id=0;
                 const int materialCount=static_cast<int>(words[cursor+1]);

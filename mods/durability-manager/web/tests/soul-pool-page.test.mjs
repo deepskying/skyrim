@@ -35,6 +35,13 @@ test('the deposit list still renders and the pool meter is bordered', () => {
   assert.match(markup, /soul-meter-fill/);
 });
 
+test('an unrolled pool explains itself instead of showing a dead button', () => {
+  const blank = { ...arrowDemo, soulPool: { ...arrowDemo.soulPool, options: [{ id: 0, materials: [] }, { id: 1, materials: [] }] } };
+  const blankMarkup = renderToStaticMarkup(createElement(SoulPoolPage, { state: blank, action: () => {}, active: true }));
+  assert.match(blankMarkup, /本级别暂无可用材料/, 'an empty plan names the real problem');
+  assert.equal(blankMarkup.includes('材料或金币不足'), false, 'the generic hint does not cover an empty roll');
+});
+
 test('upgrade requirements are inline badges with a count, one set per plan', () => {
   assert.match(markup, /soul-plans/);
   assert.equal((markup.match(/class="soul-plan(?: ready)?"/g) ?? []).length, 2, 'the tier offers two plans');

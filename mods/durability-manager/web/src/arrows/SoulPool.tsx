@@ -58,7 +58,7 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
               </div>
               <button className="arrow-primary soul-plan-action" disabled={!ready}
                 onClick={() => action('soulUpgrade', { option: plan.id })}>
-                {ready ? `按${planLabel(plan.id)}扩容` : '材料或金币不足'}
+                {plan.materials.length === 0 ? '本级别暂无可用材料' : ready ? `按${planLabel(plan.id)}扩容` : '材料或金币不足'}
               </button>
             </article>;
           })}
