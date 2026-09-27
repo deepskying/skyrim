@@ -54,7 +54,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '2.3.17',
+  version: '2.3.18',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'A', keyCode: 0x1E, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, enableWorkshopSounds: true, allowEnchantedItemsToBreak: true },
@@ -407,7 +407,7 @@ export function App() {
       </>}
       {hud.detail && <span className="hud-detail">{hud.detail}</span>}
     </div>
-  </aside>}{(playerHud || !!craftOrders?.entries.length || equippedHud.length > 0 || soulPool?.enabled) && <div className="character-hud-panel">{playerHud && <PlayerHud state={playerHud} />}<CraftOrderHud orders={craftOrders} /><SoulPoolHud pool={soulPool} /><EquippedHud items={equippedHud} hasNotification={!!hud} /></div>}</HudFrame>}{panelVisible && <main className={`forge-shell${tab === 'arrows' || tab === 'soul' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
+  </aside>}{(playerHud || !!craftOrders?.entries.length || equippedHud.length > 0 || soulPool?.enabled) && <div className="character-hud-panel">{playerHud && <PlayerHud state={playerHud} />}<SoulPoolHud pool={soulPool} /><CraftOrderHud orders={craftOrders} /><EquippedHud items={equippedHud} hasNotification={!!hud} /></div>}</HudFrame>}{panelVisible && <main className={`forge-shell${tab === 'arrows' || tab === 'soul' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
     <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'soul' ? 'SOUL POOL' : tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'soul' ? '灵魂池' : tab === 'arrows' ? '魔法箭工坊' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'soul' ? '吸魂自动入池，兑换成灵魂石后照常交给附魔台。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${(enhancing ? canEnhance : state.forge.active) ? 'active' : ''}`}>{enhancing ? (canEnhance ? '附魔台／锻造设备可用' : '需靠近附魔台或锻造设备') : state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 

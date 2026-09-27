@@ -32,5 +32,7 @@ test('the HUD strip prints the readout and hides a disabled pool', () => {
   assert.match(markup, /灵魂池/);
   assert.match(markup, /7 \/ 30/);
   assert.match(markup, /1 级上限/);
+  assert.equal((markup.match(/soul-pool-segments/g) ?? []).length, 1);
+  assert.equal((markup.match(/<i class="on">/g) ?? []).length, 2); // 7 / 30 rounds to two notches
   assert.equal(render({ enabled: false, points: 0, capacity: 0, tier: 0 }), '');
 });
