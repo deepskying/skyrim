@@ -234,6 +234,7 @@ export function App() {
       { spell: 1, name: '奥术箭·火球术', family: 'fire', total: 12, remaining: 12, label: '12' },
       { spell: 2, name: '奥术箭·冰锥术', family: 'ice', total: 4500, remaining: 1500, label: '1.5K' },
     ] }));
+    setSoulPool(normalizeSoulPoolHud({ enabled: true, points: 12, capacity: 20, tier: 1 }));
   }, []);
   const escapeAction = useRef<() => void>(() => {});
   const navigateAction = useRef<(direction: number) => boolean>(() => false);

@@ -4,6 +4,19 @@ export const arrowDemo: ArrowState = {
   loaded: true, resources: { gold: 850, magicka: 220 }, alchemy: 35, materialGenericPercent: 50,
   ammoQueue: { available: true, enabled: true, ids: [21, 10], limit: 64 },
   followers: { available: true, consumeMagicArrows: true },
+  soulPool: {
+    available: true, enabled: true, points: 12, capacity: 20, tier: 1, absorbed: 37, upgradeGold: 1000, gold: 1850,
+    materials: [{ id: 203, name: '火盐', count: 4, owned: 8 }, { id: 205, name: '死亡钟花', count: 6, owned: 6 }],
+    gems: [
+      { level: 1, name: '微型灵魂石（充满）', points: 1, gold: 60, id: 0x2E4E3, can: 12 },
+      { level: 2, name: '小型灵魂石（充满）', points: 2, gold: 120, id: 0x2E4E5, can: 6 },
+      { level: 3, name: '普通灵魂石（充满）', points: 3, gold: 250, id: 0x2E4F3, can: 4 },
+      { level: 4, name: '大型灵魂石（充满）', points: 4, gold: 500, id: 0x2E4FB, can: 3 },
+      { level: 5, name: '巨型灵魂石（充满）', points: 5, gold: 900, id: 0x2E4FF, can: 2 },
+      { level: 6, name: '黑色灵魂石（充满）', points: 5, gold: 1500, id: 0x2E504, can: 1 },
+    ],
+    deposit: [{ id: 0x2E4F3, name: '普通灵魂石（充满）', count: 3, points: 3, room: 2 }],
+  },
   arrows: [
     { id: 21, name: '火球术 · 封存箭', family: 'fire', count: 24, damage: 12, equipped: true, spellBound: true, adapter: { runtime: true, releaseMode: 'instant', castRoute: 'area' } },
     { id: 22, name: '冰风暴 · 封存箭', family: 'ice', count: 16, damage: 12, spellBound: true, adapter: { runtime: true, releaseMode: 'instant' } },
