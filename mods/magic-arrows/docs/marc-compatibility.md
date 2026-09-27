@@ -13,6 +13,8 @@
 
 0.9.5 统一调用落点参考对象的 NonActorMagicCaster::CastSpellImmediate，原始 SpellItem 完整保留，传入实际射手作为 blameActor；不改全局 MGEF、投射物、法术的 casting/delivery。持续施法仍由原生更新一次启动的 caster，不按帧重复施法。锁定目标/接触使用捕获的命中 Actor；本项目用原生 caster 已设置的 target handle，不调用 Marc 的 Papyrus DoCombatSpellApply。当地 1.5.97 FindTargets (Address Library 33632) 的 delivery 3 分支读取 caster +0x20 目标句柄（build/caster-targets.asm.txt），能使用已设置目标。此代码路径检查不代替游戏测试。
 
+2.3.7 补上同一路径漏掉的一环：NonActorMagicCaster::GetCasterObjectReference 只返回施法器引用、从不填 out-actor，FindTargets 用这个空值创建的效果因此没有施法者，脚本法术拿到的 akCaster 是 None（摄魂陷阱的 `Caster.TrapSoul` 就断在这里）。插件改为 hook 该虚表槽，只在「本模组 E00 标记物」且 delivery 为接触/锁定目标时把 out-actor 指向传入的 blameActor，其余路线与返回值不变。
+
 分类取决于施放行为而非毁灭学派：
 
 | 路线 | 接受条件 | 命中行为 |

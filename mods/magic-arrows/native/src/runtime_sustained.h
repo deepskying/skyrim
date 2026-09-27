@@ -19,6 +19,24 @@ using UpdateFn=void(*)(RE::PlayerCharacter*,float);
 inline REL::Relocation<UpdateFn> originalUpdate;
 inline bool installed=false;
 inline void (*afterUpdate)()=nullptr;
+// A non-actor caster returns its reference but never fills the out actor, so the engine
+// creates every active effect of our helper casts with an empty caster handle: scripted
+// effects receive akCaster = None (the vanilla Soul Trap script then calls
+// Caster.TrapSoul(victim) on nothing) and absorb or ownership logic cannot credit the
+// shooter. Report the blame actor the caller passed in as the caster actor on the routes
+// whose target comes from the caster's own target handle.
+using CasterReferenceFn=RE::TESObjectREFR*(*)(RE::MagicCaster*,RE::Actor**);
+inline REL::Relocation<CasterReferenceFn> originalCasterReference;
+inline RE::FormID attributedSpell=0;
+inline RE::TESObjectREFR* CasterReference(RE::MagicCaster* caster,RE::Actor** outActor){
+    auto* reference=originalCasterReference(caster,outActor);auto* spell=caster?caster->currentSpell:nullptr;
+    if(outActor&&reference&&spell&&spell_compatibility::CasterAttribution(static_cast<int>(spell->GetDelivery()))&&reference->GetBaseObject()==marker)
+        if(auto* shooter=caster->GetCasterAsActor()){
+            *outActor=shooter;
+            if(attributedSpell!=spell->GetFormID()){attributedSpell=spell->GetFormID();logger::info("Helper caster attribution spell={:08X} shooter={:08X} helper={:08X}",spell->GetFormID(),shooter->GetFormID(),reference->GetFormID());}
+        }
+    return reference;
+}
 inline bool Owned(RE::TESObjectREFR* ref){return ref&&marker&&ref->GetBaseObject()==marker;}
 inline void Delete(RE::TESObjectREFR* ref){
     if(!Owned(ref))return;
@@ -89,6 +107,8 @@ inline void Install(){
     if(REL::Module::get().version()!=REL::Version(1,5,97,0))return;
     auto* data=RE::TESDataHandler::GetSingleton();marker=data->LookupForm<RE::TESObjectSTAT>(0xE00,"MagicArrows.esp");registry=data->LookupForm<RE::BGSListForm>(0xE01,"MagicArrows.esp");
     if(!marker||!registry){logger::error("Sustained cast helpers missing; concentration disabled");return;}
+    REL::Relocation<std::uintptr_t> casterTable{RE::VTABLE_NonActorMagicCaster[1]};originalCasterReference=casterTable.write_vfunc(0xD,CasterReference);
+    logger::info("Helper caster attribution hook installed (touch and target-actor routes)");
     REL::Relocation<std::uintptr_t> table{RE::VTABLE_PlayerCharacter[0]};originalUpdate=table.write_vfunc(0xAD,Update);installed=true;runtime_binding::sustainedReady=true;
 }
 }

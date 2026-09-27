@@ -1,4 +1,8 @@
-# 装备工坊 · Equipment Workshop 2.3.6
+# 装备工坊 · Equipment Workshop 2.3.7
+
+## 2.3.7 魔法箭的施法者归属
+
+魔法箭命中后由隐藏标记物上的非角色施法器施放封存法术，而这类施法器不会向引擎报告施法者：引擎创建的法术效果带着空的施法者句柄，脚本效果在 `OnEffectStart`/`OnEffectFinish` 拿到的 `akCaster` 是 None。摄魂陷阱正是这种法术——原版脚本在效果结束时执行 `Caster.TrapSoul(victim)`，`Caster` 为空，敌人死在效果里也换不到灵魂石（Papyrus 只会记一条 `Cannot call TrapSoul() on a None object`）。现在插件在安装时改写该施法器的 `GetCasterObjectReference`：只对「本模组标记物」且只对接触/锁定目标两类路线，把引擎询问的 out-actor 指向我们传入的实际射手；自身、瞄准与地点法术的瞄准/抛射分支保持原样。已通过原生编译与 `spell-compatibility-test`；实机灵魂石与火/冰/雷、地点箭的回归待验收。详见 ../magic-arrows/README.md。
 
 ## 2.3.6 强化后的名字不再叠后缀、也不再卡在旧等级
 

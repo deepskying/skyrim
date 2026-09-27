@@ -28,5 +28,7 @@ int main(){
     check(Decide(1,2,{}).denial==Denial::malformed);
     check(Decide(1,2,std::array<Effect,129>{}).denial==Denial::malformed);
     check(Decide(1,2,std::array{Effect{99,2,1,true,0}}).denial==Denial::malformed);
-    std::cout<<"PASS: full spell/projectile routes, scripted concentration, hostile targets, area casts, healing/summon/cloak exclusions and malformed inputs\n";
+    for(int delivery:{0,2,4})check(!CasterAttribution(delivery)); // self, aimed and location keep the marker attributes
+    check(CasterAttribution(1)&&CasterAttribution(3));            // touch and target actor credit the shooter
+    std::cout<<"PASS: full spell/projectile routes, scripted concentration, hostile targets, area casts, helper caster attribution, healing/summon/cloak exclusions and malformed inputs\n";
 }
