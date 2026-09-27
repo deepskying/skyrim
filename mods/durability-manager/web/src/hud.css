@@ -49,9 +49,9 @@
 .soul-pool-hud header span { color: #cfd8d6; font-size: 13px; letter-spacing: 1px; }
 .soul-pool-hud header small { color: #9fb0ac; font-size: 11px; }
 .soul-pool-hud header b { margin-left: auto; color: #cfe8dd; font-size: 13px; font-variant-numeric: tabular-nums; }
-.soul-pool-segments { display: flex; gap: 3px; }
-.soul-pool-segments i { flex: 1; height: 8px; background: #0a141ab3; border: 1px solid rgba(143, 211, 187, .2); }
-.soul-pool-segments i.on { background: linear-gradient(180deg, #a9e6d2, #5fb99b); border-color: rgba(191, 240, 221, .45); box-shadow: 0 0 6px rgba(127, 211, 189, .3); }
+.soul-pool-segments { display: flex; gap: 2px; height: 8px; background: #0d1920; border-radius: 0; }
+.soul-pool-segments i { flex: 1; background: transparent; border: 0; box-shadow: none; }
+.soul-pool-segments i.on { background: #8fd3bb; }
 
 /* 2.3.19: the F-style typography - monospace digits, spaced micro labels, bold values.
    Chinese still falls through to the panel font, so only numbers and latin change face. */
