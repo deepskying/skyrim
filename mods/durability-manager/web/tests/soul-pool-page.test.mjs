@@ -23,6 +23,7 @@ test('the withdrawal card offers candidate gems, a slider and one action', () =>
   assert.match(markup, /soul-gem-card/);
   assert.match(markup, /soul-gem-svg level-6/);
   assert.match(markup, /<svg/);
+  assert.match(markup, /fill="none"/);
   assert.match(markup, /type="range"/);
   assert.match(markup, /兑换 1 颗/);
   assert.match(markup, /12 \/ 20/);

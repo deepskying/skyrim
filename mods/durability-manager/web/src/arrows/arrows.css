@@ -85,7 +85,7 @@
 .soul-gem-card b{font-size:calc(14px * var(--workshop-font-scale,1))}
 .soul-gem-card small{font-size:calc(12px * var(--workshop-font-scale,1));color:#95b0b6}
 .soul-gem-card em{font-size:calc(12px * var(--workshop-font-scale,1));color:#9ed7bd;font-style:normal}
-.soul-gem-svg{display:block;width:calc(26px * var(--workshop-font-scale,1));height:auto;filter:drop-shadow(0 2px 6px #00000045)}
+.soul-gem-svg{display:block;width:calc(26px * var(--workshop-font-scale,1));height:auto}
 .soul-gem-card .soul-gem-svg{margin:0 auto}
 .soul-gem-svg.level-1{width:calc(22px * var(--workshop-font-scale,1))}
 .soul-gem-svg.level-2{width:calc(25px * var(--workshop-font-scale,1))}
