@@ -71,6 +71,16 @@ int main() {
     auto prefs=Defaults(); CHECK(Valid(prefs));
     for(auto k:{"radius","categories","outfitHours"}) {auto bad=prefs;bad[k]=-1;CHECK(!Valid(bad));}
     auto bad=prefs;bad["loot"]=1;CHECK(!Valid(bad));bad=prefs;bad["radius"]=4.5;CHECK(!Valid(bad));
+    // Headwear ships off by default, and a record written before the key existed is upgraded with
+    // that default instead of taking the whole save down; an existing choice is never overwritten.
+    CHECK(prefs.at("helmet")==false);
+    {auto wrong=prefs;wrong["helmet"]=1;CHECK(!Valid(wrong));}
+    {auto older=prefs;older.erase("helmet");CHECK(!Valid(older));Upgrade(older);CHECK(Valid(older));
+     CHECK(older.at("helmet")==false);}
+    {auto tuned=prefs;tuned["helmet"]=true;Upgrade(tuned);CHECK(tuned.at("helmet")==true);}
+    {auto legacy=prefs;legacy.erase("helmet");legacy.erase("requests");Upgrade(legacy);CHECK(Valid(legacy));
+     CHECK(legacy.at("requests")==true);}
+    {auto extra=prefs;extra["unknown"]=true;Upgrade(extra);CHECK(!Valid(extra));}
     CHECK(Fits(300,290,6,5)==1); CHECK(Fits(300,300,1,5)==0);
     CHECK(Fits(300,301,0,100)==0);CHECK(Fits(300,300,0,100)==100);
     CHECK(Fits(300,299.95f,.1f,10)==0); CHECK(Fits(300,200,0,50000)==50000);

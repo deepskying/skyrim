@@ -37,9 +37,24 @@ export const wearGlyphs = {
   box: "\uE65F",
 } as const;
 const slotBit = (row: WearRow, slot: number) => (row.mask & 2 ** (slot - 30)) !== 0;
+// The native headwear rule treats the head (30) and circlet (42) slots as hats and leaves everything
+// else in the head region alone. Hair (31) and ears (43) are their own bits on purpose: this load
+// order keeps wigs in 31 and earrings in 43, and "no helmets" must never take those off with it. A
+// piece that also covers the body is a robe with a hood, so it is not a hat either.
+export const headSlotMask = 2 ** (30 - 30) | 2 ** (42 - 30);
+export const bodySlotMask = 2 ** (32 - 30);
+export const isHeadwear = (row: WearRow) =>
+  (row.mask & headSlotMask) !== 0 && (row.mask & bodySlotMask) === 0;
+// A forbidden helmet cannot be put on from this page; taking one off is exactly what the rule wants,
+// so an equipped row stays clickable and the native command refuses only the "wear" direction.
+export const headwearBlocked = (row: WearRow, allowed: boolean) =>
+  !allowed && !row.equipped && isHeadwear(row);
+
 export function wearIcon(row: WearRow): WearIcon {
   if (slotBit(row, 39)) return { glyph: wearGlyphs.shield, tone: "other" };
-  if (slotBit(row, 30)) return { glyph: wearGlyphs.helmet, tone: row.armorType === "heavy" ? "heavy" : "light" };
+  // Slot first, and the same slots the headwear rule uses: this load order writes a helmet as hair +
+  // circlet (0x1002), so keying the glyph off the head bit alone drew a plain armour icon for it.
+  if (isHeadwear(row)) return { glyph: wearGlyphs.helmet, tone: row.armorType === "heavy" ? "heavy" : "light" };
   if (slotBit(row, 33)) return { glyph: wearGlyphs.gloves, tone: row.armorType === "heavy" ? "heavy" : "light" };
   if (slotBit(row, 35)) return { glyph: wearGlyphs.necklace, tone: "jewelry" };
   if (slotBit(row, 36)) return { glyph: wearGlyphs.ring, tone: "jewelry" };

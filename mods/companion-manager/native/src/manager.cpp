@@ -8,6 +8,7 @@
 #include "outfit_state.h"
 #include "wardrobe_identity.h"
 #include "combat_rules.h"
+#include "helmet_rules.h"
 #include <deque>
 #include <random>
 #include <limits>
@@ -540,6 +541,10 @@ void Tick()
         {
             if (actor->IsDead() || actor->IsDisabled() || actor->GetCurrentScene())
                 continue;
+            // Looting is what hands a companion a helmet the engine then auto-equips. The equip
+            // event takes a fresh one back off at once; this scan is what catches a piece that was
+            // already on when the game loaded, and it costs one biped walk per companion per second.
+            if(!HeadwearAllowed(id)&&WearsHeadwear(actor)) HeadwearGuard(actor);
             for (const auto &value : r["disabled"])
                 if (auto *spell = RE::TESForm::LookupByID<RE::SpellItem>(value.get<RE::FormID>()))
                     if (Knows(actor, spell))
@@ -821,7 +826,12 @@ void RegisterSerialization()
                 }
                 auto prefs = data.at("settings");
                 rules::ValidateSettings(prefs);
-                if(prefs.contains("behavior")&&!activity::Valid(prefs["behavior"])) throw std::runtime_error("Invalid behavior defaults");
+                if(prefs.contains("behavior")) {
+                    // Records from before the headwear rule existed take the schema default for the
+                    // keys they are missing instead of failing the whole record.
+                    activity::Upgrade(prefs["behavior"]);
+                    if(!activity::Valid(prefs["behavior"])) throw std::runtime_error("Invalid behavior defaults");
+                }
                 std::unordered_set<RE::FormID> loadedDrops;
                 if(data.contains("ignoredDrops")) {
                     const auto& dropped=data["ignoredDrops"];
@@ -991,7 +1001,15 @@ void ExecuteCommand(const json &request, Completion complete)
         const auto op = request.at("command").get<std::string>();
         if(op=="behaviorDefaults") {
             if(!activity::Valid(request.at("settings"))) throw std::runtime_error("行为设置无效");
-            settings["behavior"]=request["settings"]; CancelActivity(); complete(true,"全队行为默认设置已保存");return;
+            settings["behavior"]=request["settings"]; CancelActivity();
+            // A team default that forbids headwear applies to every companion still following it,
+            // so the helmets come off now rather than at the next equip.
+            for(const auto& entry:members) {
+                const auto id=entry.first;
+                if(HeadwearAllowed(id)) continue;
+                if(auto* member=Actor(id)) if(WearsHeadwear(member)) HeadwearGuard(member);
+            }
+            complete(true,"全队行为默认设置已保存");return;
         }
         if (op == "settings")
         {

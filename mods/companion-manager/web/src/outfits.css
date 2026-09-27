@@ -28,6 +28,7 @@
 .cm-wear-badge{border:1px solid rgba(255,255,255,.16);border-radius:2px;background:transparent;color:#cfc9ba;font-size:.7em;font-weight:500;letter-spacing:.1em}
 .cm-wear-badge.is-quest{border-color:#6b5a45;background:transparent;color:#e0c69c}
 .cm-wear-badge.is-favorite{border:0;background:transparent;color:#e6c766;font-size:.95em;padding:0 2px}
+.cm-wear-badge.is-blocked{border-color:#6b5238;background:transparent;color:#e0b183}
 .cm-wear-facts dt{min-width:42px;color:#9c9587;font-size:.74em;letter-spacing:.14em;text-transform:uppercase}
 .cm-wear-facts dd{color:#ded9ce}
 .cm-wear-search input{border:1px solid rgba(255,255,255,.12);border-radius:3px;background:rgba(10,12,14,.6);color:#e7e4dd;padding:9px 12px}

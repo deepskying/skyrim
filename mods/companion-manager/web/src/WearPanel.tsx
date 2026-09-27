@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useRef,useState,type KeyboardEvent as ReactKeyboardEvent,type ReactNode} from "react";
 import type {GameFollower} from "./bridge";
 import {armorTypeNames} from "./behavior";
-import {canToggle,nextSelection,searchWear,wearIcon,wearOutcome,wearRows,wearSlotNames,type WearRow} from "./wear";
+import {canToggle,headwearBlocked,nextSelection,searchWear,wearIcon,wearOutcome,wearRows,wearSlotNames,type WearRow} from "./wear";
 import {ModelPreview} from "./ModelPreview";
 import "./outfits.css";
 
@@ -19,7 +19,11 @@ export function WearPanel({f,enabled,pending,command,compact=false,header}:Props
   const list=useRef<HTMLDivElement>(null);
   const shown=useMemo(()=>searchWear(rows,query),[rows,query]);
   const usable=enabled&&!f.dead&&!f.unavailable&&!f.inCombat&&f.group==="party"&&!pending;
-  const blocked=(row:WearRow)=>!usable||!canToggle(row);
+  // The snapshot carries the companion's effective behaviour, so the page answers the headwear rule
+  // the same way the native command does; an unknown setting keeps the pre-rule behaviour (allowed).
+  const helmetAllowed=f.behavior?.helmet??true;
+  const noHeadwear=(row:WearRow)=>headwearBlocked(row,helmetAllowed);
+  const blocked=(row:WearRow)=>!usable||!canToggle(row)||noHeadwear(row);
   const toggle=(row:WearRow|undefined)=>{if(row&&!blocked(row))command("toggleWear",{actorId:f.id,itemKey:row.key});};
   useEffect(()=>{
     if(!shown.some(row=>row.key===selectedKey))setSelectedKey(shown.length?shown[0].key:"");
@@ -63,7 +67,7 @@ export function WearPanel({f,enabled,pending,command,compact=false,header}:Props
         {shown.map(row=>{const icon=wearIcon(row);return <div key={row.key} role="option" aria-selected={row.key===selectedKey} aria-disabled={blocked(row)}
           className={`cm-wear-row${row.equipped?" is-worn":""}${row.favorite?" is-favorite":""}${preview?.key===row.key?" is-preview":""}`}
           onMouseEnter={()=>setHovered(row.key)} onClick={()=>{setSelectedKey(row.key);toggle(row);}}>
-          <span className="cm-wear-name"><i className={`cm-wear-icon is-${icon.tone}`} aria-hidden="true">{icon.glyph}</i><strong>{row.name}</strong>{row.equipped&&<small className="cm-wear-badge">已穿戴</small>}{row.quest&&<small className="cm-wear-badge is-quest">任务</small>}{row.favorite&&<small className="cm-wear-badge is-favorite" aria-label="已收藏">★</small>}</span>
+          <span className="cm-wear-name"><i className={`cm-wear-icon is-${icon.tone}`} aria-hidden="true">{icon.glyph}</i><strong>{row.name}</strong>{row.equipped&&<small className="cm-wear-badge">已穿戴</small>}{row.quest&&<small className="cm-wear-badge is-quest">任务</small>}{noHeadwear(row)&&<small className="cm-wear-badge is-blocked">禁止头盔</small>}{row.favorite&&<small className="cm-wear-badge is-favorite" aria-label="已收藏">★</small>}</span>
           <span>{row.count}</span><span>{row.weight.toFixed(1)}</span><span>{row.value}</span>
         </div>;})}
       </div>
@@ -89,7 +93,7 @@ export function WearPanel({f,enabled,pending,command,compact=false,header}:Props
           <div><dt>类型</dt><dd>{preview.armorType?armorTypeNames[preview.armorType]:"未标注"}</dd></div>
           {preview.enchantment&&<div><dt>附魔</dt><dd>{preview.enchantment}</dd></div>}
           {!!outcome.replaced.length&&<div><dt>将换下</dt><dd>{outcome.replaced.map(row=>row.name).join("、")}</dd></div>}
-          <div className="cm-wear-hint"><dt>操作</dt><dd>{preview.equipped&&preview.quest?"任务装备不能卸下。":usable?(preview.equipped?"点击右侧按钮或按 Enter 卸下，悬停其它服饰即可预览对比。":"点击右侧按钮或按 Enter 穿上；同名物品只影响选中那件。"):"当前无法穿脱，仅预览；请先让伙伴脱离战斗并待在身边。"}</dd></div>
+          <div className="cm-wear-hint"><dt>操作</dt><dd>{noHeadwear(preview)?"已禁止这位伙伴佩戴头盔，可在「行为管理 → 自动穿搭」里允许。":preview.equipped&&preview.quest?"任务装备不能卸下。":usable?(preview.equipped?"点击右侧按钮或按 Enter 卸下，悬停其它服饰即可预览对比。":"点击右侧按钮或按 Enter 穿上；同名物品只影响选中那件。"):"当前无法穿脱，仅预览；请先让伙伴脱离战斗并待在身边。"}</dd></div>
         </dl>
         </div>
       </>:<div className="cm-empty">左侧没有可预览的服饰。</div>}

@@ -41,6 +41,15 @@ double ActivityTime() { return GetTickCount64()/1000.0; }
 json Behavior(const json& r) {
     return r.contains("behavior") ? r["behavior"] : settings.value("behavior",activity::Defaults());
 }
+// "No helmets" is a per-companion rule with a team default, exactly like the other behaviour
+// settings. The player's own card and actors this mod does not manage are never governed by it, so
+// the guard, the outfit paths and the fallback scan all get one answer from this one place.
+bool HeadwearAllowed(RE::FormID id) {
+    if(id==0x14) return true;
+    const auto it=members.find(id);
+    if(it==members.end()) return true;
+    return Behavior(it->second).value("helmet",false);
+}
 int Category(RE::TESBoundObject* item) {
     if (item->As<RE::TESObjectWEAP>()) return 1;
     if (auto* armor=item->As<RE::TESObjectARMO>()) {
@@ -281,6 +290,50 @@ void ActivityLog(const std::string& message,bool notify=true) {
     logger::info("Activity: {}",message);
     if(notify&&settings["notifications"].get<bool>()) RE::DebugNotification(message.c_str());
     RefreshManagerView();
+}
+// Whatever the engine puts on a companion's head comes straight back off while the rule forbids it:
+// the follower AI equips the best helmet it owns by itself, and post-combat looting is what hands it
+// one. Protected gear is skipped, the same way every other path in this mod leaves quest gear and
+// the character skin alone - the game would not give them up anyway.
+bool HeadwearGuard(RE::Actor* actor) {
+    if(!actor) return false;
+    const auto allowed=HeadwearAllowed(actor->GetFormID());
+    if(allowed) return false;
+    auto* equip=RE::ActorEquipManager::GetSingleton();
+    if(!equip) return false;
+    bool removed=false;
+    for(const auto& item:RawWornArmor(actor)) {
+        const auto mask=static_cast<std::uint32_t>(item.armor->GetSlotMask());
+        if(!helmet::Blocked(allowed,item.protectedItem,mask)) continue;
+        logger::info("Headwear guard actor={:08X} name={} item={} mask={:08X}",actor->GetFormID(),
+                     item.armor->GetName()?item.armor->GetName():"",WardrobeKey(item.armor,item.extra),mask);
+        equip->UnequipObject(actor,item.armor,item.extra,1,nullptr,false,false,false,true);
+        removed=true;
+    }
+    if(removed) {
+        ActivityLog(std::format("{}：已按规则摘下头盔",actor->GetName()),false);
+        RefreshActorModel(actor);
+    }
+    return removed;
+}
+// The cheap half of the guard, for the per-second fallback scan: the biped answers "is anything on
+// the head" without walking the whole inventory, and the expensive walk only happens on a hit.
+bool WearsHeadwear(RE::Actor* actor) {
+    if(!actor) return false;
+    const auto& biped=actor->GetBiped();
+    if(!biped) return false;
+    for(const auto& part:biped->objects) {
+        auto* armor=part.item?part.item->As<RE::TESObjectARMO>():nullptr;
+        if(armor&&armor!=actor->GetSkin()&&helmet::Headwear(static_cast<std::uint32_t>(armor->GetSlotMask())))
+            return true;
+    }
+    return false;
+}
+// The outfit paths ask the guard's question before they hand a piece over, so a forbidden helmet is
+// never put on only to be taken off again, and a saved set that names one no longer keeps the copy
+// the companion is already wearing.
+bool HeadwearBlocked(RE::Actor* actor,std::uint32_t mask) {
+    return actor&&helmet::Blocked(HeadwearAllowed(actor->GetFormID()),false,mask);
 }
 bool Nearby(RE::TESObjectREFR* a,RE::TESObjectREFR* b,float distance) {
     return a&&b&&a->GetParentCell()&&a->GetParentCell()==b->GetParentCell()&&
@@ -617,11 +670,14 @@ outfit::Result ChangeOutfit(RE::Actor* actor,json& r,bool fallback=false) {
         auto& row=inventory[i];
         if(auto* armor=row.item->As<RE::TESObjectARMO>()) {
             const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());
-            logger::info("Outfit item={} name={} count={} mask={:08X} locked={} worn={} protected={} playable={} removalLocked={}",row.key,row.name,row.count,mask,row.favorite,row.equipped,row.quest,armor->GetPlayable(),row.extra&&row.extra->HasType<RE::ExtraCannotWear>());
+            const bool noHeadwear=HeadwearBlocked(actor,mask);
+            logger::info("Outfit item={} name={} count={} mask={:08X} locked={} worn={} protected={} playable={} removalLocked={} headwearBlocked={}",row.key,row.name,row.count,mask,row.favorite,row.equipped,row.quest,armor->GetPlayable(),row.extra&&row.extra->HasType<RE::ExtraCannotWear>(),noHeadwear);
             // Random changes only ever put on favorited gear. A manual request may still take off
             // what the companion already wears - favorited or not - so a slot is never left stuck
             // on a piece the player cannot re-dress from the collection.
-            if((row.favorite||(fallback&&row.equipped))&&!row.quest&&!armor->IsShield()&&armor!=actor->GetSkin()) candidates.push_back({i,mask,row.favorite,row.equipped});
+            // A helmet the rule forbids is not a candidate at all: the guard would only take it back
+            // off, and leaving it out of the pool keeps a hat out of the same pass as the swap.
+            if((row.favorite||(fallback&&row.equipped))&&!row.quest&&!armor->IsShield()&&armor!=actor->GetSkin()&&!noHeadwear) candidates.push_back({i,mask,row.favorite,row.equipped});
             else if(row.equipped) occupied|=mask;
         }
     }
@@ -851,6 +907,9 @@ bool ActivityCommand(const std::string& op,RE::Actor* actor,json& r,const json& 
     if(op=="behavior") {
         if(request.value("inherit",false)) r.erase("behavior");
         else { if(!activity::Valid(request.at("settings"))) throw std::runtime_error("行为设置无效"); r["behavior"]=request["settings"]; }
+        // Turning the rule on has to be visible at once, so the helmet comes off now instead of at
+        // the next equip; inheriting the team default can turn it on just the same way.
+        if(!HeadwearAllowed(actor->GetFormID())&&WearsHeadwear(actor)) HeadwearGuard(actor);
         CancelActivity(); return true;
     }
     if(op=="wardrobeTake") {
@@ -938,8 +997,28 @@ void LockPlayerGift(RE::FormID recipient,RE::FormID base,std::uint16_t uniqueID)
     }
     if(added) ActivityLog(std::format("{}：已自动锁定玩家交付的装备（{} 项）",actor->GetName(),added),false);
 }
-class ActivityEvents final:public RE::BSTEventSink<RE::TESContainerChangedEvent>,public RE::BSTEventSink<RE::TESCombatEvent> {
+class ActivityEvents final:public RE::BSTEventSink<RE::TESContainerChangedEvent>,public RE::BSTEventSink<RE::TESCombatEvent>,public RE::BSTEventSink<RE::TESEquipEvent> {
 public:
+    // The engine equips the best head piece a follower owns by itself, and looting is what gives it
+    // one, so the headwear rule is enforced on the equip event: the piece goes back off in a task -
+    // never inside the equip call stack - while the per-second scan in Tick catches whatever was
+    // already on when the game loaded. A member whose rule allows headwear leaves here immediately.
+    RE::BSEventNotifyControl ProcessEvent(const RE::TESEquipEvent* e,RE::BSTEventSource<RE::TESEquipEvent>*) override {
+        if(!e||!e->equipped||!e->actor) return RE::BSEventNotifyControl::kContinue;
+        auto* base=RE::TESForm::LookupByID<RE::TESBoundObject>(e->baseObject);
+        auto* armor=base?base->As<RE::TESObjectARMO>():nullptr;
+        if(!armor||!helmet::Headwear(static_cast<std::uint32_t>(armor->GetSlotMask())))
+            return RE::BSEventNotifyControl::kContinue;
+        const auto actor=e->actor->GetFormID();
+        std::scoped_lock guard(lock);
+        if(!ready||HeadwearAllowed(actor)) return RE::BSEventNotifyControl::kContinue;
+        if(auto* tasks=SKSE::GetTaskInterface()) tasks->AddTask([actor]{
+            std::scoped_lock guard(lock);
+            if(!ready) return;
+            if(auto* member=Actor(actor)) HeadwearGuard(member);
+        });
+        return RE::BSEventNotifyControl::kContinue;
+    }
     RE::BSEventNotifyControl ProcessEvent(const RE::TESCombatEvent* e,RE::BSTEventSource<RE::TESCombatEvent>*) override {
         if(e&&e->newState==RE::ACTOR_COMBAT_STATE::kCombat) {
             const auto source=e->actor?e->actor->GetFormID():0, target=e->targetActor?e->targetActor->GetFormID():0;
@@ -993,6 +1072,7 @@ void RegisterActivityEvents() {
     if(auto* events=RE::ScriptEventSourceHolder::GetSingleton()) {
         events->AddEventSink<RE::TESContainerChangedEvent>(&sink);
         events->AddEventSink<RE::TESCombatEvent>(&sink);
+        events->AddEventSink<RE::TESEquipEvent>(&sink);
     }
 }
 void RemapWardrobe(json& r,SKSE::SerializationInterface* s) {
@@ -1012,7 +1092,12 @@ void RemapWardrobe(json& r,SKSE::SerializationInterface* s) {
         }
         r[field]=std::move(mapped);
     }
-    if(r.contains("behavior")&&!activity::Valid(r["behavior"])) throw std::runtime_error("Invalid behavior settings");
+    if(r.contains("behavior")) {
+        // A record written before the headwear rule existed carries the older key set; its missing
+        // keys take the schema default rather than failing the whole save record.
+        activity::Upgrade(r["behavior"]);
+        if(!activity::Valid(r["behavior"])) throw std::runtime_error("Invalid behavior settings");
+    }
     if(r.contains("lastOutfitHours")&&(!r["lastOutfitHours"].is_number()||!std::isfinite(r["lastOutfitHours"].get<double>())||r["lastOutfitHours"]<0))
         throw std::runtime_error("Invalid outfit time");
 }

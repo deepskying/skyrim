@@ -1,3 +1,13 @@
+## 1.10.0（2026-09-27）禁止随从佩戴头盔
+
+- 背景：实机日志（`CompanionManager.log` 19:53 那次运行）里瑟拉娜背包中有铁制头盔、两顶玻璃头盔、钢板头盔与梭默兜帽法袍，全部未穿戴；同一次换装请求中模组自己只派发了收藏品（`locked=true`）。头盔是原版随从 AI 在拾取后自行穿上的，同行没有替她穿。
+- 原生：新增 `helmet_rules.h`（头部 30 / 头环 42 判定，排除头发 31、耳部 43、发饰扩展槽与同时占身体槽的长袍；`Blocked` 对任务装备与角色皮肤返回 false）；`activity_rules.h` 的 `Defaults` / `Valid` 增加 `helmet`（默认 false）并新增 `Upgrade` 补键；`ActivityEvents` 增挂 `TESEquipEvent`，新头盔在任务里立刻卸下；`HeadwearGuard` / `WearsHeadwear` / `HeadwearBlocked` 供 Tick 兜底、行为设置保存后的即时生效与各换装路径共用；`ToggleWear` 拒绝穿上、`ApplyNamedOutfit` 跳过套装点名的头盔、`ChangeOutfit` / `ChangeOutfitPart` 不再把头盔选进候选；读档时对成员与全队默认的行为设置调用 `Upgrade`（`StateRecordVersion` 保持 2）。
+- 前端：`behavior.ts` 增加 `helmet`；「行为管理 → 自动穿搭」增加「允许佩戴头盔」开关；`wear.ts` 的 `isHeadwear` / `headwearBlocked` 与原生同一组槽位，穿戴页对禁止的头盔挂「禁止头盔」徽章并禁用穿上（卸下仍可用），操作提示指向设置位置；`wearIcon` 改按同一判定，`0x1002` 头盔不再显示成普通护甲图标；浏览器预览 `preview-data.mjs` 同步「拒绝穿上 + 保存后立刻脱下」，样例数据加入一件铁制头盔。
+- 验证：原生 Release DLL 构建通过，9 个测试目标（新增 helmet-rules-test）直接运行 exit=0；网页 62 项测试通过（新增头盔规则 1 项，扩充图标与行为默认值断言）；`npm run build`（含 `tsc --noEmit`）通过。
+- 发布：`CompanionManager-1.10.0-fulltest-20260927-202011` 完整包已生成并安装到 MO2；旧安装备份在 `MO2/companion-manager-backups/20260927-202015`，安装后逐文件哈希校验通过，`meta.ini` 版本与 DLL `FileVersion` 均为 1.10.0，安装后的 `index.html` 指向新的哈希资源。MO2 配置文件未改动。
+- 打包环境备注：`packaging/release/CompanionManager-1.10.0-fulltest-20260927-201951` 是一次失败打包留下的空目录（用 Windows PowerShell 5.1 运行 `package.ps1` 时 `[IO.Path]::GetRelativePath` 不可用），里面没有 `manifest.json` 也没有 zip，可安全删除；打包脚本请用 PowerShell 7 运行。
+- 游戏内待复测：规则关闭时同伴捡到头盔是否立刻被摘下并出现 `Headwear guard` 日志；关闭开关保存行为设置时正戴着的头盔是否当场脱下；打开开关后能否手动戴上；规则关闭时假发与耳环是否保持不变；含头盔的旧套装换上后头盔不再被穿上。编译与浏览器模拟通过不等于游戏验证。
+
 ## 1.9.13（2026-09-26）人物卡片网格按队伍状态着色
 
 - 前端：新增 `card-style.ts` 的 `followerState()`（等级→色调 `party`／`waiting`／`registry`／`nearby`／`dead`、徽章文案、底部状态文案三者同源），`GameApp` 的人物卡片套上状态类并在标题行右侧挂徽章，`game.css` 增加五种卡片底色与徽章配色（沿用「伙伴穿搭」的 rgba(22,50,42,.72) 一系），悬停只保留上浮与阴影，不再覆盖状态底色。

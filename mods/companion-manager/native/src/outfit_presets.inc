@@ -263,6 +263,13 @@ outfit::Result ApplyNamedOutfit(RE::Actor* actor,json& r,const json& preset,bool
         auto* armor=row->item->As<RE::TESObjectARMO>();
         if(!OutfitArmor(armor)||armor==actor->GetSkin()||row->quest) continue;
         const auto mask=static_cast<std::uint32_t>(armor->GetSlotMask());
+        // A set saved before the headwear rule existed may still name a helmet. Leaving it out is
+        // also what takes the copy the companion is wearing off: a whole-set request strips every
+        // outfit piece the set does not name.
+        if(HeadwearBlocked(actor,mask)) {
+            logger::info("Outfit preset headwear skipped actor={:08X} name={} mask={:08X}",actor->GetFormID(),row->name,mask);
+            continue;
+        }
         if(occupied&mask) continue;
         occupied|=mask;selected.push_back(*row);
     }
@@ -329,6 +336,10 @@ outfit::Result ToggleWear(RE::Actor* actor,json& r,const json& request) {
     const auto mask=armor?static_cast<std::uint32_t>(armor->GetSlotMask()):0u;
     if(!outfit::Toggleable(mask,armor&&armor->GetPlayable())||armor==actor->GetSkin())
         throw std::runtime_error("这件物品不能穿脱");
+    // The guard would take it straight back off, so the page says why instead of letting the piece
+    // flicker on and off. Taking a helmet off stays possible - that is what the rule wants.
+    if(!found->equipped&&HeadwearBlocked(actor,mask))
+        throw std::runtime_error("已禁止这位伙伴佩戴头盔：可在「行为管理 → 自动穿搭」里允许");
     auto* equip=RE::ActorEquipManager::GetSingleton();
     if(!equip) return outfit::Result::Unconfirmed;
     const auto unlock=[&](RE::ExtraDataList* extra) {
@@ -377,7 +388,7 @@ outfit::Result ChangeOutfitPart(RE::Actor* actor,json& r,const json& request) {
     if(key.empty()) {
         // Random in-slot change: favorited gear only, exactly like the whole-outfit random.
         for(const auto& row:FavoritePartPool(actor,r))
-            if(PartMask(row)&outfit::SlotBit(slot)) candidates.push_back(row);
+            if((PartMask(row)&outfit::SlotBit(slot))&&!HeadwearBlocked(actor,PartMask(row))) candidates.push_back(row);
         logger::info("Outfit part random actor={:08X} slot={} name={} candidates={}",
             actor->GetFormID(),slot,SlotLabel(slot),candidates.size());
     } else {
@@ -386,6 +397,7 @@ outfit::Result ChangeOutfitPart(RE::Actor* actor,json& r,const json& request) {
         for(const auto& row:Wardrobe(actor,r,true)) {
             auto* armor=row.item?row.item->As<RE::TESObjectARMO>():nullptr;
             if(!OutfitArmor(armor)||armor==actor->GetSkin()||row.key!=key) continue;
+            if(HeadwearBlocked(actor,PartMask(row))) continue;
             if(outfit::EligiblePart(slot,PartMask(row),protectedSlots,row.quest,row.equipped)) candidates.push_back(row);
         }
     }

@@ -2,7 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {fixture,simulate} from '../src/preview-data.mjs';
 import {parseSnapshot,readSnapshot} from '../src/bridge.ts';
-import {canToggle,nextSelection,previewLabel,searchWear,wearGlyphs,wearIcon,wearOutcome,wearRows,wearSlotNames} from '../src/wear.ts';
+import {canToggle,headwearBlocked,isHeadwear,nextSelection,previewLabel,searchWear,wearGlyphs,wearIcon,wearOutcome,wearRows,wearSlotNames} from '../src/wear.ts';
+import {defaultBehavior} from '../src/behavior.ts';
 const run=(s,command,data={})=>simulate(s,{session:s.session,actorId:s.followers[0].id,command,...data});
 
 test('every preview state has exactly one message the player can act on',()=>{
@@ -22,7 +23,7 @@ test('every preview state has exactly one message the player can act on',()=>{
 test('the wear list keeps apparel only, jewelry and shields included',()=>{
  const s=fixture(),f=s.followers[0];
  const rows=wearRows(f.wardrobe);
- assert.deepEqual(rows.map(r=>r.name).sort(),['铁质护腕','铁盾','银项链','精致服装','皮甲','皮甲（火焰抗性）'].sort());
+ assert.deepEqual(rows.map(r=>r.name).sort(),['铁质护腕','铁盾','银项链','精致服装','皮甲','皮甲（火焰抗性）','铁制头盔'].sort());
  // Weapons, arrows, potions, food, ingredients, books, keys and gold never reach this page.
  for(const name of ['铁剑','铁箭','治疗药剂','苹果派','蓝山花','法术书：治疗术','住宅钥匙','金币'])
    assert.equal(rows.some(r=>r.name===name),false,name);
@@ -36,7 +37,7 @@ test('search matches names case-insensitively and ignores padding',()=>{
  assert.equal(searchWear(rows,'').length,rows.length);
  assert.equal(searchWear(rows,'  ').length,rows.length);
  assert.deepEqual(searchWear(rows,' 皮甲 ').map(r=>r.name),['皮甲','皮甲（火焰抗性）']);
- assert.deepEqual(searchWear(rows,'铁').map(r=>r.name).sort(),['铁盾','铁质护腕'].sort());
+ assert.deepEqual(searchWear(rows,'铁').map(r=>r.name).sort(),['铁盾','铁质护腕','铁制头盔'].sort());
  assert.equal(searchWear(rows,'不存在').length,0);
 });
 
@@ -44,6 +45,11 @@ test('every row gets an icon that matches its equipment kind',()=>{
  const rows=wearRows(fixture().followers[0].wardrobe),byName=name=>rows.find(r=>r.name===name);
  // Slot first: shield, helmet and gloves are kinds of their own even when the material is armour.
  assert.deepEqual(wearIcon(byName('铁盾')),{glyph:wearGlyphs.shield,tone:'other'});
+  // This load order writes a helmet as hair + circlet (0x1002), so the head bits the headwear rule
+  // uses decide the glyph; the head bit alone would have drawn a plain armour icon for it.
+  assert.deepEqual(wearIcon(byName('铁制头盔')),{glyph:wearGlyphs.helmet,tone:'heavy'});
+  assert.deepEqual(wearIcon({...byName('铁制头盔'),mask:0x1000,armorType:'light'}),{glyph:wearGlyphs.helmet,tone:'light'});
+  assert.deepEqual(wearIcon({...byName('铁制头盔'),mask:0x2}),{glyph:wearGlyphs.armor,tone:'heavy'});
  assert.deepEqual(wearIcon(byName('银项链')),{glyph:wearGlyphs.necklace,tone:'jewelry'});
  assert.deepEqual(wearIcon(byName('铁质护腕')),{glyph:wearGlyphs.gloves,tone:'heavy'});
  assert.deepEqual(wearIcon(byName('皮甲')),{glyph:wearGlyphs.armor,tone:'light'});
@@ -57,6 +63,38 @@ test('every row gets an icon that matches its equipment kind',()=>{
  assert.deepEqual(wearIcon({...base,mask:32,armorType:undefined}),{glyph:wearGlyphs.necklace,tone:'jewelry'});
  // The glyphs are the codepoints shipped in the shared icon font.
  assert.deepEqual(wearGlyphs,{shield:'\uE83A',armor:'\uE61D',robe:'\uEC54',necklace:'\uEA3F',ring:'\uE636',helmet:'\uE971',gloves:'\uE6C3',box:'\uE65F'});
+});
+
+test('the headwear rule matches the native one and only blocks putting a helmet on',()=>{
+ const s=fixture(),f=s.followers[0],rows=wearRows(f.wardrobe);
+ const helmet=rows.find(r=>r.name==='铁制头盔');
+ // 30 and 42 are the head and circlet slots; hair (31), ears (43) and a robe that also covers the
+ // body are deliberately not headwear, so a wig or a pair of earrings is never taken off with it.
+ assert.equal(helmet.mask,0x1002);
+ assert.ok(isHeadwear(helmet));
+ assert.ok(isHeadwear({...helmet,mask:0x1}));
+ assert.ok(isHeadwear({...helmet,mask:0x1000}));
+ assert.equal(isHeadwear({...helmet,mask:0x2}),false);
+ assert.equal(isHeadwear({...helmet,mask:0x2000}),false);
+ assert.equal(isHeadwear({...helmet,mask:0x800000}),false);
+ assert.equal(isHeadwear({...helmet,mask:0x1006}),false);
+ assert.equal(isHeadwear({...helmet,mask:4}),false);
+ // Only the "wear" direction is refused: the piece the companion already has on stays clickable.
+ assert.equal(headwearBlocked(helmet,false),true);
+ assert.equal(headwearBlocked({...helmet,equipped:true},false),false);
+ assert.equal(headwearBlocked(helmet,true),false);
+ // The simulated native side answers the same way, and turning the rule on takes a worn helmet off
+ // at once instead of at the next equip.
+ const save=extra=>simulate(s,{session:s.session,actorId:f.id,command:'behavior',settings:{...defaultBehavior,...extra}});
+ helmet.equipped=true;
+ assert.ok(save({helmet:false}).ok);
+ assert.equal(helmet.equipped,false);
+ assert.ok(helmet.favorite===false);
+ const refused=simulate(s,{session:s.session,actorId:f.id,command:'toggleWear',itemKey:helmet.key});
+ assert.equal(refused.ok,false);assert.match(refused.message,/禁止这位伙伴佩戴头盔/);
+ assert.ok(save({helmet:true}).ok);
+ assert.ok(simulate(s,{session:s.session,actorId:f.id,command:'toggleWear',itemKey:helmet.key}).ok);
+ assert.equal(helmet.equipped,true);
 });
 
 test('arrow navigation stays inside the list and starts at the first row',()=>{

@@ -7,6 +7,9 @@ test('behavior defaults and exact inventory instances validate; duplicate keys a
  const s=fixture();assert.ok(parseSnapshot(s));assert.ok(validBehavior(defaultBehavior));
  assert.equal(validBehavior({...defaultBehavior,radius:4}),false);
  assert.equal(validBehavior({...defaultBehavior,outfitHours:1.5}),false);
+ // Headwear ships off by default and every behaviour payload carries the key.
+ assert.equal(defaultBehavior.helmet,false);
+ assert.equal(validBehavior({...defaultBehavior,helmet:undefined}),false);
  const w=s.followers[0].wardrobe;assert.ok(validWardrobe(w));assert.equal(validWardrobe([...w,w[0]]),false);
  w[0].weight=NaN;assert.equal(parseSnapshot(s),null);
 });

@@ -8,11 +8,21 @@ using json = nlohmann::json;
 inline json Defaults() {
     return {{"loot",true},{"corpses",true},{"ground",true},{"containers",false},
             {"radius",40},{"minValue",20},{"minRatio",5},{"categories",255},
-            {"sell",true},{"outfits",true},{"outfitHours",12},{"requests",true}};
+            {"sell",true},{"outfits",true},{"outfitHours",12},{"requests",true},
+            {"helmet",false}};
+}
+// A save written before a key existed would fail the exact-shape check below and take the whole
+// record down with it, so missing keys are filled with their schema default before validation. The
+// default is always the pre-update behaviour, which is why it lives here and not at the call sites.
+inline void Upgrade(json &v) {
+    if (!v.is_object()) return;
+    const json defaults = Defaults();
+    for (auto it = defaults.begin(); it != defaults.end(); ++it)
+        if (!v.contains(it.key())) v[it.key()] = it.value();
 }
 inline bool Valid(const json& v) {
     if (!v.is_object() || v.size()!=Defaults().size()) return false;
-    for (auto k : {"loot","corpses","ground","containers","sell","outfits","requests"})
+    for (auto k : {"loot","corpses","ground","containers","sell","outfits","requests","helmet"})
         if (!v.contains(k)||!v[k].is_boolean()) return false;
     for (auto [k,lo,hi] : {std::tuple{"radius",5,60}, {"minValue",0,10000},
                            {"minRatio",0,1000},{"categories",0,255},{"outfitHours",1,72}})

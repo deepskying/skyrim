@@ -44,6 +44,9 @@ export function fixture() {
       // Two more worn/held pieces the wear page lists on top of the outfit payload above.
       {key:"0001396B:00000014:0004",id:"0001396B",name:"铁质护腕",inventoryCategory:"apparel",count:1,value:20,weight:2,category:2,equipped:true,quest:false,favorite:false,equipment:true,mask:8,armorRating:10,armorType:"heavy"},
       {key:"00012EB6:00000000:0000",id:"00012EB6",name:"铁盾",inventoryCategory:"apparel",count:1,value:60,weight:12,category:2,equipped:false,quest:false,favorite:false,equipment:true,mask:512,armorRating:20.4,armorType:"heavy"},
+      // The helmet the companion looted: the engine auto-equips it, and the headwear rule is what
+      // takes it back off. 0x1002 is how this load order writes an iron helmet (hair + circlet).
+      {key:"00012E4D:00000014:0003",id:"00012E4D",name:"铁制头盔",inventoryCategory:"apparel",count:1,value:60,weight:5,category:2,equipped:false,quest:false,favorite:false,equipment:true,mask:0x1002,armorRating:15,armorType:"heavy"},
     ],
     limited: !managed,
     canRecruit: !managed,
@@ -166,6 +169,14 @@ export function fixture() {
   };
 }
 
+// Mirrors the native headwear rule so the browser preview answers the way the game does: the head
+// (30) and circlet (42) slots are hats, while hair (31), ears (43) and a whole robe that merely
+// includes a hood are not. This load order writes an iron helmet as 0x1002 (hair + circlet).
+const helmetSlots=(1<<(30-30))|(1<<(42-30)),robeBodySlot=1<<(32-30);
+const isHeadwear=row=>Number.isInteger(row.mask)&&(row.mask&helmetSlots)!==0&&(row.mask&robeBodySlot)===0;
+const allowsHelmet=f=>(f.behavior?.helmet)??true;
+const unequipHeadwear=f=>{for(const i of f.wardrobe)if(i.equipped&&isHeadwear(i))i.equipped=false;};
+
 // Browser-only simulation. Native integration is validated separately in Skyrim.
 export function simulate(s, r) {
   if (r.session !== s.session) return { ok: false, message: "存档已变化" };
@@ -175,6 +186,8 @@ export function simulate(s, r) {
   if(r.command==="behaviorDefaults") {
     s.automation.defaults=structuredClone(r.settings);
     for(const a of s.followers)if(!a.behaviorOverride)a.behavior=structuredClone(r.settings);
+    // The rule takes a helmet off at once, so the preview shows the same thing the game does.
+    for(const a of s.followers)if(!allowsHelmet(a))unequipHeadwear(a);
     return ok("全队规则已保存（模拟）");
   }
   if (r.command === "settings") {
@@ -200,6 +213,7 @@ export function simulate(s, r) {
     if(r.command==="toggleWear") {
       const i=f.wardrobe.find(x=>x.key===r.itemKey);
       if(!i||i.inventoryCategory!=="apparel"||!Number.isInteger(i.mask)||i.mask<=0)return {ok:false,message:"物品已变化"};
+      if(!i.equipped&&!allowsHelmet(f)&&isHeadwear(i))return {ok:false,message:"已禁止这位伙伴佩戴头盔：可在「行为管理 → 自动穿搭」里允许"};
       if(i.equipped) {
         if(i.quest)return {ok:false,message:"任务装备不能卸下"};
         i.equipped=false;
@@ -280,7 +294,9 @@ export function simulate(s, r) {
       break;
     }
     case "behavior":
-      f.behaviorOverride=!r.inherit;f.behavior=structuredClone(r.inherit?s.automation.defaults:r.settings);break;
+      f.behaviorOverride=!r.inherit;f.behavior=structuredClone(r.inherit?s.automation.defaults:r.settings);
+      if(!allowsHelmet(f))unequipHeadwear(f);
+      break;
     case "deferRequest":f.request="";break;
     case "changeOutfit": {
       // Preview fixtures model body clothing and accessories as separate slots.
