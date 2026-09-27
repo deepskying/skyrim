@@ -63,7 +63,7 @@
 .player-stat small { font-size: 11px; letter-spacing: 1px; font-weight: 500; color: #a9a59c; }
 .player-utility-row .player-stat { font-size: 15px; }
 .player-utility-row .player-stat small { font-size: 11px; }
-.order-diamond text { font-family: var(--hud-mono); font-size: 24px; font-weight: 600; }
+.order-square text { font-family: var(--hud-mono); font-size: 24px; font-weight: 600; }
 .craft-order-hud header > span { font-size: 11px; letter-spacing: 2.4px; }
 .craft-order-hud header > small { font-size: 11px; letter-spacing: 1.2px; color: #a9a59c; }
 .order-name { font-size: 11px; letter-spacing: .8px; }
@@ -113,11 +113,11 @@
 .craft-order-hud.paused header > small { color: #e0b46a; }
 .craft-order-diamonds { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; margin-top: 9px; }
 .craft-order-diamonds article { width: 72px; min-width: 0; text-align: center; }
-.order-diamond { display: block; width: 54px; height: 54px; margin: 0 auto; overflow: visible; }
+.order-square { display: block; width: 54px; height: 54px; margin: 0 auto; overflow: visible; }
 .order-fill { fill: rgba(0,0,0,.55); }
 .order-track { fill: none; stroke: rgba(235,229,213,.22); stroke-width: 3.5; }
 .order-progress { fill: none; stroke: var(--order-edge,#e5d5ae); stroke-width: 3.5; stroke-linecap: butt; }
-.order-diamond text { fill: #f3eee3; font-size: 26px; font-weight: 400; }
+.order-square text { fill: #f3eee3; font-size: 26px; font-weight: 400; }
 .order-name { display: block; margin-top: 4px; color: #cfc9bb; font-size: 11px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .craft-order-more { align-self: center; color: #b9b7b3; font-size: 12px; }
 .craft-order-diamonds article.fire { --order-edge: #ff974d; }
@@ -136,7 +136,7 @@
   .craft-order-hud { padding: 9px 8px 11px; }
   .craft-order-diamonds { gap: 9px; }
   .craft-order-diamonds article { width: 64px; }
-  .order-diamond { width: 48px; height: 48px; }
+  .order-square { width: 48px; height: 48px; }
 }
 
 .hud-position-preview { padding: 18px; border: 1px solid rgba(185,168,134,.24); background: rgba(0,0,0,.16); }

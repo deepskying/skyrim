@@ -215,8 +215,43 @@ function Editorial() {
 }
 
 const caption: CSSProperties = { margin: '0 0 8px', fontSize: 13, letterSpacing: 1, color: '#9fb0ac' };
+
+// Queue marker shapes side by side: the shipped diamond ring and the square trial.
+function QueueShapes() {
+  const rowStyle: CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 22, padding: '2px 0 6px' };
+  const entryStyle: CSSProperties = { width: 76, textAlign: 'center' };
+  const text: CSSProperties = { fill: '#f3eee3', fontFamily: 'Consolas,"Cascadia Mono",monospace', fontSize: 24, fontWeight: 600 };
+  return <div style={{ display: 'grid', gap: 14, width: 600 }}>
+    <div style={rowStyle}>
+      <span style={{ fontSize: 13, letterSpacing: 1, width: 96, color: '#9fb0ac' }}>菱形（当前）</span>
+      {queue.map(entry => <div key={entry.name} style={entryStyle}>
+        <svg viewBox="0 0 100 100" width={54} height={54} style={{ display: 'block', margin: '0 auto' }}>
+          <path d="M50 7 93 50 50 93 7 50Z" fill="rgba(0,0,0,.55)" />
+          <path d="M50 3 97 50 50 97 3 50Z" fill="none" stroke="rgba(235,229,213,.22)" strokeWidth="3.5" />
+          <path d="M50 3 97 50 50 97 3 50Z" fill="none" stroke={entry.family} strokeWidth="3.5" pathLength={100} strokeDasharray={`${entry.remaining / entry.total * 100} 100`} />
+          <text x="50" y="53" textAnchor="middle" dominantBaseline="middle" style={text}>{entry.label}</text>
+        </svg>
+        <span style={{ fontSize: 11, opacity: .72, display: 'block', marginTop: 4 }}>{entry.name}</span>
+      </div>)}
+    </div>
+    <div style={rowStyle}>
+      <span style={{ fontSize: 13, letterSpacing: 1, width: 96, color: '#9fb0ac' }}>方形（试作）</span>
+      {queue.map(entry => <div key={entry.name} style={entryStyle}>
+        <svg viewBox="0 0 100 100" width={54} height={54} style={{ display: 'block', margin: '0 auto' }}>
+          <rect x="11" y="11" width="78" height="78" rx="9" fill="rgba(0,0,0,.55)" />
+          <rect x="4" y="4" width="92" height="92" rx="10" fill="none" stroke="rgba(235,229,213,.22)" strokeWidth="3.5" />
+          <rect x="4" y="4" width="92" height="92" rx="10" fill="none" stroke={entry.family} strokeWidth="3.5" pathLength={100} strokeDasharray={`${entry.remaining / entry.total * 100} 100`} />
+          <text x="50" y="53" textAnchor="middle" dominantBaseline="middle" style={text}>{entry.label}</text>
+        </svg>
+        <span style={{ fontSize: 11, opacity: .72, display: 'block', marginTop: 4 }}>{entry.name}</span>
+      </div>)}
+    </div>
+  </div>;
+}
+
 function Page() {
   return <div style={{ padding: 28, display: 'grid', gap: 34, background: '#04080a', minHeight: '100vh' }}>
+    <div><p style={caption}>队列标记：菱形（当前）对比方形（试作）——外框描边显示剩余比例</p><QueueShapes /></div>
     <div><p style={caption}>E · 环形核心 + 六边形雷达：等级在环里，抗性画成雷达多边形</p><CoreRadar /></div>
     <div><p style={caption}>F · 切角硬朗：斜切边 + 扫描线 + 等宽数字，灵魂池二十格刻度，受损装备走警示斜纹</p><Angled /></div>
     <div><p style={caption}>G · 水墨卷轴：纸面 + 笔触 + 印章 + 竖排标题</p><InkScroll /></div>

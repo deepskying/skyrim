@@ -1,4 +1,8 @@
-# 装备工坊 · Equipment Workshop 2.3.19
+# 装备工坊 · Equipment Workshop 2.3.20
+
+## 2.3.20 制作队列标记改成方形
+
+左下角 HUD 的制作队列标记从菱形改成方形：外框是一个圆角方形描边槽（`rx 10`）、内层深色方块（`rx 9`），进度仍是沿外框走一圈的描边（`pathLength=100` + `strokeDasharray`，颜色仍按箭矢家族取色），数字在正中。等级菱形保持不变；样张页新增“菱形 vs 方形”对照。已通过前端构建与 `craft-order-hud-test`（断言由 `order-diamond` 改为 `order-square`，前端测试 98 全绿）；实机待验收。
 
 ## 2.3.19 HUD 采用 F 样张的字体与字号
 

@@ -72,7 +72,7 @@ test('empty queues render nothing and long queues report the hidden spells', () 
   assert.equal(render(undefined), '');
   const entries = Array.from({ length: 9 }, (_, index) => ({ ...sample, spell: 100 + index, name: `奥术箭·${index}` }));
   const markup = render({ entries }, 720);
-  assert.equal((markup.match(/class="order-diamond"/g) ?? []).length, craftOrderHudLimit(720));
+  assert.equal((markup.match(/class="order-square"/g) ?? []).length, craftOrderHudLimit(720));
   assert.match(markup, /另有 5 种法术排队/);
   assert.match(markup, />\+5</);
   assert.deepEqual([craftOrderHudLimit(0), craftOrderHudLimit(NaN), craftOrderHudLimit(760), craftOrderHudLimit(900), craftOrderHudLimit(1440)], [8, 8, 4, 6, 8]);
