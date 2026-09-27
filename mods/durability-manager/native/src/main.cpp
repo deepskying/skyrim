@@ -201,7 +201,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.3.27";
+    constexpr std::string_view kPluginVersion = "2.3.28";
 #else
     constexpr std::string_view kPluginVersion = "0.1.55";
 #endif
@@ -756,25 +756,134 @@ namespace
         }
     }
 
-    [[nodiscard]] std::map<RE::TESBoundObject*, std::int32_t> GetSalvageMaterials(RE::TESBoundObject* a_item)
+    // Repair and salvage costs are derived from the item's crafting/tempering record, and plenty
+    // of mods ship equipment without one. Walk this ladder rather than declaring the item
+    // unrepairable: the item's own record, its template (enchanted weapons and armour are separate
+    // forms that inherit the plain version's recipe), the ingot its material keyword asks for, and
+    // finally a generic default. Only the last step is arbitrary.
+    [[nodiscard]] RE::TESBoundObject* EquipmentTemplate(RE::TESBoundObject* a_item)
     {
-        std::map<RE::TESBoundObject*, std::int32_t> materials;
-        auto* dataHandler = RE::TESDataHandler::GetSingleton();
-        if (!dataHandler || !a_item) return materials;
+        if (auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr) return weapon->templateWeapon;
+        if (auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr) return armor->templateArmor;
+        return nullptr;
+    }
 
-        const auto& recipes = dataHandler->GetFormArray<RE::BGSConstructibleObject>();
+    struct MaterialRule
+    {
+        const RE::BGSKeyword* keyword;
+        RE::TESBoundObject* material;
+    };
+
+    // The ingot vanilla tempering hands out for each material keyword. Rules whose keyword or
+    // material is not installed are dropped, so the ladder simply falls through to the default.
+    [[nodiscard]] const std::vector<MaterialRule>& RepairMaterialRules()
+    {
+        static const std::vector<MaterialRule> rules = [] {
+            static constexpr std::pair<const char*, const char*> table[]{
+                { "WeapMaterialIron", "IngotIron" },
+                { "ArmorMaterialIron", "IngotIron" },
+                { "WeapMaterialSilver", "IngotSilver" },
+                { "WeapMaterialSteel", "IngotSteel" },
+                { "ArmorMaterialSteel", "IngotSteel" },
+                { "WeapMaterialDwemer", "IngotDwarven" },
+                { "ArmorMaterialDwemer", "IngotDwarven" },
+                { "WeapMaterialElven", "IngotRefinedMoonstone" },
+                { "ArmorMaterialElven", "IngotRefinedMoonstone" },
+                { "WeapMaterialOrcish", "IngotOrichalcum" },
+                { "ArmorMaterialOrcish", "IngotOrichalcum" },
+                { "WeapMaterialGlass", "IngotRefinedMalachite" },
+                { "ArmorMaterialGlass", "IngotRefinedMalachite" },
+                { "WeapMaterialEbony", "IngotEbony" },
+                { "ArmorMaterialEbony", "IngotEbony" },
+                { "WeapMaterialDaedric", "DaedraHeart" },
+                { "ArmorMaterialDaedric", "DaedraHeart" },
+                { "ArmorMaterialHide", "LeatherStrips" },
+                { "ArmorMaterialLeather", "LeatherStrips" },
+                { "ArmorMaterialStudded", "LeatherStrips" },
+                { "ArmorMaterialDragonscale", "DragonScales" },
+                { "ArmorMaterialDragonplate", "DragonBone" },
+            };
+            std::vector<MaterialRule> resolved;
+            for (const auto& [keyword, material] : table) {
+                auto* keywordForm = RE::TESForm::LookupByEditorID<RE::BGSKeyword>(keyword);
+                auto* materialForm = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(material);
+                if (keywordForm && materialForm) resolved.push_back({ keywordForm, materialForm });
+                else logger::info("Repair fallback material rule unavailable in this load order: {} -> {}", keyword, material);
+            }
+            logger::info("Repair fallback material rules resolved: {} of {}.", resolved.size(), std::size(table));
+            return resolved;
+        }();
+        return rules;
+    }
+
+    [[nodiscard]] RE::TESBoundObject* KeywordRepairMaterial(RE::TESBoundObject* a_item)
+    {
+        const auto* keywords = a_item ? a_item->As<RE::BGSKeywordForm>() : nullptr;
+        if (!keywords) return nullptr;
+        const auto count = keywords->GetNumKeywords();
+        for (std::uint32_t index = 0; index < count; ++index) {
+            const auto keyword = keywords->GetKeywordAt(index);
+            if (!keyword) continue;
+            for (const auto& rule : RepairMaterialRules()) {
+                if (*keyword == rule.keyword) return rule.material;
+            }
+        }
+        return nullptr;
+    }
+
+    struct RepairFallback
+    {
+        RE::TESBoundObject* material = nullptr;
+        float fullCount = 0.0F;
+    };
+
+    // What a full repair would cost when no recipe survives anywhere in the ladder.
+    [[nodiscard]] RepairFallback GetRepairFallback(RE::TESBoundObject* a_item)
+    {
+        auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr;
+        const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
+        if (!armor && !weapon) return {};
+        const auto clothing = armor && armor->IsClothing();
+        if (auto* material = KeywordRepairMaterial(a_item)) return { material, clothing ? 2.0F : 4.0F };
+        if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(clothing ? "LeatherStrips" : "IngotIron")) {
+            return { material, clothing ? 2.0F : 4.0F };
+        }
+        return {};
+    }
+
+    [[nodiscard]] const RE::BGSConstructibleObject* FindSalvageRecipe(RE::TESBoundObject* a_item)
+    {
+        auto* dataHandler = RE::TESDataHandler::GetSingleton();
+        if (!dataHandler || !a_item) return nullptr;
         const RE::BGSConstructibleObject* bestRecipe = nullptr;
         std::uint32_t bestIngredientCount = 0;
-        for (const auto* recipe : recipes) {
+        for (const auto* recipe : dataHandler->GetFormArray<RE::BGSConstructibleObject>()) {
             if (!recipe || recipe->createdItem != a_item || recipe->requiredItems.numContainerObjects == 0) continue;
             if (recipe->requiredItems.numContainerObjects > bestIngredientCount) {
                 bestRecipe = recipe;
                 bestIngredientCount = recipe->requiredItems.numContainerObjects;
             }
         }
-        if (!bestRecipe) return materials;
+        return bestRecipe;
+    }
 
-        bestRecipe->requiredItems.ForEachContainerObject([&materials](RE::ContainerObject& a_ingredient) {
+    [[nodiscard]] std::map<RE::TESBoundObject*, std::int32_t> GetSalvageMaterials(RE::TESBoundObject* a_item)
+    {
+        std::map<RE::TESBoundObject*, std::int32_t> materials;
+        if (!a_item) return materials;
+
+        // Salvaging returns half of what a repair would ask for, so it walks the same ladder.
+        const auto* recipe = FindSalvageRecipe(a_item);
+        if (!recipe) recipe = FindSalvageRecipe(EquipmentTemplate(a_item));
+        if (!recipe) {
+            const auto fallback = GetRepairFallback(a_item);
+            if (fallback.material) {
+                materials[fallback.material] = (std::max)(1, static_cast<std::int32_t>(fallback.fullCount / 2.0F));
+            }
+            return materials;
+        }
+
+        recipe->requiredItems.ForEachContainerObject([&materials](RE::ContainerObject& a_ingredient) {
             if (!a_ingredient.obj || a_ingredient.count <= 0) return RE::BSContainer::ForEachResult::kContinue;
             materials[a_ingredient.obj] += (std::max)(1, a_ingredient.count / 2);
             return RE::BSContainer::ForEachResult::kContinue;
@@ -813,20 +922,16 @@ namespace
         const DurabilitySnapshot& a_durability)
     {
         std::map<RE::TESBoundObject*, std::int32_t> materials;
-        const auto* recipe = FindRepairRecipe(a_item);
         if (a_durability.maximum <= 0.0F || a_durability.current >= a_durability.maximum) return materials;
 
         const auto missingRatio = std::clamp((a_durability.maximum - a_durability.current) / a_durability.maximum, 0.0F, 1.0F);
         const auto costRatio = missingRatio <= 0.25F ? 0.25F : missingRatio <= 0.50F ? 0.50F : missingRatio <= 0.75F ? 0.75F : 1.0F;
+        const auto* recipe = FindRepairRecipe(a_item);
+        if (!recipe) recipe = FindRepairRecipe(EquipmentTemplate(a_item));
         if (!recipe) {
-            auto* armor = a_item ? a_item->As<RE::TESObjectARMO>() : nullptr;
-            const auto* weapon = a_item ? a_item->As<RE::TESObjectWEAP>() : nullptr;
-            if (!armor && !(weapon && weapon->IsStaff())) return materials;
-            const auto clothing = armor && armor->IsClothing();
-            const auto materialEditorID = clothing ? "LeatherStrips" : "IngotIron";
-            if (auto* material = RE::TESForm::LookupByEditorID<RE::TESBoundObject>(materialEditorID)) {
-                const auto fullRepairCount = clothing ? 2.0F : 4.0F;
-                materials[material] = (std::max)(1, static_cast<std::int32_t>(std::ceil(fullRepairCount * costRatio)));
+            const auto fallback = GetRepairFallback(a_item);
+            if (fallback.material) {
+                materials[fallback.material] = (std::max)(1, static_cast<std::int32_t>(std::ceil(fallback.fullCount * costRatio)));
             }
             return materials;
         }
