@@ -37,13 +37,13 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
             const missing = Math.max(0, material.count - material.owned);
             return <span key={material.id} role="listitem" className={`soul-requirement${missing ? '' : ' met'}`}
               title={`${material.name}：已有 ${material.owned}，需要 ${material.count}`}>
-              {material.name}<b>{material.owned}/{material.count}</b>{missing > 0 && <i>缺 {missing}</i>}
+              {material.name}<b>{material.owned}/{material.count}</b>
             </span>;
           })}
           {(() => {
             const missing = Math.max(0, pool.upgradeGold - pool.gold);
             return <span role="listitem" className={`soul-requirement gold${missing ? '' : ' met'}`} title={`金币：${pool.gold} / ${pool.upgradeGold}`}>
-              金币<b>{pool.gold}/{pool.upgradeGold}</b>{missing > 0 && <i>缺 {missing}</i>}
+              金币<b>{pool.gold}/{pool.upgradeGold}</b>
             </span>;
           })()}
         </div>

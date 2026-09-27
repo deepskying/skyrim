@@ -39,5 +39,5 @@ test('upgrade requirements are inline badges with a count', () => {
   assert.match(markup, /soul-requirement/);
   assert.match(markup, /8\/4/);
   assert.match(markup, /1850\/1000/);
-  assert.match(markup, /缺 1/);
+  assert.equal(markup.includes('缺 1'), false, 'the missing hint is gone');
 });
