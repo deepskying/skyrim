@@ -312,8 +312,13 @@ void Action(const char* raw){
             }else if(type=="soulUpgrade"){
                 soul_pool::Upgrade(player);Send("灵魂池已扩容");
             }else if(type=="soulConvert"){
-                const int moved=soul_pool::Convert(player,q.value("level",0),q.value("count",1));
-                Send(moved>0?"灵魂已兑换成灵魂石":"灵魂点数或金币不足");
+                std::vector<soul_pool::Request> requests;
+                if(q.contains("items")&&q.at("items").is_array())
+                    for(const auto& item:q.at("items"))requests.push_back({item.value("level",0),item.value("count",0)});
+                else requests.push_back({q.value("level",0),q.value("count",1)});
+                const auto result=soul_pool::Convert(player,requests);
+                const int gems=result.value("gems",0);
+                Send(gems>0?("已兑换 "+std::to_string(gems)+" 颗灵魂石，消耗 "+std::to_string(result.value("points",0))+" 点与 "+std::to_string(result.value("gold",0))+" 金币"):"灵魂点数或金币不足");
             }else if(type=="soulDeposit"){
                 const int moved=soul_pool::Deposit(player,q.value("id",RE::FormID{}),q.value("count",1));
                 Send(moved>0?"灵魂石已存入灵魂池":"灵魂池已满或没有可存入的灵魂石");

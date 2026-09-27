@@ -9,11 +9,11 @@ import { SoulGemIcon } from './SoulGemIcon';
 export function SoulPoolPage({ state, action, active }: { state: ArrowState; action: WorkshopAction; active: boolean }) {
   const pool = state.soulPool;
   const gems = pool?.gems ?? [];
-  const [level, setLevel] = useState(0);
-  const [count, setCount] = useState(1);
-  const choice = gems.find(gem => gem.level === level) ?? gems.find(gem => gem.can > 0) ?? gems[0];
-  const maximum = Math.max(0, choice?.can ?? 0);
-  useEffect(() => { setCount(current => Math.max(1, Math.min(current, Math.max(1, maximum)))); }, [maximum]);
+  const [counts, setCounts] = useState<Record<number, number>>({});
+  const wanted = (gem: { level: number; can: number }) => Math.max(0, Math.min(counts[gem.level] ?? 0, Math.max(0, gem.can)));
+  const totalGems = gems.reduce((sum, gem) => sum + wanted(gem), 0);
+  const totalPoints = gems.reduce((sum, gem) => sum + wanted(gem) * gem.points, 0);
+  const totalGold = gems.reduce((sum, gem) => sum + wanted(gem) * gem.gold, 0);
   if (!pool) return <section className="arrows-page" hidden={!active}><p className="arrow-status">灵魂池数据尚未同步，请重新读档。</p></section>;
   const ratio = pool.capacity > 0 ? Math.max(0, Math.min(1, pool.points / pool.capacity)) : 0;
   const ready = pool.materials.every(material => material.owned >= material.count) && pool.gold >= pool.upgradeGold;
@@ -36,14 +36,14 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
           {pool.materials.map(material => {
             const missing = Math.max(0, material.count - material.owned);
             return <span key={material.id} role="listitem" className={`soul-requirement${missing ? '' : ' met'}`}
-              title={`${material.name}：${material.owned} / ${material.count}`}>
-              {material.name}<b>×{material.count}</b>{missing > 0 && <i>缺 {missing}</i>}
+              title={`${material.name}：已有 ${material.owned}，需要 ${material.count}`}>
+              {material.name}<b>{material.owned}/{material.count}</b>{missing > 0 && <i>缺 {missing}</i>}
             </span>;
           })}
           {(() => {
             const missing = Math.max(0, pool.upgradeGold - pool.gold);
             return <span role="listitem" className={`soul-requirement gold${missing ? '' : ' met'}`} title={`金币：${pool.gold} / ${pool.upgradeGold}`}>
-              金币<b>×{pool.upgradeGold}</b>{missing > 0 && <i>缺 {missing}</i>}
+              金币<b>{pool.gold}/{pool.upgradeGold}</b>{missing > 0 && <i>缺 {missing}</i>}
             </span>;
           })()}
         </div>
@@ -51,28 +51,28 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
       </section>
       <section className="arrow-card">
         <header><div><small>WITHDRAW</small><h2>兑换灵魂石</h2></div><span className="soul-tier">点数 + 金币</span></header>
-        <p className="arrow-muted">先挑一张候选卡片，再拖下面的滑条决定数量；换回来的填好灵魂石直接进背包，附魔台与武器充能照原版使用。</p>
-        <div className="soul-gem-cards" role="radiogroup" aria-label="兑换候选">
+        <p className="arrow-muted">在每张卡片下方的输入框里填写想兑换的颗数，可以一次挑多种；换回来的填好灵魂石直接进背包，附魔台与武器充能照原版使用。</p>
+        <div className="soul-gem-cards" role="group" aria-label="兑换候选">
           {pool.gems.map(gem => {
-            const selected = gem === choice;
-            return <button key={gem.level} type="button" role="radio" aria-checked={selected} disabled={gem.can < 1}
-              className={`soul-gem-card${selected ? ' selected' : ''}`}
-              onClick={() => { setLevel(gem.level); setCount(1); }}>
+            const value = wanted(gem);
+            return <article key={gem.level} className={`soul-gem-card${value > 0 ? ' selected' : ''}${gem.can < 1 ? ' locked' : ''}`}>
               <SoulGemIcon />
               <b>{gem.name}</b>
               <small>{gem.points} 点 + {gem.gold} 金币</small>
-              <em>{gem.can > 0 ? `可兑 ${gem.can}` : '不足'}</em>
-            </button>;
+              <em>{gem.can > 0 ? `可兑 ${gem.can}` : '点数或金币不足'}</em>
+              <input type="number" min={0} max={Math.max(0, gem.can)} value={value} disabled={gem.can < 1}
+                aria-label={`${gem.name} 兑换数量`}
+                onChange={event => {
+                  const next = Math.max(0, Math.min(Number(event.target.value.replace(/[^0-9]/g, '')) || 0, Math.max(0, gem.can)));
+                  setCounts(current => ({ ...current, [gem.level]: next }));
+                }} />
+            </article>;
           })}
         </div>
-        <div className={`soul-gem-slider${maximum < 1 ? ' locked' : ''}`}>
-          <div className="soul-gem-slider-head"><span>{choice ? choice.name : '灵魂石'} · 兑换数量</span><b>{maximum > 0 ? `${count} / ${maximum}` : '—'}</b></div>
-          <input type="range" min={1} max={Math.max(1, maximum)} step={1} value={Math.min(count, Math.max(1, maximum))} disabled={maximum < 1}
-            onChange={event => setCount(Math.max(1, Math.min(Number(event.target.value), Math.max(1, maximum))))} aria-label="兑换数量" />
-        </div>
-        <button className="arrow-primary soul-gem-action" disabled={maximum < 1}
-          onClick={() => action('soulConvert', { level: choice.level, count })}>
-          {maximum < 1 ? '点数或金币不足' : `兑换 ${count} 颗`}
+        <div className="soul-gem-summary"><span>共 {totalGems} 颗 · 消耗 {totalPoints} 点灵魂</span><b>{totalGold} 金币</b></div>
+        <button className="arrow-primary soul-gem-action" disabled={totalGems < 1}
+          onClick={() => { action('soulConvert', { items: gems.map(gem => ({ level: gem.level, count: wanted(gem) })).filter(item => item.count > 0) }); setCounts({}); }}>
+          {totalGems < 1 ? '请填写兑换数量' : `兑换 ${totalGems} 颗 · 消耗 ${totalGold} 金币`}
         </button>
       </section>
       <section className="arrow-card">

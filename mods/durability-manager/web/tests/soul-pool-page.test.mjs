@@ -18,14 +18,15 @@ const { arrowDemo } = load('arrows/demo.ts');
 const { SoulPoolPage } = load('arrows/SoulPool.tsx');
 const markup = renderToStaticMarkup(createElement(SoulPoolPage, { state: arrowDemo, action: () => {}, active: true }));
 
-test('the withdrawal card offers candidate gems, a slider and one action', () => {
-  assert.match(markup, /role="radiogroup"/);
+test('the withdrawal card offers candidate gems with their own inputs and one action', () => {
+  assert.match(markup, /role="group"/);
   assert.match(markup, /soul-gem-card/);
   assert.match(markup, /soul-gem-svg/);
   assert.ok((markup.match(/<path/g) ?? []).length >= 12, 'every card draws both diamonds');
   assert.match(markup, /fill="none"/);
-  assert.match(markup, /type="range"/);
-  assert.match(markup, /兑换 1 颗/);
+  assert.ok((markup.match(/type="number"/g) ?? []).length >= 6, 'every candidate gets its own input');
+  assert.equal(markup.includes('type="range"'), false, 'the slider is gone');
+  assert.match(markup, /请填写兑换数量/);
   assert.match(markup, /12 \/ 20/);
 });
 
@@ -36,7 +37,7 @@ test('the deposit list still renders and the pool meter is bordered', () => {
 
 test('upgrade requirements are inline badges with a count', () => {
   assert.match(markup, /soul-requirement/);
-  assert.match(markup, /×4/);
-  assert.match(markup, /×1000/);
+  assert.match(markup, /8\/4/);
+  assert.match(markup, /1850\/1000/);
   assert.match(markup, /缺 1/);
 });

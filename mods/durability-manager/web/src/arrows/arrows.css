@@ -63,9 +63,9 @@
 .soul-columns{display:grid;gap:18px}
 .soul-requirements{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:14px 0}
 .soul-requirements-label{font-size:calc(12px * var(--workshop-font-scale,1));color:#8fafa3;margin-right:2px}
-.soul-requirement{display:inline-flex;align-items:baseline;gap:5px;border:1px solid #c79a7a44;border-radius:6px;padding:5px 9px;background:#c79a7a10;color:#d8b79c;font-size:calc(12px * var(--workshop-font-scale,1))}
+.soul-requirement{display:inline-flex;align-items:baseline;gap:6px;border:1px solid #c79a7a44;border-radius:6px;padding:7px 11px;background:#c79a7a10;color:#d8b79c;font-size:calc(14px * var(--workshop-font-scale,1))}
 .soul-requirement b{color:#e6cbb0;font-weight:500}
-.soul-requirement i{font-style:normal;color:#d08f74;font-size:calc(11px * var(--workshop-font-scale,1))}
+.soul-requirement i{font-style:normal;color:#d08f74;font-size:calc(12px * var(--workshop-font-scale,1))}
 .soul-requirement.met{border-color:#8fd3b566;background:#8fd3b512;color:#bdf0dc}
 .soul-requirement.met b{color:#d6f4e6}
 .soul-requirement.gold{border-color:#d9b78038;background:#d9b7800b;color:#e2c28e}
@@ -78,13 +78,14 @@
 .soul-gem-list article>small{font-size:calc(12px * var(--workshop-font-scale,1));color:#95b0b6}
 .soul-gem-list article>div{display:flex;gap:7px}
 .soul-gem-list article>div>button{flex:1}
-.soul-gem-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:14px}
-.soul-gem-card{display:grid;gap:6px;justify-items:start;text-align:left;padding:13px;border:1px solid #819eaa2d;border-radius:9px;background:#0d1a2455;color:#dbe9ed;cursor:pointer}
-.soul-gem-card:disabled{opacity:.42;cursor:default}
+.soul-gem-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:14px}
+.soul-gem-card{display:grid;gap:7px;justify-items:start;text-align:left;padding:16px;border:1px solid #819eaa2d;border-radius:9px;background:#0d1a2455;color:#dbe9ed}
+.soul-gem-card.locked{opacity:.5}
 .soul-gem-card.selected{border-color:#9bdec78a;background:#95d9c31a;box-shadow:inset 0 -3px #93ceb9}
-.soul-gem-card b{font-size:calc(14px * var(--workshop-font-scale,1))}
-.soul-gem-card small{font-size:calc(12px * var(--workshop-font-scale,1));color:#95b0b6}
-.soul-gem-card em{font-size:calc(12px * var(--workshop-font-scale,1));color:#9ed7bd;font-style:normal}
+.soul-gem-card b{font-size:calc(16px * var(--workshop-font-scale,1))}
+.soul-gem-card small{font-size:calc(13px * var(--workshop-font-scale,1));color:#95b0b6}
+.soul-gem-card em{font-size:calc(13px * var(--workshop-font-scale,1));color:#9ed7bd;font-style:normal}
+.soul-gem-card input[type=number]{width:100%;text-align:center;font-size:calc(15px * var(--workshop-font-scale,1))}
 .soul-gem-svg{display:block;width:calc(30px * var(--workshop-font-scale,1));height:auto;color:#9fd8c4}
 .soul-gem-card .soul-gem-svg{margin:0 auto}
 .soul-gem-list article>span{display:flex;align-items:center;gap:8px}
@@ -94,7 +95,9 @@
 .soul-gem-slider-head{display:flex;justify-content:space-between;gap:10px;font-size:calc(13px * var(--workshop-font-scale,1));color:#a7c3bd}
 .soul-gem-slider-head b{color:#cfe8dd;font-variant-numeric:tabular-nums}
 .soul-gem-slider input[type=range]{width:100%;accent-color:#93d2bb}
-.soul-gem-action{width:100%}
+.soul-gem-summary{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:14px 0 8px;font-size:calc(13px * var(--workshop-font-scale,1));color:#a7c3bd}
+.soul-gem-summary b{color:#d6f4e6;font-family:Consolas,"Cascadia Mono",monospace}
+.soul-gem-action{width:100%;padding:15px;font-size:calc(16px * var(--workshop-font-scale,1))}
 
 .arrow-inventory>.arrow-inventory-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}.arrow-card-stats{display:flex;align-items:center;justify-content:space-between;gap:12px}.arrow-damage{padding:3px 7px;border:1px solid #d9b78038;border-radius:5px;background:#d9b7800b;color:#e2c28e;font-size:calc(14px * var(--workshop-font-scale,1))}.arrow-card-stats>strong{font-size:calc(14px * var(--workshop-font-scale,1));color:#b5d2ca}.arrow-card-body{display:flex;flex:1;flex-direction:column;gap:6px;min-width:0;min-height:0}.arrow-card-body b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.4}.arrow-card-actions{display:grid;grid-template-columns:1fr;align-items:center;gap:6px;margin-top:auto;flex-shrink:0}.arrows-page .arrow-card-actions>button{width:100%;font-size:calc(14px * var(--workshop-font-scale,1));padding:8px 6px}
 

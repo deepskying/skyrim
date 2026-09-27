@@ -110,18 +110,38 @@ inline bool Upgrade(RE::PlayerCharacter* player){
     logger::info("Soul pool expanded tier={} capacity={}",pool.tier,Capacity());
     return true;
 }
-inline int Convert(RE::PlayerCharacter* player,int level,int count){
-    EnsureRolled();if(!player||count<=0)return 0;
-    const bool black=level==6;const auto cost=black?soul_pool_rules::BlackGemCost():soul_pool_rules::GemCost(level);
-    const auto id=black?soul_pool_rules::filledBlackGem:(level>=1&&level<=5?soul_pool_rules::filledGems[static_cast<std::size_t>(level-1)]:0);
-    auto* gem=Bound(id);if(!gem)return 0;
-    const int gold=crafting::Count(player,Bound(0xF));
-    count=std::min(count,soul_pool_rules::Convertible(pool.points,gold,cost));
-    if(count<=0)return 0;
-    pool.points-=cost.points*count;player->RemoveItem(Bound(0xF),cost.gold*count,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);
-    player->AddObjectToContainer(gem,nullptr,count,nullptr);
-    logger::info("Soul pool converted points={} gold={} gem={:08X} count={} left={}",cost.points*count,cost.gold*count,id,count,pool.points);
-    return count;
+struct Request {int level=0;int count=0;};
+// One panel confirm can ask for several gem types at once; every line is clamped to what
+// the pool and the purse can still pay for after the previous lines.
+inline json Convert(RE::PlayerCharacter* player,const std::vector<Request>& requests){
+    json result={{"gems",0},{"points",0},{"gold",0}};
+    EnsureRolled();if(!player||requests.empty())return result;
+    int points=pool.points,gold=crafting::Count(player,Bound(0xF)),spentPoints=0,spentGold=0,gems=0;
+    std::vector<std::pair<RE::FormID,int>> outputs;
+    for(const auto& request:requests){
+        if(request.count<=0)continue;
+        const bool black=request.level==6;
+        const auto cost=black?soul_pool_rules::BlackGemCost():soul_pool_rules::GemCost(request.level);
+        const auto id=black?soul_pool_rules::filledBlackGem:(request.level>=1&&request.level<=5?soul_pool_rules::filledGems[static_cast<std::size_t>(request.level-1)]:0);
+        if(!id||cost.points<=0)continue;
+        const int affordable=std::min(request.count,soul_pool_rules::Convertible(points,gold,cost));
+        if(affordable<=0)continue;
+        points-=cost.points*affordable;gold-=cost.gold*affordable;
+        spentPoints+=cost.points*affordable;spentGold+=cost.gold*affordable;gems+=affordable;
+        outputs.emplace_back(id,affordable);
+    }
+    if(gems<=0)return result;
+    try{
+        if(spentGold>0)player->RemoveItem(Bound(0xF),spentGold,RE::ITEM_REMOVE_REASON::kRemove,nullptr,nullptr);
+        pool.points-=spentPoints;
+        for(const auto& [id,count]:outputs)player->AddObjectToContainer(Bound(id),nullptr,count,nullptr);
+    }catch(...){
+        pool.points+=spentPoints;
+        if(spentGold>0)player->AddObjectToContainer(Bound(0xF),nullptr,spentGold,nullptr);
+        throw;
+    }
+    logger::info("Soul pool converted gems={} points={} gold={} left={}/{}",gems,spentPoints,spentGold,pool.points,Capacity());
+    return {{"gems",gems},{"points",spentPoints},{"gold",spentGold}};
 }
 inline int Deposit(RE::PlayerCharacter* player,RE::FormID form,int count){
     EnsureRolled();if(!player||count<=0)return 0;
