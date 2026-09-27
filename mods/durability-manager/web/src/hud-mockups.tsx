@@ -238,9 +238,9 @@ function QueueShapes() {
       <span style={{ fontSize: 13, letterSpacing: 1, width: 96, color: '#9fb0ac' }}>方形（试作）</span>
       {queue.map(entry => <div key={entry.name} style={entryStyle}>
         <svg viewBox="0 0 100 100" width={54} height={54} style={{ display: 'block', margin: '0 auto' }}>
-          <rect x="11" y="11" width="78" height="78" rx="9" fill="rgba(0,0,0,.55)" />
-          <rect x="4" y="4" width="92" height="92" rx="10" fill="none" stroke="rgba(235,229,213,.22)" strokeWidth="3.5" />
-          <rect x="4" y="4" width="92" height="92" rx="10" fill="none" stroke={entry.family} strokeWidth="3.5" pathLength={100} strokeDasharray={`${entry.remaining / entry.total * 100} 100`} />
+          <rect x="11" y="11" width="78" height="78" fill="rgba(0,0,0,.55)" />
+          <rect x="4" y="4" width="92" height="92" fill="none" stroke="rgba(235,229,213,.22)" strokeWidth="3.5" />
+          <rect x="4" y="4" width="92" height="92" fill="none" stroke={entry.family} strokeWidth="3.5" pathLength={100} strokeDasharray={`${entry.remaining / entry.total * 100} 100`} />
           <text x="50" y="53" textAnchor="middle" dominantBaseline="middle" style={text}>{entry.label}</text>
         </svg>
         <span style={{ fontSize: 11, opacity: .72, display: 'block', marginTop: 4 }}>{entry.name}</span>

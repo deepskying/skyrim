@@ -17,9 +17,9 @@ export function CraftOrderHud({ orders }: { orders?: CraftOrderSnapshot }) {
     <div className="craft-order-diamonds">
       {visible.map(entry => <article className={entry.family} key={entry.spell} aria-label={`${entry.name}，剩余 ${entry.remaining} / ${entry.total}`}>
         <svg viewBox="0 0 100 100" className="order-square" aria-hidden="true">
-          <rect className="order-fill" x="11" y="11" width="78" height="78" rx="9" />
-          <rect className="order-track" x="4" y="4" width="92" height="92" rx="10" />
-          <rect className="order-progress" x="4" y="4" width="92" height="92" rx="10" pathLength="100" strokeDasharray={`${Math.round(entry.progress * 1000) / 10} 100`} />
+          <rect className="order-fill" x="11" y="11" width="78" height="78" />
+          <rect className="order-track" x="4" y="4" width="92" height="92" />
+          <rect className="order-progress" x="4" y="4" width="92" height="92" pathLength="100" strokeDasharray={`${Math.round(entry.progress * 1000) / 10} 100`} />
           <text x="50" y="53" dominantBaseline="middle" textAnchor="middle">{entry.label}</text>
         </svg>
         <span className="order-name" title={entry.name}>{entry.name}</span>
