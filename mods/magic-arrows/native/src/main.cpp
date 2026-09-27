@@ -344,7 +344,7 @@ void Message(SKSE::MessagingInterface::Message* m){
     if(m->type==SKSE::MessagingInterface::kNewGame||m->type==SKSE::MessagingInterface::kPostLoadGame){loaded=m->type==SKSE::MessagingInterface::kNewGame||m->data!=nullptr;++generation;CancelEquip();runtime_binding::Reset();crafting::Reset();normal_crafting::Reset();ammo_queue::Suspend();if(m->type==SKSE::MessagingInterface::kNewGame)ammo_queue::Revert(nullptr);if(loaded){runtime_sustained::AfterLoad();runtime_binding::Restore();ammo_queue::Normalize();}}
     power.OnMessage(m);
     if(m->type!=SKSE::MessagingInterface::kDataLoaded)return;
-    runtime_sustained::afterUpdate=EquipFrame;crafting::Sync();runtime_binding::Init();runtime_impact::Install();runtime_sustained::Install();follower_ammo::Install();normal_crafting::Init();
+    runtime_sustained::afterUpdate=EquipFrame;crafting::Sync();runtime_binding::Init();runtime_impact::Install();runtime_sustained::Install();soul_capture::Install();follower_ammo::Install();normal_crafting::Init();
     LoadConfig();
 #ifdef UNIFIED_WORKSHOP
     api=unified_workshop::GetWorkshopUI();

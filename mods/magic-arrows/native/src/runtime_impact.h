@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime_binding.h"
 #include "runtime_sustained.h"
+#include "soul_capture.h"
 #include <deque>
 namespace runtime_impact {
 using Original=void(*)(RE::ArrowProjectile*,RE::TESObjectREFR*,const RE::NiPoint3&,const RE::NiPoint3&,RE::hkpCollidable*,std::int32_t,std::uint32_t);
@@ -46,6 +47,7 @@ inline void AddImpact(RE::ArrowProjectile* arrow,RE::TESObjectREFR* target,const
             logger::info("Impact cast skipped ammo={:08X}; spell requires a living actor hit",ammoID);return;
         }
         const bool started=runtime_sustained::Start(actor,binding->spell,cell,origin,pos,{angles.x,0.f,angles.z},target);
+        if(started&&target&&runtime_binding::Classify(binding->spell)==10)soul_capture::Arm(target,actor);
         logger::info("Runtime impact ammo={:08X} spell={:08X} shooter={:08X} started={} impact=({:.1f},{:.1f},{:.1f})",ammoID,binding->spell->GetFormID(),actor->GetFormID(),started,pos.x,pos.y,pos.z);
     });
 }
