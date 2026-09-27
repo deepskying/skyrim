@@ -1,4 +1,8 @@
-# 装备工坊 · Equipment Workshop 2.3.9
+# 装备工坊 · Equipment Workshop 2.3.10
+
+## 2.3.10 加载时预留 SKSE 跳板
+
+2.3.9 的灵魂池是插件里第一次用分支跳转（`write_branch`）挂钩普通函数 `Actor::TrapSoul`，但加载阶段没有向 SKSE 预留跳板内存，默认跳板容量为 0，于是游戏启动时弹出 `EquipmentWorkshop.dll — SKSE/Trampoline.cpp(117): Failed to handle allocation request`。现在统一工坊与独立 MagicArrows 的加载入口都会先 `SKSE::AllocTrampoline(1<<10)`；`soul_capture::Install` 也会在跳板为空或余量不足时记录错误并跳过钩子，退回原版吸魂（不再弹出失败框）。已通过原生编译；实机启动与吸魂待验收。
 
 ## 2.3.9 灵魂池
 

@@ -421,6 +421,7 @@ bool unified_workshop::LoadArrowRecord(SKSE::SerializationInterface* serial,std:
 }
 bool unified_workshop::InstallArrows(){
     // Both queues need the co-save, so they share one availability probe.
+    SKSE::AllocTrampoline(1<<10); // reserved for the Actor::TrapSoul branch hook
     ammo_queue::available=SKSE::GetSerializationInterface()!=nullptr;
     craft_order::available=ammo_queue::available;
     soul_pool::available=ammo_queue::available;
@@ -431,6 +432,7 @@ void unified_workshop::ArrowMessage(SKSE::MessagingInterface::Message* message){
 #else
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* skse){
     REL::Module::reset();SKSE::Init(skse);
+    SKSE::AllocTrampoline(1<<10); // reserved for the Actor::TrapSoul branch hook
     if(auto dir=SKSE::log::log_directory()){
         auto sink=std::make_shared<spdlog::sinks::basic_file_sink_mt>((*dir/"MagicArrows.log").string(),true);
         auto log=std::make_shared<spdlog::logger>("MagicArrows",sink);spdlog::set_default_logger(log);spdlog::flush_on(spdlog::level::info);

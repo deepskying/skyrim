@@ -45,6 +45,9 @@ inline bool TrapSoul(RE::Actor* caster,RE::Actor* victim){
 }
 inline void Install(){
     if(REL::Module::get().version()!=REL::Version(1,5,97,0))return;
+    // Hooking a plain function needs the SKSE trampoline; without reserved space the
+    // write_branch below would fail at load instead of degrading.
+    if(SKSE::GetTrampoline().empty()||SKSE::GetTrampoline().free_size()<64){logger::error("No trampoline space reserved; unconditional soul capture disabled");return;}
     REL::Relocation<std::uintptr_t> function{REL::ID(37863)}; // Actor::TrapSoul
     original=function.write_branch<5>(TrapSoul);
     installed=true;
