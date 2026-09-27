@@ -11,7 +11,8 @@ export type SoulPool = {
   available: boolean; enabled: boolean; points: number; capacity: number; tier: number; absorbed: number;
   upgradeGold: number; gold: number;
   // Two interchangeable plans per tier: same kind count, quantity and gold, different materials.
-  options: { id: number; materials: { id: number; name: string; count: number; owned: number }[] }[];
+  // Every material carries the plugin that provides it, so a rare one can be traced back.
+  options: { id: number; materials: { id: number; name: string; source: string; count: number; owned: number }[] }[];
   gems: { level: number; name: string; points: number; gold: number; id: number; can: number }[];
   deposit: { id: number; name: string; count: number; points: number; room: number }[];
 };

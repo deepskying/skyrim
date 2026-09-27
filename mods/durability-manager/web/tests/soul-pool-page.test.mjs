@@ -52,5 +52,7 @@ test('upgrade requirements are inline badges with a count, one set per plan', ()
   assert.match(markup, /1850\/1000/);
   assert.match(markup, /按方案乙扩容/, 'the affordable plan keeps its own confirm button');
   assert.match(markup, /材料或金币不足/, 'the plan that is short stays locked');
+  assert.match(markup, /soul-requirement-source/, '每一格都写出材料来源插件');
+  assert.match(markup, /Complete Alchemy &amp; Cooking Overhaul\.esp/, '来源写着具体插件名');
   assert.equal(markup.includes('缺 1'), false, 'the missing hint is gone');
 });

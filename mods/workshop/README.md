@@ -1,4 +1,8 @@
-# 装备工坊 · Equipment Workshop 2.3.28
+# 装备工坊 · Equipment Workshop 2.3.29
+
+## 2.3.29 扩容材料徽章显示来源插件
+
+灵魂池扩容方案里的每个材料徽章多了一行小字，写清这条材料由哪个插件提供（`GetFile(0)` 的文件名，例如 `Complete Alchemy & Cooking Overhaul.esp`），悬停提示里也带上「来源：」。抽到没见过的材料时可以直接知道去哪个模组的资料里查、或者去哪一片区域采集。原生 `soul_pool::State()` 的材料对象新增 `source` 字段；面板把它渲染成徽章内的第二行（单行省略，最长 24 字符），并纳入 `soul-pool-page-test` 断言。
 
 ## 2.3.28 修复「有些武器找不到修复材料」
 

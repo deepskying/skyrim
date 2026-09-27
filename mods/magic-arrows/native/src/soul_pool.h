@@ -85,7 +85,10 @@ inline json State(RE::PlayerCharacter* player){
         json materials=json::array();
         for(const auto& material:pool.options[index].materials){
             auto* item=Bound(material.form);
-            materials.push_back({{"id",material.form},{"name",item?crafting::Name(item):"来源缺失的材料"},{"count",material.count},{"owned",player&&item?crafting::Count(player,item):0}});
+            auto* file=item?item->GetFile(0):nullptr;
+            materials.push_back({{"id",material.form},{"name",item?crafting::Name(item):"来源缺失的材料"},
+                {"source",file?std::string(file->GetFilename()):"未知来源"},
+                {"count",material.count},{"owned",player&&item?crafting::Count(player,item):0}});
         }
         options.push_back({{"id",static_cast<int>(index)},{"materials",materials}});
     }

@@ -45,8 +45,9 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
                 {plan.materials.map(material => {
                   const missing = Math.max(0, material.count - material.owned);
                   return <span key={material.id} role="listitem" className={`soul-requirement${missing ? '' : ' met'}`}
-                    title={`${material.name}：已有 ${material.owned}，需要 ${material.count}`}>
-                    {material.name}<b>{material.owned}/{material.count}</b>
+                    title={`${material.name}：已有 ${material.owned}，需要 ${material.count}\n来源：${material.source}`}>
+                    <span className="soul-requirement-label">{material.name}<b>{material.owned}/{material.count}</b></span>
+                    <small className="soul-requirement-source">{material.source}</small>
                   </span>;
                 })}
                 {(() => {

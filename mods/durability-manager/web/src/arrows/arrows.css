@@ -62,7 +62,10 @@
 .soul-tier{font-size:calc(13px * var(--workshop-font-scale,1));color:#9bc7b8}
 .soul-columns{display:grid;gap:18px}
 .soul-requirements{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:14px 0}
-.soul-requirement{display:inline-flex;align-items:baseline;gap:6px;border:1px solid #c79a7a44;border-radius:6px;padding:8px 13px;background:#c79a7a10;color:#d8b79c;font-size:calc(16px * var(--workshop-font-scale,1))}
+.soul-requirement{display:inline-grid;gap:2px;justify-items:start;border:1px solid #c79a7a44;border-radius:6px;padding:8px 13px;background:#c79a7a10;color:#d8b79c;font-size:calc(16px * var(--workshop-font-scale,1))}
+.soul-requirement-label{display:inline-flex;align-items:baseline;gap:6px}
+.soul-requirement-source{display:block;max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(11px * var(--workshop-font-scale,1));color:#8b9f99}
+.soul-requirement.met .soul-requirement-source{color:#93c8b4}
 .soul-requirement b{color:#e6cbb0;font-weight:500}
 .soul-requirement i{font-style:normal;color:#d08f74;font-size:calc(12px * var(--workshop-font-scale,1))}
 .soul-requirement.met{border-color:#8fd3b566;background:#8fd3b512;color:#bdf0dc}
