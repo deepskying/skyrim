@@ -201,7 +201,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.3.10";
+    constexpr std::string_view kPluginVersion = "2.3.11";
 #else
     constexpr std::string_view kPluginVersion = "0.1.55";
 #endif
@@ -2933,16 +2933,18 @@ namespace
 #ifdef UNIFIED_WORKSHOP
         // Queued crafting progress rides the same snapshot, so it clears with the rest.
         const auto craftPayload = unified_workshop::CraftOrderJson();
+        const auto soulPayload = unified_workshop::SoulPoolHudJson();
 #else
         const auto craftPayload = std::string(R"({"entries":[],"paused":false,"reason":""})");
+        const auto soulPayload = std::string(R"({"enabled":false,"points":0,"capacity":0,"tier":0})");
 #endif
-        const auto payload = itemsPayload + positionPayload + playerPayload + craftPayload;
+        const auto payload = itemsPayload + positionPayload + playerPayload + craftPayload + soulPayload;
         if (payload != g_equippedHudPayload) {
             if (g_equippedHudPayload.empty())
                 logger::info("Equipped HUD snapshot: {} item(s).", items.size());
             g_equippedHudPayload = payload;
             g_equippedHudVisible = true; // Player stats remain visible even with empty hands.
-            const auto script = "window.DurabilityManager?.updateHudPosition?.(" + positionPayload + ");window.DurabilityManager?.updateEquippedHud(" + itemsPayload + ");window.DurabilityManager?.updatePlayerHud?.(" + playerPayload + ");window.DurabilityManager?.updateCraftOrders?.(" + craftPayload + ");";
+            const auto script = "window.DurabilityManager?.updateHudPosition?.(" + positionPayload + ");window.DurabilityManager?.updateEquippedHud(" + itemsPayload + ");window.DurabilityManager?.updatePlayerHud?.(" + playerPayload + ");window.DurabilityManager?.updateCraftOrders?.(" + craftPayload + ");window.DurabilityManager?.updateSoulPool?.(" + soulPayload + ");";
             g_prisma->Invoke(g_view, script.c_str());
             if (g_equippedHudVisible) g_prisma->Show(g_view);
         }

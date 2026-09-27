@@ -98,6 +98,8 @@ inline json State(RE::PlayerCharacter* player){
         {"upgradeGold",pool.gold},{"materials",materials},{"gems",gems},{"deposit",deposit},
         {"gold",player?crafting::Count(player,Bound(0xF)):0}};
 }
+// The bottom-left HUD only needs the readout, so it never walks the inventory.
+inline json Hud(){return {{"enabled",enabled&&available},{"points",pool.points},{"capacity",Capacity()},{"tier",pool.tier}};}
 inline bool Upgrade(RE::PlayerCharacter* player){
     EnsureRolled();if(!player)throw std::runtime_error("尚未准备好");
     for(const auto& material:pool.next){auto* item=Bound(material.form);if(!item||crafting::Count(player,item)<material.count)throw std::runtime_error("扩容材料不足");}

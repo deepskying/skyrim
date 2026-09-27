@@ -18,6 +18,8 @@ import { createHudReceiver, normalizeEquippedHud, type EquippedHudItem, type Hud
 import { EquippedHud } from './EquippedHud';
 import { CraftOrderHud } from './CraftOrderHud';
 import { normalizeCraftOrders, type CraftOrderSnapshot } from './craft-hud';
+import { normalizeSoulPoolHud, type SoulPoolHudSnapshot } from './soul-hud';
+import { SoulPoolHud } from './SoulPoolHud';
 import { PlayerHud } from './PlayerHud';
 import { normalizePlayerHud, type PlayerHudSnapshot } from './player-hud';
 import './hud.css';
@@ -39,6 +41,7 @@ declare global {
       updateEquippedHud: (items: unknown) => void;
       updatePlayerHud: (state: unknown) => void;
       updateCraftOrders: (orders: unknown) => void;
+      updateSoulPool: (pool: unknown) => void;
       clearHud: () => void;
       updateHudPosition: (position: unknown) => void;
       reportReady: () => void;
@@ -51,7 +54,7 @@ declare global {
 }
 
 const emptyState: PanelState = {
-  version: '2.3.10',
+  version: '2.3.11',
   equipped: [], repairQueue: [], capturingHotkey: false,
   forge: { active: false, station: '', gold: 0, refreshCost: 0, refreshes: 0, cards: [] },
   settings: { hotkey: { key: 'A', keyCode: 0x1E, shift: true, ctrl: false, alt: false }, lowDurabilityThreshold: 30, weaponDisplaySeconds: 3, enableLowDurabilityWarning: true, enableWorkshopSounds: true, allowEnchantedItemsToBreak: true },
@@ -216,6 +219,7 @@ export function App() {
   const [equippedHud, setEquippedHud] = useState<EquippedHudItem[]>([]);
   const [playerHud, setPlayerHud] = useState<PlayerHudSnapshot>();
   const [craftOrders, setCraftOrders] = useState<CraftOrderSnapshot>();
+  const [soulPool, setSoulPool] = useState<SoulPoolHudSnapshot>();
   useEffect(() => {
     if (!import.meta.env.DEV || !new URLSearchParams(window.location.search).has('hud-preview')) return;
     setPanelVisible(false);
@@ -263,6 +267,7 @@ export function App() {
       updateEquippedHud: (items) => { const next = normalizeEquippedHud(items); if (next) setEquippedHud(next); },
       updatePlayerHud: value => { const next = normalizePlayerHud(value); if (next) setPlayerHud(next); },
       updateCraftOrders: value => { const next = normalizeCraftOrders(value); if (next) setCraftOrders(next); },
+      updateSoulPool: value => { const next = normalizeSoulPoolHud(value); if (next) setSoulPool(next); },
       clearHud: () => { hudReceiver.clear(); setEquippedHud([]); setPlayerHud(undefined); setCraftOrders(undefined); },
       reportReady: () => send('ready', { version: emptyState.version }),
       escape: () => escapeAction.current(),
@@ -401,7 +406,7 @@ export function App() {
       </>}
       {hud.detail && <span className="hud-detail">{hud.detail}</span>}
     </div>
-  </aside>}{(playerHud || !!craftOrders?.entries.length || equippedHud.length > 0) && <div className="character-hud-panel">{playerHud && <PlayerHud state={playerHud} />}<CraftOrderHud orders={craftOrders} /><EquippedHud items={equippedHud} hasNotification={!!hud} /></div>}</HudFrame>}{panelVisible && <main className={`forge-shell${tab === 'arrows' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
+  </aside>}{(playerHud || !!craftOrders?.entries.length || equippedHud.length > 0 || soulPool?.enabled) && <div className="character-hud-panel">{playerHud && <PlayerHud state={playerHud} />}<CraftOrderHud orders={craftOrders} /><SoulPoolHud pool={soulPool} /><EquippedHud items={equippedHud} hasNotification={!!hud} /></div>}</HudFrame>}{panelVisible && <main className={`forge-shell${tab === 'arrows' || tab === 'soul' ? ' arrows-active' : ''}`} style={{ '--workshop-font-scale': (draft.uiFontScale ?? 100) / 100, '--workshop-background-alpha': 1 - (draft.uiTransparency ?? 16) / 100 } as CSSProperties}>
     <WorkshopNavigation tab={tab} forge={state.forge.active} arrows={!!state.unified || import.meta.env.DEV} onChange={next => { setTab(next); setEnhancingId(undefined); send('cancelHotkeyCapture'); }} /><div className="workshop-workspace">
     <header className="forge-header"><div><p className="workshop-eyebrow">{tab === 'soul' ? 'SOUL POOL' : tab === 'arrows' ? 'MAGIC ARROWS' : tab === 'settings' ? 'YOUR PREFERENCES' : 'YOUR EQUIPMENT'}</p><h1>{tab === 'soul' ? '灵魂池' : tab === 'arrows' ? '魔法箭工坊' : tab === 'settings' ? '工坊设置' : '每一次冒险，都值得悉心准备。'}</h1><p className="workshop-subtitle">{tab === 'settings' ? '按你的习惯，设置工坊操作与提示。' : tab === 'soul' ? '吸魂自动入池，兑换成灵魂石后照常交给附魔台。' : tab === 'arrows' ? '整理箭矢，封存法术，为下一次冒险做好准备。' : '查看装备状态，修复磨损，探索新的强化。'}</p></div><div className="workshop-header-actions"><span className={`forge-context ${(enhancing ? canEnhance : state.forge.active) ? 'active' : ''}`}>{enhancing ? (canEnhance ? '附魔台／锻造设备可用' : '需靠近附魔台或锻造设备') : state.forge.active ? `⚒ ${state.forge.station}` : '附近无锻造设施'}</span><button className="close" onClick={() => send('close')} aria-label="关闭面板" type="button">×</button></div></header>
 

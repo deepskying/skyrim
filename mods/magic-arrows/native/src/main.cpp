@@ -428,6 +428,7 @@ bool unified_workshop::InstallArrows(){
     return ammo_queue::available;
 }
 std::string unified_workshop::CraftOrderJson(){return craft_order::State().dump();}
+std::string unified_workshop::SoulPoolHudJson(){return soul_pool::Hud().dump();}
 void unified_workshop::ArrowMessage(SKSE::MessagingInterface::Message* message){Message(message);}
 #else
 extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* skse){

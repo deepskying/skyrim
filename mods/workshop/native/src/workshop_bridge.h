@@ -22,4 +22,6 @@ bool LoadArrowRecord(SKSE::SerializationInterface*, std::uint32_t, std::uint32_t
 void RevertArrows(SKSE::SerializationInterface*);
 // Queued crafting progress for the equipment HUD, already serialized as JSON.
 std::string CraftOrderJson();
+// Soul pool readout for the equipment HUD: enabled, points, capacity and tier only.
+std::string SoulPoolHudJson();
 }
