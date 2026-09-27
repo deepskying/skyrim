@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WorkshopAction } from '../bridge';
 import type { ArrowState } from './types';
-import { levelForGem, SoulGemIcon } from './SoulGemIcon';
+import { SoulGemIcon } from './SoulGemIcon';
 
 // The pool banks every soul the player or a follower captures, and the panel is the only
 // way back out: points plus gold buy filled gems the vanilla enchanting table accepts.
@@ -58,7 +58,7 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
             return <button key={gem.level} type="button" role="radio" aria-checked={selected} disabled={gem.can < 1}
               className={`soul-gem-card${selected ? ' selected' : ''}`}
               onClick={() => { setLevel(gem.level); setCount(1); }}>
-              <SoulGemIcon level={gem.level} />
+              <SoulGemIcon />
               <b>{gem.name}</b>
               <small>{gem.points} 点 + {gem.gold} 金币</small>
               <em>{gem.can > 0 ? `可兑 ${gem.can}` : '不足'}</em>
@@ -79,7 +79,7 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
         <header><div><small>DEPOSIT</small><h2>存入灵魂石</h2></div><span className="soul-tier">{pool.points} / {pool.capacity}</span></header>
         {pool.deposit.length === 0 ? <p className="arrow-muted">背包里没有可以存入的填好灵魂石。</p> :
           <div className="soul-gem-list">{pool.deposit.map(entry => <article key={entry.id}>
-            <span><SoulGemIcon level={levelForGem(entry.id)} />{entry.name} ×{entry.count}</span>
+            <span><SoulGemIcon />{entry.name} ×{entry.count}</span>
             <small>每颗 {entry.points} 点 · 本次可存 {Math.min(entry.count, entry.room)}</small>
             <div><button disabled={entry.room < 1} onClick={() => action('soulDeposit', { id: entry.id, count: Math.min(entry.count, entry.room) })}>存入 {Math.min(entry.count, entry.room)}</button></div>
           </article>)}</div>}
