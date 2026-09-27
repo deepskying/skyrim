@@ -55,6 +55,22 @@
 .craft-stock-badge,.craft-material-meta>span,.craft-material-tools>span{min-width:0;max-width:100%;overflow-wrap:anywhere}
 
 .arrows-page .arrow-card-enqueue{width:100%;margin-top:auto;font-size:calc(14px * var(--workshop-font-scale,1));padding:8px 10px}.arrow-grid-card .arrow-queued{display:block;margin-top:auto;padding:8px 0;color:#9ed7bd;font-size:calc(12px * var(--workshop-font-scale,1));text-align:center}
+.soul-page .soul-meter-card{display:grid;gap:12px}
+.soul-meter{position:relative;display:flex;align-items:center;height:36px;border:1px solid #8fcab561;border-radius:9px;background:#08161d80;overflow:hidden}
+.soul-meter-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(115deg,#7fd3bd4d,#a9e6d266);border-right:1px solid #b5ecd9a0;transition:width .25s ease}
+.soul-meter b{position:relative;margin-left:15px;font-size:calc(16px * var(--workshop-font-scale,1));color:#d8f4ea}
+.soul-tier{font-size:calc(13px * var(--workshop-font-scale,1));color:#9bc7b8}
+.soul-columns{display:grid;gap:18px}
+.soul-requirements{list-style:none;margin:14px 0;padding:0;display:grid;gap:8px}
+.soul-requirements li{display:flex;align-items:center;justify-content:space-between;border:1px solid #8aa9a32e;border-radius:7px;padding:9px 12px;font-size:calc(14px * var(--workshop-font-scale,1));color:#c2cdd2}
+.soul-requirements li.met{border-color:#8fd3b566;background:#8fd3b512;color:#bdf0dc}
+.soul-gem-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px}
+.soul-gem-list article{border:1px solid #819eaa2d;border-radius:8px;padding:12px;display:grid;gap:8px;background:#0d1a2455;color:#dbe9ed}
+.soul-gem-list article.locked{opacity:.55}
+.soul-gem-list article>span{font-size:calc(14px * var(--workshop-font-scale,1))}
+.soul-gem-list article>small{font-size:calc(12px * var(--workshop-font-scale,1));color:#95b0b6}
+.soul-gem-list article>div{display:flex;gap:7px}
+.soul-gem-list article>div>button{flex:1}
 
 .arrow-inventory>.arrow-inventory-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}.arrow-card-stats{display:flex;align-items:center;justify-content:space-between;gap:12px}.arrow-damage{padding:3px 7px;border:1px solid #d9b78038;border-radius:5px;background:#d9b7800b;color:#e2c28e;font-size:calc(14px * var(--workshop-font-scale,1))}.arrow-card-stats>strong{font-size:calc(14px * var(--workshop-font-scale,1));color:#b5d2ca}.arrow-card-body{display:flex;flex:1;flex-direction:column;gap:6px;min-width:0;min-height:0}.arrow-card-body b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;line-height:1.4}.arrow-card-actions{display:grid;grid-template-columns:1fr;align-items:center;gap:6px;margin-top:auto;flex-shrink:0}.arrows-page .arrow-card-actions>button{width:100%;font-size:calc(14px * var(--workshop-font-scale,1));padding:8px 6px}
 

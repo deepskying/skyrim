@@ -1,12 +1,13 @@
 #pragma once
 #include "soul_capture_rules.h"
 #include "runtime_binding.h"
+#include "soul_pool.h"
 namespace soul_capture {
-// A vanilla soul trap only fills a gem the caster already carries, so a kill with a
-// sealed soul arrow can silently produce nothing. Wrap the engine's own Actor::TrapSoul
-// and, when the capture failed on a victim our soul arrow hit, lend one empty gem so the
-// engine can run its own matching again. Every other rule (dead victim, soul size,
-// humanoid souls needing a black gem, already trapped) still comes from the engine.
+// Every soul capture in the game ends up in the engine's Actor::TrapSoul: the vanilla Soul
+// Trap script, weapon enchantments, the engine's soul trap archetype and our sealed arrows.
+// While the pool is enabled the player and their followers bank the soul there instead of
+// filling a gem; a soul the pool cannot take falls through to the vanilla capture below,
+// which needs an empty gem the caster carries.
 using TrapSoulFn=bool(*)(RE::Actor*,RE::Actor*);
 inline REL::Relocation<TrapSoulFn> original;
 inline std::vector<soul_capture_rules::Entry> armed;
@@ -21,7 +22,10 @@ inline void Arm(RE::Actor* victim,RE::Actor* shooter){
 }
 inline void Reset(){armed.clear();}
 inline bool TrapSoul(RE::Actor* caster,RE::Actor* victim){
+    if(soul_pool::enabled&&caster&&victim&&victim->IsDead()&&(caster==RE::PlayerCharacter::GetSingleton()||caster->IsPlayerTeammate()))
+        if(soul_pool::Bank(victim))return true;
     if(original(caster,victim))return true;
+    if(soul_pool::enabled)return false; // Pool full or not ours: exactly the vanilla capture.
     if(!installed||!caster||!victim||!victim->IsDead())return false;
     const auto now=GetTickCount64(),epoch=runtime_binding::generation.load();
     if(!soul_capture_rules::Armed(armed,victim->GetFormID(),now,epoch))return false;

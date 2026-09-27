@@ -87,6 +87,13 @@ target("soul-capture-test")
     add_includedirs("src")
     add_cxxflags("/utf-8")
 
+target("soul-pool-test")
+    set_kind("binary")
+    set_default(false)
+    add_files("tests/soul_pool_test.cpp")
+    add_includedirs("src")
+    add_cxxflags("/utf-8")
+
 target("alchemy-cost-test")
     set_kind("binary")
     set_default(false)

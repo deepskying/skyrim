@@ -49,6 +49,12 @@ void LoadConfig() {
     auto path=ConfigPath();wchar_t text[32]{};
     follower_ammo::consume=GetPrivateProfileIntW(L"Followers",L"ConsumeMagicArrows",1,path.c_str())!=0;
     craft_order::pauseInCombat=GetPrivateProfileIntW(L"Crafting",L"PauseInCombat",1,path.c_str())!=0;
+#ifdef UNIFIED_WORKSHOP
+    soul_pool::enabled=GetPrivateProfileIntW(L"SoulPool",L"Enabled",1,path.c_str())!=0;
+#else
+    // The standalone panel has no soul pool page yet, so it keeps the 2.3.8 behaviour.
+    soul_pool::enabled=GetPrivateProfileIntW(L"SoulPool",L"Enabled",0,path.c_str())!=0;
+#endif
     crafting::GenericPercent=std::clamp(static_cast<int>(GetPrivateProfileIntW(L"Crafting",L"GenericMaterialPercent",50,path.c_str())),0,100);
     GetPrivateProfileStringW(L"Hotkey",L"Key",L"W",text,32,path.c_str());
     std::string key;for(auto* ch=text;*ch;++ch){if(*ch>127){key.clear();break;}key.push_back(static_cast<char>(*ch));}
@@ -136,6 +142,7 @@ json State(std::string message={}) {
     const auto access = loaded ? crafting_access::Nearby(p) : crafting_access::Access{};
     return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","1.1.0"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
         {"orders",craft_order::State()},
+        {"soulPool",soul_pool::State(p)},
         {"materialGenericPercent",crafting::GenericPercent},
         {"hotkey",{{"key",binding.key},{"shift",binding.shift},{"ctrl",binding.ctrl},{"alt",binding.alt}}},
         {"loaded",loaded},{"powerAvailable",RE::TESDataHandler::GetSingleton()&&RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(0x840,"MagicArrows.esp")!=nullptr}};
@@ -253,7 +260,7 @@ void Action(const char* raw){
             }
             if(type=="cancelCraft"){crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();Send();return;}
             if(type=="workshopMode"){auto mode=q.value("mode",std::string{});if(mode=="magic"||mode=="normal"){activeCraftMode=mode;crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();}Send();return;}
-            if(type=="page"){auto page=q.value("page",std::string{});if(page=="equipment"||page=="craft"||page=="settings")activePage=page;Send();return;}
+            if(type=="page"){auto page=q.value("page",std::string{});if(page=="equipment"||page=="craft"||page=="settings"||page=="soul")activePage=page;Send();return;}
             if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft"){
                 const bool normal=type=="normalQuote"||type=="normalCraft";
                 const auto access=crafting_access::Nearby(player);
@@ -302,6 +309,14 @@ void Action(const char* raw){
                 b.shift=q.at("shift").get<bool>();b.ctrl=q.at("ctrl").get<bool>();b.alt=q.at("alt").get<bool>();
                 if(!code||(!b.shift&&!b.ctrl&&!b.alt&&b.key.size()==1)){Send("字母快捷键至少需要一个修饰键；也可以单独使用 F1–F12");return;}
                 b.code=*code;if(!SaveConfig(b)){Send("配置文件保存失败，快捷键未更改");return;}binding=b;Send("快捷键已保存，立即生效");
+            }else if(type=="soulUpgrade"){
+                soul_pool::Upgrade(player);Send("灵魂池已扩容");
+            }else if(type=="soulConvert"){
+                const int moved=soul_pool::Convert(player,q.value("level",0),q.value("count",1));
+                Send(moved>0?"灵魂已兑换成灵魂石":"灵魂点数或金币不足");
+            }else if(type=="soulDeposit"){
+                const int moved=soul_pool::Deposit(player,q.value("id",RE::FormID{}),q.value("count",1));
+                Send(moved>0?"灵魂石已存入灵魂池":"灵魂池已满或没有可存入的灵魂石");
             }else if(type=="refresh")Send();
         }catch(const std::exception& e){logger::warn("Panel request rejected: {}",e.what());if(!workshopReply.is_null())workshopReply["error"]=e.what();Send(e.what());}
     });
@@ -399,6 +414,7 @@ void unified_workshop::BeginLoadArrows(SKSE::SerializationInterface* serial){
 }
 bool unified_workshop::LoadArrowRecord(SKSE::SerializationInterface* serial,std::uint32_t type,std::uint32_t version,std::uint32_t length){
     if(craft_order::LoadRecord(serial,type,version,length))return true;
+    if(soul_pool::LoadRecord(serial,type,version,length))return true;
     if(type!=ammo_queue::record)return false;
     if((version==1||version==2)&&length>=8&&length<=264&&length%4==0){std::vector<std::uint32_t> words(length/4);if(serial->ReadRecordData(words.data(),length)==length)RestoreQueueWords(serial,words,version);}
     return true;
@@ -407,6 +423,7 @@ bool unified_workshop::InstallArrows(){
     // Both queues need the co-save, so they share one availability probe.
     ammo_queue::available=SKSE::GetSerializationInterface()!=nullptr;
     craft_order::available=ammo_queue::available;
+    soul_pool::available=ammo_queue::available;
     return ammo_queue::available;
 }
 std::string unified_workshop::CraftOrderJson(){return craft_order::State().dump();}

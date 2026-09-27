@@ -7,6 +7,13 @@ export type Recipe = { id: number; name: string; source: string; yield: number; 
 export type Selection = { spell: number; bases: Stack[]; materials: Stack[] };
 export type Quote = { token: number; runtime?: boolean; selection: Selection; total: number; gold: number; magicka: number; suppliedCharge: number; ingredients: { name: string; count: number }[]; outputs: { name: string; count: number }[]; bases: Stack[] };
 export type NormalQuote = { token: number; recipe: number; batches: number; total: number; name: string; ingredients: { name: string; count: number }[] };
+export type SoulPool = {
+  available: boolean; enabled: boolean; points: number; capacity: number; tier: number; absorbed: number;
+  upgradeGold: number; gold: number;
+  materials: { id: number; name: string; count: number; owned: number }[];
+  gems: { level: number; name: string; points: number; gold: number; id: number; can: number }[];
+  deposit: { id: number; name: string; count: number; points: number; room: number }[];
+};
 export type ArrowState = {
   // Queued crafting orders, as reported by the native craft_order state.
   orders?: { entries: { spell: number; name: string; spellName?: string; label: string; total: number; remaining: number; progress: number; family?: string; manaPerArrow?: number }[]; paused?: boolean; reason?: string; limit?: number; pauseInCombat?: boolean; available?: boolean };
@@ -18,6 +25,7 @@ export type ArrowState = {
   materialGenericPercent?: number;
   ammoQueue?: { available: boolean; enabled: boolean; ids: number[]; items?: Arrow[]; limit: number; finished?: boolean };
   followers?: { available: boolean; consumeMagicArrows: boolean };
+  soulPool?: SoulPool;
   quote?: Quote | null; normalQuote?: NormalQuote | null;
   workshopReply?: { type: string; requestID: number; ok: boolean; error?: string } | null;
 };
