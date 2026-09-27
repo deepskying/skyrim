@@ -11,7 +11,7 @@ function load(name) {
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } }).outputText;
   const exports = {};
   const require = createRequire(import.meta.url);
-  new Function('require', 'exports', compiled)(require, exports);
+  new Function('require', 'exports', compiled)(id => id === './SoulGemIcon' ? load('arrows/SoulGemIcon.tsx') : require(id), exports);
   return exports;
 }
 const { arrowDemo } = load('arrows/demo.ts');
@@ -21,7 +21,8 @@ const markup = renderToStaticMarkup(createElement(SoulPoolPage, { state: arrowDe
 test('the withdrawal card offers candidate gems, a slider and one action', () => {
   assert.match(markup, /role="radiogroup"/);
   assert.match(markup, /soul-gem-card/);
-  assert.match(markup, /soul-gem-icon level-6/);
+  assert.match(markup, /soul-gem-svg level-6/);
+  assert.match(markup, /<svg/);
   assert.match(markup, /type="range"/);
   assert.match(markup, /兑换 1 颗/);
   assert.match(markup, /12 \/ 20/);
