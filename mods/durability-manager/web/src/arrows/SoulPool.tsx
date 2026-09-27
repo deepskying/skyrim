@@ -4,6 +4,7 @@ import type { ArrowState } from './types';
 
 // The pool banks every soul the player or a follower captures, and the panel is the only
 // way back out: points plus gold buy filled gems the vanilla enchanting table accepts.
+// Requirements stay inline so the upgrade card does not grow a row per material.
 export function SoulPoolPage({ state, action, active }: { state: ArrowState; action: WorkshopAction; active: boolean }) {
   const pool = state.soulPool;
   const gems = pool?.gems ?? [];
@@ -29,10 +30,22 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
       <section className="arrow-card">
         <header><div><small>NEXT TIER</small><h2>灵魂池扩容</h2></div><span className="soul-tier">上限 +10</span></header>
         <p className="arrow-muted">扩容材料在本次随机后随角色存档保存，读完存档不会改变；扩容成功后才会重新随机下一级需求。</p>
-        <ul className="soul-requirements">
-          {pool.materials.map(material => <li key={material.id} className={material.owned >= material.count ? 'met' : ''}><span>{material.name}</span><b>{material.owned} / {material.count}</b></li>)}
-          <li className={pool.gold >= pool.upgradeGold ? 'met' : ''}><span>金币</span><b>{pool.gold} / {pool.upgradeGold}</b></li>
-        </ul>
+        <div className="soul-requirements" role="list">
+          <span className="soul-requirements-label">扩容需求</span>
+          {pool.materials.map(material => {
+            const missing = Math.max(0, material.count - material.owned);
+            return <span key={material.id} role="listitem" className={`soul-requirement${missing ? '' : ' met'}`}
+              title={`${material.name}：${material.owned} / ${material.count}`}>
+              {material.name}<b>×{material.count}</b>{missing > 0 && <i>缺 {missing}</i>}
+            </span>;
+          })}
+          {(() => {
+            const missing = Math.max(0, pool.upgradeGold - pool.gold);
+            return <span role="listitem" className={`soul-requirement gold${missing ? '' : ' met'}`} title={`金币：${pool.gold} / ${pool.upgradeGold}`}>
+              金币<b>×{pool.upgradeGold}</b>{missing > 0 && <i>缺 {missing}</i>}
+            </span>;
+          })()}
+        </div>
         <button className="arrow-primary" disabled={!ready} onClick={() => action('soulUpgrade')}>扩容到 {pool.capacity + 10} 点</button>
       </section>
       <section className="arrow-card">

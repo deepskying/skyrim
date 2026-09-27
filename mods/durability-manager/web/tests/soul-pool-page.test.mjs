@@ -31,3 +31,10 @@ test('the deposit list still renders and the pool meter is bordered', () => {
   assert.match(markup, /存入灵魂石/);
   assert.match(markup, /soul-meter-fill/);
 });
+
+test('upgrade requirements are inline badges with a count', () => {
+  assert.match(markup, /soul-requirement/);
+  assert.match(markup, /×4/);
+  assert.match(markup, /×1000/);
+  assert.match(markup, /缺 1/);
+});
