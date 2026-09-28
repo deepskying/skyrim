@@ -72,6 +72,17 @@ namespace
         float movementBootWearPer1000Units = 0.02F;
         float movementBodyWearPer1000Units = 0.005F;
         float maxWearReduction = 0.70F;
+        // Workshop sound descriptors; every one can be overridden in DurabilityManager.ini
+        // under [WorkshopSounds] with any SOUN or SNDR editor ID the load order provides.
+        std::string soundClick = "UIMenuOK";
+        std::string soundFailure = "UIMenuCancel";
+        std::string soundRepairWeapon = "UISmithingImproveWeapon";
+        std::string soundRepairArmor = "UISmithingImproveArmor";
+        std::string soundRefreshCards = "UISmithingCreateGeneric";
+        std::string soundEnhanceSuccess = "UIEnchantingItemCreate";
+        std::string soundEnhanceDismantle = "UILockpickingPickBreak";
+        std::string soundSalvage = "UIEnchantingItemCreate";
+        std::string soundArrowCraft = "UIEnchantingItemCreate";
     };
 
     Settings g_settings{};
@@ -201,7 +212,7 @@ namespace
     constexpr std::uint32_t kMaxDurabilityRecords = 100000;
     constexpr std::uint32_t kMaxPersistedDisplayNameBytes = 2048;
 #ifdef UNIFIED_WORKSHOP
-    constexpr std::string_view kPluginVersion = "2.3.30";
+    constexpr std::string_view kPluginVersion = "2.3.31";
 #else
     constexpr std::string_view kPluginVersion = "0.1.55";
 #endif
@@ -352,6 +363,16 @@ namespace
                    << "\nMovementBootWearPer1000Units=" << g_settings.movementBootWearPer1000Units
                    << "\nMovementBodyWearPer1000Units=" << g_settings.movementBodyWearPer1000Units
                    << "\nMaxWearReduction=" << g_settings.maxWearReduction << '\n';
+        configFile << "\n[WorkshopSounds]\n; Any SOUN or SNDR editor ID the load order provides; a wrong one plays nothing.\n"
+                   << "Click=" << g_settings.soundClick
+                   << "\nFailure=" << g_settings.soundFailure
+                   << "\nRepairWeapon=" << g_settings.soundRepairWeapon
+                   << "\nRepairArmor=" << g_settings.soundRepairArmor
+                   << "\nRefreshCards=" << g_settings.soundRefreshCards
+                   << "\nEnhanceSuccess=" << g_settings.soundEnhanceSuccess
+                   << "\nEnhanceDismantle=" << g_settings.soundEnhanceDismantle
+                   << "\nSalvage=" << g_settings.soundSalvage
+                   << "\nArrowCraft=" << g_settings.soundArrowCraft << '\n';
     }
 
     void LoadConfig()
@@ -426,6 +447,20 @@ namespace
                 } catch (const std::exception&) {
                     logger::warn("Ignoring invalid DurabilityManager.ini value for {}.", key);
                 }
+            } else if (section == "[WORKSHOPSOUNDS]") {
+                const auto first = value.find_first_not_of(" \t\r\n");
+                const auto last = value.find_last_not_of(" \t\r\n");
+                const auto text = first == std::string::npos ? std::string{} : value.substr(first, last - first + 1);
+                if (text.empty()) continue;
+                if (key == "CLICK") g_settings.soundClick = text;
+                else if (key == "FAILURE") g_settings.soundFailure = text;
+                else if (key == "REPAIRWEAPON") g_settings.soundRepairWeapon = text;
+                else if (key == "REPAIRARMOR") g_settings.soundRepairArmor = text;
+                else if (key == "REFRESHCARDS") g_settings.soundRefreshCards = text;
+                else if (key == "ENHANCESUCCESS") g_settings.soundEnhanceSuccess = text;
+                else if (key == "ENHANCEDISMANTLE") g_settings.soundEnhanceDismantle = text;
+                else if (key == "SALVAGE") g_settings.soundSalvage = text;
+                else if (key == "ARROWCRAFT") g_settings.soundArrowCraft = text;
             }
         }
     }
@@ -975,9 +1010,9 @@ namespace
         return ItemKey{ static_cast<RE::FormID>(baseFormID), static_cast<std::uint16_t>(uniqueID) };
     }
 
-    void PlayWorkshopSound(const char* a_editorID)
+    void PlayWorkshopSound(const std::string& a_editorID)
     {
-        if (g_settings.enableWorkshopSounds) RE::PlaySound(a_editorID);
+        if (g_settings.enableWorkshopSounds && !a_editorID.empty()) RE::PlaySound(a_editorID.c_str());
     }
 
     void PlayWorkshopClick()
@@ -986,13 +1021,13 @@ namespace
         const auto now = std::chrono::steady_clock::now();
         if (now - previous < std::chrono::milliseconds(80)) return;
         previous = now;
-        PlayWorkshopSound("UIMenuOK");
+        PlayWorkshopSound(g_settings.soundClick);
     }
 
     // Result cues are native-only: early validation exits cannot sound like success.
     struct WorkshopFeedback
     {
-        const char* resultSound = "UIMenuCancel";
+        std::string resultSound = g_settings.soundFailure;
         WorkshopFeedback() { PlayWorkshopClick(); }
         ~WorkshopFeedback() { PlayWorkshopSound(resultSound); }
     };
@@ -1052,7 +1087,7 @@ namespace
             g_pendingBreaks.erase(*key);
         }
         logger::info("Repaired item {:08X}:{:04X} to full durability using {} material types.", key->baseFormID, key->uniqueID, materials.size());
-        feedback.resultSound = item->As<RE::TESObjectWEAP>() ? "UISmithingImproveWeapon" : "UISmithingImproveArmor";
+        feedback.resultSound = item->As<RE::TESObjectWEAP>() ? g_settings.soundRepairWeapon : g_settings.soundRepairArmor;
         SendState(DisplayName(item) + "已修复至满耐久。");
     }
 
@@ -2318,7 +2353,7 @@ namespace
             // Record the paid result for the item even if UI selection changes.
             g_enhancementDrafts.Store(*key, std::move(cards), nextRefreshes);
         }
-        feedback.resultSound = "UIEnchantRecharge";
+        feedback.resultSound = g_settings.soundRefreshCards;
         SendRefreshResult(a_equipmentID, a_requestID, true, cost, "已支付 " + std::to_string(cost) + " 金币并刷新强化卡片。");
     }
 
@@ -2656,7 +2691,7 @@ namespace
             const auto enchantmentResult = card.type == EnhancementCardType::Enchantment && replacementEnchantment ?
                                                "，附魔已替换为“" + EnchantmentLabel(replacementEnchantment) + "”" :
                                                std::string{};
-            feedback.resultSound = "UIEnchantingItemCreate";
+            feedback.resultSound = g_settings.soundEnhanceSuccess;
             SendState(itemName + "强化成功" + enchantmentResult + "，当前等级 +" + std::to_string(result.enhancementLevel) +
                 (restored ? "。" : "。未能恢复原装备槽位，请在背包中手动装备。"));
             return;
@@ -2708,7 +2743,7 @@ namespace
             roll,
             card.successChance,
             salvage.size());
-        feedback.resultSound = "UIEnchantingItemDestroy";
+        feedback.resultSound = g_settings.soundEnhanceDismantle;
         SendState(itemName + "强化失败，装备已分解。" + (salvage.empty() ? "" : SalvageDescription(salvage)));
     }
 
@@ -4130,7 +4165,7 @@ void unified_workshop::OpenArrowSection() {
 void unified_workshop::CloseEquipment() { ClosePanel(); }
 unified_workshop::ArrowCraftFeedback::ArrowCraftFeedback() { PlayWorkshopClick(); }
 unified_workshop::ArrowCraftFeedback::~ArrowCraftFeedback() {
-    PlayWorkshopSound(success ? "UIEnchantingItemCreate" : "UIMenuCancel");
+    PlayWorkshopSound(success ? g_settings.soundArrowCraft : g_settings.soundFailure);
 }
 #endif
 

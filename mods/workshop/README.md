@@ -1,4 +1,10 @@
-# 装备工坊 · Equipment Workshop 2.3.30
+# 装备工坊 · Equipment Workshop 2.3.31
+
+## 2.3.31 强化卡刷新与分解音效可换，默认已换新
+
+两处音效按讨论换掉了：**刷新强化卡**由 `UIEnchantRecharge`（附魔台充能声）改为 `UISmithingCreateGeneric`（锻造出件声），**强化失败分解装备**由 `UIEnchantingItemDestroy` 改为 `UILockpickingPickBreak`（清脆的断裂声）。
+
+同时把工坊的 9 个音效全部做成可配置：`DurabilityManager.ini` 新增 `[WorkshopSounds]`，键为 `Click / Failure / RepairWeapon / RepairArmor / RefreshCards / EnhanceSuccess / EnhanceDismantle / Salvage / ArrowCraft`，值填任意 SOUN 或 SNDR 的 Editor ID（加载顺序里没有的名字就是不发声）。原生端音效调用从硬编码字符串改成读取 `g_settings.sound*`，`SaveConfig` 也把这一节写回，因此面板保存设置不会把它冲掉。INI 里的注释标了每个键的用途，改完重启游戏生效。
 
 ## 2.3.30 灵魂箭吸魂不再依赖引擎的摄魂效果
 

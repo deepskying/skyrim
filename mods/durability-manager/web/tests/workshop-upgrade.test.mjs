@@ -40,12 +40,20 @@ test('one gold fee feeds the same material ledger as recipe gold', () => {
 });
 
 test('workshop audio defaults to failure and plays success only at native outcomes', () => {
-  assert.match(native, /if \(g_settings.enableWorkshopSounds\) RE::PlaySound/);
-  assert.match(native, /resultSound = "UIMenuCancel"/);
-  assert.match(apply, /feedback.resultSound = "UIEnchantingItemCreate"/);
-  assert.match(apply, /feedback.resultSound = "UIEnchantingItemDestroy"/);
-  assert.match(native, /"UISmithingImproveWeapon" : "UISmithingImproveArmor"/);
+  assert.match(native, /if \(g_settings\.enableWorkshopSounds && !a_editorID\.empty\(\)\) RE::PlaySound\(a_editorID\.c_str\(\)\)/);
+  assert.match(native, /std::string soundFailure = "UIMenuCancel"/);
+  assert.match(native, /std::string soundRefreshCards = "UISmithingCreateGeneric"/);
+  assert.match(native, /std::string soundEnhanceDismantle = "UILockpickingPickBreak"/);
+  assert.match(apply, /feedback\.resultSound = g_settings\.soundEnhanceSuccess;/);
+  assert.match(apply, /feedback\.resultSound = g_settings\.soundEnhanceDismantle;/);
+  assert.match(native, /g_settings\.soundRepairWeapon : g_settings\.soundRepairArmor/);
   assert.match(native, /key == "ENABLEWORKSHOPSOUNDS"/);
+  assert.match(native, /section == "\[WORKSHOPSOUNDS\]"/);
+  const ini = readFileSync(new URL('../../packaging/DurabilityManager.ini', import.meta.url), 'utf8');
+  const sounds = ini.slice(ini.indexOf('[WorkshopSounds]'));
+  assert.match(sounds, /RefreshCards=UISmithingCreateGeneric/);
+  assert.match(sounds, /EnhanceDismantle=UILockpickingPickBreak/);
+  assert.match(sounds, /Click=UIMenuOK/);
   const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   const settings = readFileSync(new URL('../src/GeneralSettings.tsx', import.meta.url), 'utf8');
   assert.match(settings, /aria-label="工坊操作音效"/);
@@ -79,5 +87,5 @@ test('magic arrow audio surrounds only committed crafting, after both native out
     assert.ok(craft.indexOf(route) < success);
   }
   assert.match(native, /ArrowCraftFeedback::ArrowCraftFeedback\(\) \{ PlayWorkshopClick\(\); \}/);
-  assert.match(native, /PlayWorkshopSound\(success \? "UIEnchantingItemCreate" : "UIMenuCancel"\)/);
+  assert.match(native, /PlayWorkshopSound\(success \? g_settings\.soundArrowCraft : g_settings\.soundFailure\)/);
 });

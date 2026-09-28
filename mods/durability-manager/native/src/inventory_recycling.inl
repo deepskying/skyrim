@@ -293,7 +293,7 @@ void RecycleInventorySelection(const RecyclingSelection& expected, bool entireSt
     for (const auto& [material, count] : materials) if (count > 0) player->AddObjectToContainer(material, nullptr, count, nullptr);
     QueuePlayerRuntimeEffectsSync();
     if (menu && menu->GetRuntimeData().itemList) menu->GetRuntimeData().itemList->Update(player);
-    if (removed) PlayWorkshopSound("UIEnchantingItemCreate");
+    if (removed) PlayWorkshopSound(g_settings.soundSalvage);
     if (!removed) RE::DebugNotification("物品未能移除，回收已取消。");
     if (interrupted && removed) logger::warn("Recycling ended early after {} item(s).", removed);
     logger::info("Native SkyUI recycling: {:08X} parts={} count={} rewards={}", selected->form, selected->parts.size(), removed, materials.size());
