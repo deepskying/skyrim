@@ -3,7 +3,7 @@ set_xmakever("2.8.2")
 includes("../../../reference/example-skse-plugin/lib/commonlibsse-ng")
 
 set_project("DurabilityManager")
-set_version("0.1.55")
+set_version("0.1.56")
 set_languages("c++23")
 set_warnings("allextra")
 set_policy("package.requires_lock", true)

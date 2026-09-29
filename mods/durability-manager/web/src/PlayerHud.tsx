@@ -34,9 +34,8 @@ export function PlayerHud({ state }: { state: PlayerHudSnapshot }) {
     <div className="player-readouts">
       <div className="player-combat-row">{combatStats.map(([key, label, path]) => <span className="player-stat" key={key} title={label} aria-label={`${label} ${number(state[key])}%`}>
         <Icon path={path} /><span>{number(state[key])}{state[key] !== null && <small>%</small>}</span>
-      </span>)}</div>
+      </span>)}<span className="player-stat" title="移动速度" aria-label={`移动速度 ${number(state.speed)}%`}><Icon path={speedIcon} /><span>{number(state.speed)}{state.speed !== null && <small>%</small>}</span></span></div>
       <div className="player-utility-row">
-        <span className="player-stat" title="移动速度" aria-label={`移动速度 ${number(state.speed)}%`}><Icon path={speedIcon} /><span>{number(state.speed)}{state.speed !== null && <small>%</small>}</span></span>
         <span className="player-stat" title="护甲值" aria-label={`护甲值 ${number(state.armor)}`}><Icon path={armorIcon} /><span>{number(state.armor)}</span></span>
         <span className="player-stat" title="游戏时间" aria-label={`游戏时间 ${time}`}><Icon path="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4v5l4 2" /><span>{time}</span></span>
         <span className={`player-stat${state.weight !== null && state.carryWeight !== null && state.weight > state.carryWeight ? ' overloaded' : ''}`} title="负重 / 上限" aria-label={`负重 ${number(state.weight)} / ${number(state.carryWeight)}`}><Icon path="m9 3 3 3 3-3M8 7h8c0 5 5 6 5 11 0 5-18 5-18 0 0-5 5-6 5-11Zm0 0h8" /><span>{number(state.weight)} <small>/ {number(state.carryWeight)}</small></span></span>
