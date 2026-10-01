@@ -1,4 +1,12 @@
-# 装备工坊 · Equipment Workshop 2.3.32
+# 装备工坊 · Equipment Workshop 2.3.33
+
+## 2.3.33 抛射型魔法箭的施法者归属：吸血终于有地方可吸
+
+吸血箭实机不生效。日志与代码对上了：箭上的法术由命中点的临时「助手施法者」代放，而助手是标记物不是 Actor，效果默认没有施法者；项目为此挂的 [CasterReference](mods/magic-arrows/native/src/runtime_sustained.h) 钩子只覆盖 touch（1）和 target actor（3）两种投递，抛射型（aimed，delivery 2）被排除在外。吸血原型的机制是「从目标抽走、交给施法者」，没有施法者就没有交接对象，于是哑火；火/冰/电这种只作用于目标的伤害、以及已经改走标记轮询的吸魂都不受影响，所以只有吸血类暴露出来。
+
+现在 aimed 也纳入归属 [spell_compatibility.h](mods/magic-arrows/native/src/spell_compatibility.h)：`CasterAttribution` 在 `attributeAimedCaster` 打开时放行投递 2，抛射法术的效果会认射手为施法者。连带的可见变化是这类箭开始吃射手的加成——毁灭系 perk、难度倍率、部分按施法者判定的效果——伤害会比赛前高一些；击杀归属、经验与仇恨也会正确记到射手头上。只想恢复旧行为的话，`MagicArrows.ini` 新增的 `[Casting] AimedCasterAttribution=0` 即可关掉，self 与 location 两种投递维持原样。
+
+「助手施法者归属」日志从「每种法术只打一次」改成每次归属都打，并在其中带上 `delivery`，这样下一局就能从日志确认引擎在弹道命中路径上确实调用了这个钩子。
 
 ## 2.3.32 角色状态面板把移动速度挪到第一行末尾
 

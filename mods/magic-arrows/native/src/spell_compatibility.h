@@ -9,10 +9,14 @@ struct Effect {int archetype=0,delivery=2;std::uint32_t projectile=0;bool hostil
 struct Decision {Route route=Route::none;Denial denial=Denial::none;};
 inline bool Special(int a){switch(a){case 17:case 18:case 19:case 20:case 22:case 35:case 36:case 37:case 39:case 45:case 46:return true;default:return false;}}
 inline bool MagicProjectile(std::uint32_t type){return type==1||type==2||type==4||type==8||type==16||type==32;}
-// The helper caster only reports a caster actor for the two routes whose target comes from
-// the caster's own target handle. Self, aimed and location casts keep the vanilla marker
-// attributes, so their targeting and projectile branches stay exactly as before.
-inline bool CasterAttribution(int delivery){return delivery==1||delivery==3;}
+// The helper caster reports a caster actor for the two routes whose target comes from the
+// caster's own target handle, and - when attributeAimedCaster is on - for aimed casts too.
+// Without an actor the engine has nobody to credit absorb, resistance, perk and kill logic
+// to, which is why an absorb arrow drained nothing. Self and location casts keep the vanilla
+// marker attributes so their targeting branches stay as before; MagicArrows.ini can turn the
+// aimed half off to restore the historical behaviour.
+inline bool attributeAimedCaster=true;
+inline bool CasterAttribution(int delivery){return delivery==1||delivery==3||(attributeAimedCaster&&delivery==2);}
 inline Decision Decide(int casting,int delivery,std::span<const Effect> effects){
     if(casting!=1&&casting!=2)return {Route::none,Denial::casting};
     if(effects.empty()||effects.size()>128)return {Route::none,Denial::malformed};

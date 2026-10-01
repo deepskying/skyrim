@@ -27,13 +27,12 @@ inline void (*afterUpdate)()=nullptr;
 // whose target comes from the caster's own target handle.
 using CasterReferenceFn=RE::TESObjectREFR*(*)(RE::MagicCaster*,RE::Actor**);
 inline REL::Relocation<CasterReferenceFn> originalCasterReference;
-inline RE::FormID attributedSpell=0;
 inline RE::TESObjectREFR* CasterReference(RE::MagicCaster* caster,RE::Actor** outActor){
     auto* reference=originalCasterReference(caster,outActor);auto* spell=caster?caster->currentSpell:nullptr;
     if(outActor&&reference&&spell&&spell_compatibility::CasterAttribution(static_cast<int>(spell->GetDelivery()))&&reference->GetBaseObject()==marker)
         if(auto* shooter=caster->GetCasterAsActor()){
             *outActor=shooter;
-            if(attributedSpell!=spell->GetFormID()){attributedSpell=spell->GetFormID();logger::info("Helper caster attribution spell={:08X} shooter={:08X} helper={:08X}",spell->GetFormID(),shooter->GetFormID(),reference->GetFormID());}
+            logger::info("Helper caster attribution spell={:08X} delivery={} shooter={:08X} helper={:08X}",spell->GetFormID(),static_cast<int>(spell->GetDelivery()),shooter->GetFormID(),reference->GetFormID());
         }
     return reference;
 }
