@@ -55,8 +55,6 @@ void LoadConfig() {
     // The standalone panel has no soul pool page yet, so it keeps the 2.3.8 behaviour.
     soul_pool::enabled=GetPrivateProfileIntW(L"SoulPool",L"Enabled",0,path.c_str())!=0;
 #endif
-    // Aimed casts credit the shooter so absorb, perks and kill attribution have an actor.
-    spell_compatibility::attributeAimedCaster=GetPrivateProfileIntW(L"Casting",L"AimedCasterAttribution",1,path.c_str())!=0;
     crafting::GenericPercent=std::clamp(static_cast<int>(GetPrivateProfileIntW(L"Crafting",L"GenericMaterialPercent",50,path.c_str())),0,100);
     GetPrivateProfileStringW(L"Hotkey",L"Key",L"W",text,32,path.c_str());
     std::string key;for(auto* ch=text;*ch;++ch){if(*ch>127){key.clear();break;}key.push_back(static_cast<char>(*ch));}

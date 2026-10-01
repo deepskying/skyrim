@@ -1,9 +1,5 @@
 # 魔法箭工坊 — 1.1.0 扩展充能材料
 
-## 统一工坊 2.3.33：抛射型魔法箭归属射手，吸血生效
-
-`CasterAttribution` 放行 aimed（delivery 2），抛射法术的效果认射手为施法者，吸血/吸法力终于有交接对象；顺带这类箭开始吃射手 perk 与难度倍率。`MagicArrows.ini` 新增 `[Casting] AimedCasterAttribution=1` 可关回旧行为；归属日志改为每次输出并带 `delivery`。
-
 ## 统一工坊 2.3.31：工坊音效可配置，刷新与分解换新
 
 刷新强化卡改用 `UISmithingCreateGeneric`、强化失败分解改用 `UILockpickingPickBreak`；`DurabilityManager.ini` 新增 `[WorkshopSounds]`，九个音效（点击/失败/修理/刷新/强化成功/分解/回收/魔法箭制作）都能填任意 SOUN 或 SNDR 的 Editor ID 覆盖。
