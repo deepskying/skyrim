@@ -1,0 +1,2068 @@
+{
+  "version": "0.2.1",
+  "groups": [
+    {
+      "key": "cyrodiil_wolves",
+      "name": "西罗帝尔狼群",
+      "plugin": "mihailwolvesofcyrodiil.esp",
+      "forms": [
+        "0x803",
+        "0x806",
+        "0x80C",
+        "0x80D",
+        "0x80E"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "mihailcyrodillianwolf",
+        "mihailcyrodillianwolf2",
+        "mihailcyrodillianwolf3",
+        "mihailcyrodillianwolf4",
+        "mihailcyrodillianwolfalpha"
+      ],
+      "id": "0x900"
+    },
+    {
+      "key": "ogres",
+      "name": "食人魔群",
+      "plugin": "mihailogresandettins.esp",
+      "forms": [
+        "0x81D",
+        "0x820",
+        "0x82D"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "mihailogre_NPC_savage",
+        "mihailogre_NPC_common",
+        "mihailogre_NPC_armored"
+      ],
+      "id": "0x901"
+    },
+    {
+      "key": "ettins",
+      "name": "双头巨人群",
+      "plugin": "mihailogresandettins.esp",
+      "forms": [
+        "0x803",
+        "0x8C3",
+        "0x8C8"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "mihailettin_NPC",
+        "mihailettin_NPC2",
+        "mihailettin_NPC3"
+      ],
+      "id": "0x902"
+    },
+    {
+      "key": "goblins",
+      "name": "哥布林团伙",
+      "plugin": "mihailgoblins.esp",
+      "forms": [
+        "0xA6A",
+        "0xA6C",
+        "0xA6E",
+        "0xA71",
+        "0xA73"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "mihailgoblin1bandit",
+        "mihailgoblin5bandit",
+        "mihailgoblin2bandit",
+        "mihailgoblin4bandit",
+        "mihailgoblin6bandit"
+      ],
+      "id": "0x903"
+    },
+    {
+      "key": "mountain_lions",
+      "name": "山狮群",
+      "plugin": "mihailmountainlion.esp",
+      "forms": [
+        "0x803"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "mihailcougar"
+      ],
+      "id": "0x904"
+    },
+    {
+      "key": "snow_leopards",
+      "name": "雪豹群",
+      "plugin": "mihailmountainlion.esp",
+      "forms": [
+        "0x807"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "mihailsnowleopard"
+      ],
+      "id": "0x905"
+    },
+    {
+      "key": "monster_wolves",
+      "name": "异种狼群",
+      "plugin": "Monster Mod SE.esp",
+      "forms": [
+        "0x12C7",
+        "0x12C8",
+        "0x12C9"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "00EncWolfTundra",
+        "00EncWolfGhost",
+        "00EncWolfRed"
+      ],
+      "id": "0x906"
+    },
+    {
+      "key": "monster_trolls",
+      "name": "异种巨魔群",
+      "plugin": "Monster Mod SE.esp",
+      "forms": [
+        "0x232D"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "00EncTrollSMM01"
+      ],
+      "id": "0x907"
+    },
+    {
+      "key": "monster_spiders",
+      "name": "异种蜘蛛群",
+      "plugin": "Monster Mod SE.esp",
+      "forms": [
+        "0x1DC2",
+        "0x1DC3",
+        "0x1DC4"
+      ],
+      "min_level": 15,
+      "editor_ids": [
+        "00EncFrostbiteSpiderSMM01",
+        "00EncFrostbiteSpiderSMM02",
+        "00EncFrostbiteSpiderSMM03"
+      ],
+      "id": "0x908"
+    },
+    {
+      "key": "aegis",
+      "name": "印记之盾",
+      "plugin": "mihailaegisofthesigil.esp",
+      "min_level": 40,
+      "forms": [
+        "0x803"
+      ],
+      "editor_ids": [
+        "mihailaegisofthesigil_NPC"
+      ],
+      "id": "0x909"
+    },
+    {
+      "key": "dryads",
+      "name": "树妖群",
+      "plugin": "mihailcyrodiilianspriggan.esp",
+      "min_level": 20,
+      "forms": [
+        "0x803",
+        "0x820",
+        "0x82E"
+      ],
+      "editor_ids": [
+        "mihaildryad_NPC1",
+        "mihaildryad_NPC2",
+        "mihaildryad_NPC3"
+      ],
+      "id": "0x90A"
+    },
+    {
+      "key": "xivilai",
+      "name": "西维莱军团",
+      "plugin": "mihaildeadlandsxivilais.esp",
+      "min_level": 35,
+      "forms": [
+        "0x803",
+        "0x804",
+        "0x821",
+        "0x822"
+      ],
+      "editor_ids": [
+        "mihailxivilai_deadlands_NPC_xivilai1_ravager",
+        "mihailxivilai_deadlands_NPC_xivilai2_immolator",
+        "mihailxivilai_deadlands_NPC_xivilai3_tormentor",
+        "mihailxivilai_deadlands_NPC_xivilai4_slaughterpriest"
+      ],
+      "id": "0x90B"
+    },
+    {
+      "key": "blade_aegis",
+      "name": "刀锋末日",
+      "plugin": "mihaildoomsdayofblades.esp",
+      "min_level": 50,
+      "forms": [
+        "0x803"
+      ],
+      "editor_ids": [
+        "mihailmythicaegis_NPC"
+      ],
+      "id": "0x90C"
+    },
+    {
+      "key": "draugulf",
+      "name": "龙犬群",
+      "plugin": "mihaildraugulf.esp",
+      "min_level": 20,
+      "forms": [
+        "0x800"
+      ],
+      "editor_ids": [
+        "mihaildraugundr_NPC"
+      ],
+      "id": "0x90D"
+    },
+    {
+      "key": "dwemer_sentinels",
+      "name": "矮人哨兵",
+      "plugin": "mihaildwarvenautomatonspack.esp",
+      "min_level": 25,
+      "forms": [
+        "0x804"
+      ],
+      "editor_ids": [
+        "mihaildwarvensentinel"
+      ],
+      "id": "0x90E"
+    },
+    {
+      "key": "dwemer_threshers",
+      "name": "矮人长尾鲨机械",
+      "plugin": "mihaildwarvenautomatonspack.esp",
+      "min_level": 25,
+      "forms": [
+        "0x812"
+      ],
+      "editor_ids": [
+        "mihaildwarventhresher"
+      ],
+      "id": "0x90F"
+    },
+    {
+      "key": "dwemer_drillers",
+      "name": "矮人钻工",
+      "plugin": "mihaildwarvenautomatonspack.esp",
+      "min_level": 26,
+      "forms": [
+        "0x837"
+      ],
+      "editor_ids": [
+        "mihaildwarvendrillerNPC"
+      ],
+      "id": "0x910"
+    },
+    {
+      "key": "dwemer_defenders",
+      "name": "矮人防御者",
+      "plugin": "mihaildwarvenautomatonspack.esp",
+      "min_level": 30,
+      "forms": [
+        "0x83B"
+      ],
+      "editor_ids": [
+        "mihaildwarvendefenderNPC"
+      ],
+      "id": "0x911"
+    },
+    {
+      "key": "dwemer_colossi",
+      "name": "矮人巨像",
+      "plugin": "mihaildwarvenautomatonspack.esp",
+      "min_level": 80,
+      "forms": [
+        "0x864"
+      ],
+      "editor_ids": [
+        "mihailesocenturionnpc"
+      ],
+      "id": "0x912"
+    },
+    {
+      "key": "dwemer_magetas",
+      "name": "矮人玛吉塔",
+      "plugin": "mihaildwarvenautomatonspack.esp",
+      "min_level": 40,
+      "forms": [
+        "0x868"
+      ],
+      "editor_ids": [
+        "mihaildwarvenmageta"
+      ],
+      "id": "0x913"
+    },
+    {
+      "key": "fanged_goutis",
+      "name": "尖牙古蒂群",
+      "plugin": "mihailfangedgoutis.esp",
+      "min_level": 20,
+      "forms": [
+        "0x806",
+        "0x80D",
+        "0x810"
+      ],
+      "editor_ids": [
+        "mihailgouti_NPC3",
+        "mihailgouti_NPC2",
+        "mihailgouti_NPC1"
+      ],
+      "id": "0x914"
+    },
+    {
+      "key": "fiendroths",
+      "name": "恶魔甲虫群",
+      "plugin": "mihailfiendroth.esp",
+      "min_level": 20,
+      "forms": [
+        "0x802",
+        "0x872",
+        "0x873"
+      ],
+      "editor_ids": [
+        "mihailfiendroth_NPC",
+        "mihailfiendroth_NPC2",
+        "mihailfiendroth_NPC3"
+      ],
+      "id": "0x915"
+    },
+    {
+      "key": "flesh_atronachs",
+      "name": "血肉元素群",
+      "plugin": "mihailfleshatronach.esp",
+      "min_level": 33,
+      "forms": [
+        "0x19D28",
+        "0x19D30",
+        "0x1EE42"
+      ],
+      "editor_ids": [
+        "mihailfleshatronach_NPC_2",
+        "mihailfleshatronach_NPC_3",
+        "mihailfleshatronach_NPC_1"
+      ],
+      "id": "0x916"
+    },
+    {
+      "key": "grummites",
+      "name": "格鲁米特战团",
+      "plugin": "mihailgrummite.esp",
+      "min_level": 20,
+      "forms": [
+        "0x803",
+        "0x816",
+        "0x81B",
+        "0x81C",
+        "0x81D",
+        "0x81E"
+      ],
+      "editor_ids": [
+        "mihailgrummite_NPC1_MANIA",
+        "mihailgrummite_NPC1_DEMENTIA",
+        "mihailgrummite_NPC2_MANIA",
+        "mihailgrummite_NPC2_DEMENTIA",
+        "mihailgrummite_NPC3_MANIA",
+        "mihailgrummite_NPC3_DEMENTIA"
+      ],
+      "id": "0x917"
+    },
+    {
+      "key": "harpies",
+      "name": "鹰身女妖群",
+      "plugin": "mihailharpy.esp",
+      "min_level": 25,
+      "forms": [
+        "0x9A0FE",
+        "0x9A0EC",
+        "0x9A0E7",
+        "0x5904"
+      ],
+      "editor_ids": [
+        "mihailharpy_NPC3",
+        "mihailharpy_NPC2",
+        "mihailharpy_NPC1b",
+        "mihailharpy_NPC1"
+      ],
+      "id": "0x918"
+    },
+    {
+      "key": "high_clannfear",
+      "name": "高等惊惧兽群",
+      "plugin": "mihailhighclannfear.esp",
+      "min_level": 30,
+      "forms": [
+        "0x80D"
+      ],
+      "editor_ids": [
+        "mihailhighclannfear_NPC"
+      ],
+      "id": "0x919"
+    },
+    {
+      "key": "hungers",
+      "name": "饥饿魔群",
+      "plugin": "mihailhungers.esp",
+      "min_level": 25,
+      "forms": [
+        "0x835",
+        "0x83B",
+        "0x83D",
+        "0x83E",
+        "0x83F",
+        "0x840"
+      ],
+      "editor_ids": [
+        "mihailhungerNPC",
+        "mihailhungerNPC_weak",
+        "mihailhungerNPC_medium",
+        "mihailhungerNPC_high",
+        "mihailhungerNPC_mediumless",
+        "mihailhungerNPC_wild"
+      ],
+      "id": "0x91A"
+    },
+    {
+      "key": "ice_titans",
+      "name": "冰泰坦群",
+      "plugin": "mihailicetitan.esp",
+      "min_level": 65,
+      "forms": [
+        "0x803",
+        "0x806"
+      ],
+      "editor_ids": [
+        "mihailicetitan",
+        "mihailicetitanBLOOD"
+      ],
+      "id": "0x91B"
+    },
+    {
+      "key": "imps",
+      "name": "元素小鬼群",
+      "plugin": "mihailimps.esp",
+      "min_level": 15,
+      "forms": [
+        "0x801",
+        "0x802",
+        "0x803",
+        "0x804"
+      ],
+      "editor_ids": [
+        "mihailimpfire",
+        "mihailimpshock",
+        "mihailimpfireCHARGED",
+        "mihailimpshockCHARGED"
+      ],
+      "id": "0x91C"
+    },
+    {
+      "key": "minotaurs",
+      "name": "牛头怪战团",
+      "plugin": "mihailmmaminotaur.esp",
+      "min_level": 35,
+      "forms": [
+        "0x811",
+        "0x813",
+        "0x81F",
+        "0x88A"
+      ],
+      "editor_ids": [
+        "mihailminotaurcommon",
+        "mihailminotaurcommonLORD",
+        "mihailminotaurcommonSHAMAN",
+        "mihailminotaurcommonenemy"
+      ],
+      "id": "0x91D"
+    },
+    {
+      "key": "leopards",
+      "name": "豹群",
+      "plugin": "mihailmountainlion.esp",
+      "min_level": 15,
+      "forms": [
+        "0x80C"
+      ],
+      "editor_ids": [
+        "mihailleopard"
+      ],
+      "id": "0x91E"
+    },
+    {
+      "key": "black_panthers",
+      "name": "黑豹群",
+      "plugin": "mihailmountainlion.esp",
+      "min_level": 15,
+      "forms": [
+        "0x810"
+      ],
+      "editor_ids": [
+        "mihailblackpanther"
+      ],
+      "id": "0x91F"
+    },
+    {
+      "key": "nordic_sentinels",
+      "name": "古代北欧哨兵",
+      "plugin": "mihailnordicsentinel.esp",
+      "min_level": 45,
+      "forms": [
+        "0x803",
+        "0x824"
+      ],
+      "editor_ids": [
+        "mihailnordicsentinel",
+        "mihailnordicsentinel3"
+      ],
+      "id": "0x920"
+    },
+    {
+      "key": "snow_ogres",
+      "name": "雪山食人魔群",
+      "plugin": "mihailogresandettins.esp",
+      "min_level": 30,
+      "forms": [
+        "0x827",
+        "0x82A"
+      ],
+      "editor_ids": [
+        "mihailogre_NPC_savage_snow",
+        "mihailogre_NPC_common_snow"
+      ],
+      "id": "0x921"
+    },
+    {
+      "key": "ogrims",
+      "name": "奥格瑞姆群",
+      "plugin": "mihailogrim.esp",
+      "min_level": 35,
+      "forms": [
+        "0x803"
+      ],
+      "editor_ids": [
+        "mihailogrim"
+      ],
+      "id": "0x922"
+    },
+    {
+      "key": "ornaugs",
+      "name": "奥尔瑙格群",
+      "plugin": "mihailornaugs.esp",
+      "min_level": 25,
+      "forms": [
+        "0x803"
+      ],
+      "editor_ids": [
+        "mihailornaug_NPC1"
+      ],
+      "id": "0x923"
+    },
+    {
+      "key": "gargoyles",
+      "name": "石像鬼群",
+      "plugin": "mihailgargoylesandwerebats.esp",
+      "min_level": 43,
+      "forms": [
+        "0x816",
+        "0x817",
+        "0x818"
+      ],
+      "editor_ids": [
+        "mihail_GargoyleSmall",
+        "mihail_gargoylesentinel",
+        "mihail_gargoylebrute"
+      ],
+      "id": "0x924"
+    },
+    {
+      "key": "pitroamers",
+      "name": "皮特罗默群",
+      "plugin": "mihailpitroamer.esp",
+      "min_level": 20,
+      "forms": [
+        "0x805",
+        "0x806",
+        "0x819"
+      ],
+      "editor_ids": [
+        "mihailpitroamer_NPC",
+        "mihailpitroamer_NPC2",
+        "mihailpitroamer_NPC3"
+      ],
+      "id": "0x925"
+    },
+    {
+      "key": "scamps",
+      "name": "斯坎普小魔群",
+      "plugin": "mihailscampstandalone.esp",
+      "min_level": 15,
+      "forms": [
+        "0x803",
+        "0x806",
+        "0x807",
+        "0x808",
+        "0x80F"
+      ],
+      "editor_ids": [
+        "mihailscamp",
+        "mihailscampSTUNTED",
+        "mihailscampCARBONIZER",
+        "mihailscampINCINERATOR",
+        "mihailbanekamp"
+      ],
+      "id": "0x926"
+    },
+    {
+      "key": "thrikreen",
+      "name": "螳螂人战团",
+      "plugin": "mihailthrikreen.esp",
+      "min_level": 25,
+      "forms": [
+        "0x803"
+      ],
+      "editor_ids": [
+        "mihailthrikreenNPC"
+      ],
+      "id": "0x927"
+    },
+    {
+      "key": "undead_werewolves",
+      "name": "不死狼人群",
+      "plugin": "mihailundeadwerewolf.esp",
+      "min_level": 30,
+      "forms": [
+        "0x803",
+        "0x807",
+        "0x827",
+        "0x828"
+      ],
+      "editor_ids": [
+        "mihailundeadwerewolf",
+        "mihailundeadwerewolfALPHA",
+        "mihailundeadwerewolfswamp",
+        "mihailundeadwerewolfALPHAswamp"
+      ],
+      "id": "0x928"
+    },
+    {
+      "key": "fleders",
+      "name": "弗莱德吸血兽群",
+      "plugin": "mihailvampirelordsandbeasts.esp",
+      "min_level": 25,
+      "forms": [
+        "0x804",
+        "0x19D2D"
+      ],
+      "editor_ids": [
+        "mihailflederNPC",
+        "mihailflederNPCproto"
+      ],
+      "id": "0x929"
+    },
+    {
+      "key": "garkains",
+      "name": "加尔凯恩吸血兽群",
+      "plugin": "mihailvampirelordsandbeasts.esp",
+      "min_level": 35,
+      "forms": [
+        "0x23F42",
+        "0x29056"
+      ],
+      "editor_ids": [
+        "mihailgarkainNPC",
+        "mihailgarkainNPCalpha"
+      ],
+      "id": "0x92A"
+    },
+    {
+      "key": "katakans",
+      "name": "卡塔坎吸血兽群",
+      "plugin": "mihailvampirelordsandbeasts.esp",
+      "min_level": 45,
+      "forms": [
+        "0x3D468",
+        "0x4768C",
+        "0x4768F"
+      ],
+      "editor_ids": [
+        "mihailkatakanNPC",
+        "mihailkatakanNPClesser",
+        "mihailkatakanNPCold"
+      ],
+      "id": "0x92B"
+    },
+    {
+      "key": "water_hags",
+      "name": "水鬼群",
+      "plugin": "MIHAILwaterhag.esp",
+      "min_level": 20,
+      "forms": [
+        "0x84A",
+        "0x883"
+      ],
+      "editor_ids": [
+        "mihailwaterhag1",
+        "mihailwaterhag2"
+      ],
+      "id": "0x92C"
+    },
+    {
+      "key": "swamp_hags",
+      "name": "沼泽女巫群",
+      "plugin": "MIHAILwaterhag.esp",
+      "min_level": 20,
+      "forms": [
+        "0x886",
+        "0x887"
+      ],
+      "editor_ids": [
+        "mihailswamphag1",
+        "mihailswamphag2"
+      ],
+      "id": "0x92D"
+    },
+    {
+      "key": "grave_hags",
+      "name": "坟墓女巫群",
+      "plugin": "MIHAILwaterhag.esp",
+      "min_level": 25,
+      "forms": [
+        "0x88A",
+        "0x88B"
+      ],
+      "editor_ids": [
+        "mihailgravehag1",
+        "mihailgravehag2"
+      ],
+      "id": "0x92E"
+    },
+    {
+      "key": "wormmouths",
+      "name": "虫口兽群",
+      "plugin": "mihailwormmouth.esp",
+      "min_level": 20,
+      "forms": [
+        "0x806",
+        "0x808"
+      ],
+      "editor_ids": [
+        "mihailwormmouthNPC",
+        "mihailwormmouthNPC2"
+      ],
+      "id": "0x92F"
+    },
+    {
+      "key": "kwama_warriors",
+      "name": "夸玛战士群",
+      "plugin": "1KwamaCreatures.esp",
+      "min_level": 25,
+      "forms": [
+        "0xAA0E"
+      ],
+      "editor_ids": [
+        "EncKwamaWarrior"
+      ],
+      "id": "0x930"
+    },
+    {
+      "key": "kwama_foragers",
+      "name": "夸玛觅食者群",
+      "plugin": "1KwamaCreatures.esp",
+      "min_level": 10,
+      "forms": [
+        "0x5905"
+      ],
+      "editor_ids": [
+        "EncKwamaForager"
+      ],
+      "id": "0x931"
+    },
+    {
+      "key": "kagoutis",
+      "name": "卡古蒂群",
+      "plugin": "MorrowindCreatures.esl",
+      "min_level": 20,
+      "forms": [
+        "0x80A"
+      ],
+      "editor_ids": [
+        "EncMorrowindKagouti"
+      ],
+      "id": "0x932"
+    },
+    {
+      "key": "nix_hounds",
+      "name": "尼克斯猎犬群",
+      "plugin": "MorrowindCreatures.esl",
+      "min_level": 15,
+      "forms": [
+        "0x80F"
+      ],
+      "editor_ids": [
+        "EncMorrowindHoundNix"
+      ],
+      "id": "0x933"
+    },
+    {
+      "key": "centipedes",
+      "name": "巨型蜈蚣群",
+      "plugin": "mihailgiantcentipedes.esp",
+      "min_level": 25,
+      "forms": [
+        "0x803",
+        "0x815",
+        "0x820"
+      ],
+      "editor_ids": [
+        "mihailgiantcentipede_NPC1",
+        "mihailgiantcentipede_NPC2",
+        "mihailgiantcentipede_NPC3"
+      ],
+      "id": "0x934"
+    },
+    {
+      "key": "beholders",
+      "name": "眼魔群",
+      "plugin": "mihailbeholder.esp",
+      "min_level": 35,
+      "forms": [
+        "0x803",
+        "0x833"
+      ],
+      "editor_ids": [
+        "mihailbeholder_NPC_BLACK",
+        "mihailbeholder_NPC_PURPLE"
+      ],
+      "id": "0x935"
+    },
+    {
+      "key": "mm_chaurus",
+      "name": "查鲁斯群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x12D1",
+        "0x12D2",
+        "0x12D3",
+        "0x21F8C",
+        "0x12D0"
+      ],
+      "editor_ids": [
+        "00EncChaurusSMM02",
+        "00EncChaurusSMM03",
+        "00EncChaurusSMM04",
+        "00EncChaurusSMM05",
+        "00EncChaurusSMM01"
+      ],
+      "id": "0x936"
+    },
+    {
+      "key": "mm_draugr",
+      "name": "尸鬼群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x12EA",
+        "0x12EB",
+        "0x12DB",
+        "0x12DE",
+        "0x12E9",
+        "0x7F67"
+      ],
+      "editor_ids": [
+        "00EncDraugrfem02",
+        "00EncDraugrfem03",
+        "00EncDraugrDrained",
+        "00EncDraugrZombie",
+        "00EncDraugrfemRot",
+        "00EncDraugrDrainedlvl7"
+      ],
+      "id": "0x937"
+    },
+    {
+      "key": "mm_falmer",
+      "name": "法尔默群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0xCB2E",
+        "0x1DBA",
+        "0x1DBB",
+        "0xCB31",
+        "0x1DB9",
+        "0x1C35B"
+      ],
+      "editor_ids": [
+        "00EncFalmerMage01",
+        "00EncFalmerSMM02",
+        "00EncFalmerSMM03",
+        "00EncFalmerMage02",
+        "00EncDarkFalmer",
+        "00EncDarkFalmerhulk"
+      ],
+      "id": "0x938"
+    },
+    {
+      "key": "mm_giants",
+      "name": "巨人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 35,
+      "forms": [
+        "0x2330",
+        "0x2331",
+        "0x2332",
+        "0x27B67"
+      ],
+      "editor_ids": [
+        "00EncGiantsmm01",
+        "00EncGiantsmm02",
+        "00EncGiantsmm03",
+        "00EncGiantsmm04"
+      ],
+      "id": "0x939"
+    },
+    {
+      "key": "mm_hagravens",
+      "name": "乌鸦鬼婆群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x2339",
+        "0x233A"
+      ],
+      "editor_ids": [
+        "00EncHagravensmm01",
+        "00EncHagravensmm02"
+      ],
+      "id": "0x93A"
+    },
+    {
+      "key": "mm_mudcrabs",
+      "name": "泥沼蟹群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 10,
+      "forms": [
+        "0x233F",
+        "0x2340",
+        "0xD097",
+        "0xD099",
+        "0xD098",
+        "0xD09A"
+      ],
+      "editor_ids": [
+        "00EncMudcrabsmm01",
+        "00EncMudcrabsmm02",
+        "00EncMudcrabsmm01lvl2",
+        "00EncMudcrabsmm02lvl2",
+        "00EncMudcrabsmm01lvl3",
+        "00EncMudcrabsmm02lvl3"
+      ],
+      "id": "0x93B"
+    },
+    {
+      "key": "mm_sabre_cats",
+      "name": "剑齿虎群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 15,
+      "forms": [
+        "0xB011",
+        "0xDB67",
+        "0x2345",
+        "0x2346",
+        "0x2348",
+        "0x2347"
+      ],
+      "editor_ids": [
+        "00EncSabreCatsmmSC",
+        "00EncSabreCatsmmGC",
+        "00EncSabreCatsmm01",
+        "00EncSabreCatsmm02",
+        "00EncSabreCatsmm04",
+        "00EncSabreCatsmm03"
+      ],
+      "id": "0x93C"
+    },
+    {
+      "key": "mm_skeevers",
+      "name": "雪鼠群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 10,
+      "forms": [
+        "0x2351",
+        "0x22A6C",
+        "0x5F07"
+      ],
+      "editor_ids": [
+        "00EncSkeeversmm01",
+        "00EncSkeeversmm03",
+        "00EncSkeeversmm02"
+      ],
+      "id": "0x93D"
+    },
+    {
+      "key": "mm_spriggans",
+      "name": "树精群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x28BC",
+        "0x5F0D",
+        "0x28BD",
+        "0x5F0A"
+      ],
+      "editor_ids": [
+        "00EncSpriggansmm01",
+        "00EncSpriggansmm02",
+        "00EncSprigganMatronsmm02",
+        "00EncSprigganMatronsmm03"
+      ],
+      "id": "0x93E"
+    },
+    {
+      "key": "mm_werewolves",
+      "name": "狼人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x3386",
+        "0x3387",
+        "0x3388",
+        "0x3389",
+        "0xC5B3",
+        "0xC5B8"
+      ],
+      "editor_ids": [
+        "00EncWerewolfsmm01lvl1",
+        "00EncWerewolfsmm02lvl1",
+        "00EncWerewolfsmm03lvl1",
+        "00EncWerewolfsmm04lvl1",
+        "00EncWerewolfsmm01lvl6",
+        "00EncWerewolfsmm02lvl6"
+      ],
+      "id": "0x93F"
+    },
+    {
+      "key": "mm_glass_atronachs",
+      "name": "玻璃元素群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 30,
+      "forms": [
+        "0x4ECA"
+      ],
+      "editor_ids": [
+        "00EncAtronachglass"
+      ],
+      "id": "0x940"
+    },
+    {
+      "key": "mm_bears",
+      "name": "熊群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x5EF9",
+        "0xD600",
+        "0xD5FD"
+      ],
+      "editor_ids": [
+        "00EncBearsmm",
+        "00EncBearsmm02",
+        "00EncBearPsmm"
+      ],
+      "id": "0x941"
+    },
+    {
+      "key": "mm_dwemer_spheres",
+      "name": "矮人球体群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 30,
+      "forms": [
+        "0x5F00",
+        "0xC03E",
+        "0xC5A7",
+        "0xC5A9",
+        "0xC5A8",
+        "0xC5AA"
+      ],
+      "editor_ids": [
+        "00EncDwarvenSpheresmm01",
+        "00EncDwarvenSpheresmm02",
+        "00EncDwarvenSpheresmm01lvl24",
+        "00EncDwarvenSpheresmm02lvl24",
+        "00EncDwarvenSpheresmm01lvl30",
+        "00EncDwarvenSpheresmm02lvl30"
+      ],
+      "id": "0x942"
+    },
+    {
+      "key": "mm_dwemer_spiders",
+      "name": "矮人蜘蛛群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x5F03",
+        "0x5F06",
+        "0xC5A3",
+        "0xC5A4",
+        "0xC5A5",
+        "0xC5A6"
+      ],
+      "editor_ids": [
+        "00EncDwarvenSpidersmm01",
+        "00EncDwarvenSpidersmm02",
+        "00EncDwarvenSpidersmm01lvl12",
+        "00EncDwarvenSpidersmm02lvl12",
+        "00EncDwarvenSpidersmm01lvl16",
+        "00EncDwarvenSpidersmm02lvl16"
+      ],
+      "id": "0x943"
+    },
+    {
+      "key": "mm_dwemer_centurions",
+      "name": "矮人百夫长群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 35,
+      "forms": [
+        "0x1DB6",
+        "0xC5AD",
+        "0xC5AE"
+      ],
+      "editor_ids": [
+        "00EncDwarvenCenturionsmm01",
+        "00EncDwarvenCenturionsmm02",
+        "00EncDwarvenCenturionsmm03"
+      ],
+      "id": "0x944"
+    },
+    {
+      "key": "mm_skeletons",
+      "name": "骷髅群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 15,
+      "forms": [
+        "0x8A4C",
+        "0x8A4D",
+        "0x8A4E",
+        "0xD601",
+        "0x22A6F"
+      ],
+      "editor_ids": [
+        "00EncSkeleton01Melee1Hsmm",
+        "00EncSkeleton01Melee1Hshieldsmm",
+        "00EncSkeleton01Melee2Hsmm",
+        "00EncSkeletonmoldy",
+        "00EncSkeletonold"
+      ],
+      "id": "0x945"
+    },
+    {
+      "key": "mm_giant_spiders",
+      "name": "巨型蜘蛛群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x116D0",
+        "0x116D4",
+        "0x116D1"
+      ],
+      "editor_ids": [
+        "00EncSpiderSMM04",
+        "00EncSpiderLarge",
+        "00EncSpiderGiant"
+      ],
+      "id": "0x946"
+    },
+    {
+      "key": "mm_fire_wraiths",
+      "name": "火焰幽魂群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 30,
+      "forms": [
+        "0x177E6"
+      ],
+      "editor_ids": [
+        "00EncFireWraith"
+      ],
+      "id": "0x947"
+    },
+    {
+      "key": "mm_tree_spirits",
+      "name": "树灵群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x192DD"
+      ],
+      "editor_ids": [
+        "00EncTreeSpirit"
+      ],
+      "id": "0x948"
+    },
+    {
+      "key": "mm_cyclops",
+      "name": "独眼巨人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 35,
+      "forms": [
+        "0x2C174"
+      ],
+      "editor_ids": [
+        "00EncCyclops"
+      ],
+      "id": "0x949"
+    },
+    {
+      "key": "mm_living_flames",
+      "name": "生命之炎群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x2EC8A"
+      ],
+      "editor_ids": [
+        "00EncAtronachlivingFlame"
+      ],
+      "id": "0x94A"
+    },
+    {
+      "key": "mm_durzogs",
+      "name": "杜尔佐格群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x3B959"
+      ],
+      "editor_ids": [
+        "00EncwolfDurzog"
+      ],
+      "id": "0x94B"
+    },
+    {
+      "key": "mm_minotaurs",
+      "name": "牛头怪群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 30,
+      "forms": [
+        "0x3EF52"
+      ],
+      "editor_ids": [
+        "00EncMinotaur"
+      ],
+      "id": "0x94C"
+    },
+    {
+      "key": "mm_werecats",
+      "name": "兽化猫群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 41,
+      "forms": [
+        "0x5EFC4",
+        "0x41A78"
+      ],
+      "editor_ids": [
+        "00EncWerecat2",
+        "00EncWerecat"
+      ],
+      "id": "0x94D"
+    },
+    {
+      "key": "mm_treants",
+      "name": "树人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 40,
+      "forms": [
+        "0x45B4A"
+      ],
+      "editor_ids": [
+        "00EncGianttreant"
+      ],
+      "id": "0x94E"
+    },
+    {
+      "key": "mm_hungers",
+      "name": "饥饿魔群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x47645"
+      ],
+      "editor_ids": [
+        "00Enchunger"
+      ],
+      "id": "0x94F"
+    },
+    {
+      "key": "mm_goblins",
+      "name": "哥布林群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 20,
+      "forms": [
+        "0x4913D"
+      ],
+      "editor_ids": [
+        "00EncBHgoblin"
+      ],
+      "id": "0x950"
+    },
+    {
+      "key": "mm_harpies",
+      "name": "鹰身女妖群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 25,
+      "forms": [
+        "0x4AC35"
+      ],
+      "editor_ids": [
+        "00EncHarpy"
+      ],
+      "id": "0x951"
+    },
+    {
+      "key": "mm_giant_trolls",
+      "name": "巨型巨魔群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 35,
+      "forms": [
+        "0x4B701"
+      ],
+      "editor_ids": [
+        "00EncGianttroll"
+      ],
+      "id": "0x952"
+    },
+    {
+      "key": "mm_hyenas",
+      "name": "鬣狗群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 15,
+      "forms": [
+        "0x5A9AC"
+      ],
+      "editor_ids": [
+        "00EncHyena"
+      ],
+      "id": "0x953"
+    },
+    {
+      "key": "mm_frost_giants",
+      "name": "冰霜巨人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 40,
+      "forms": [
+        "0x5997D"
+      ],
+      "editor_ids": [
+        "00EncGiantfrost"
+      ],
+      "id": "0x954"
+    },
+    {
+      "key": "mm_fire_giants",
+      "name": "火巨人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 40,
+      "forms": [
+        "0x62042"
+      ],
+      "editor_ids": [
+        "00Encfiregiant"
+      ],
+      "id": "0x955"
+    },
+    {
+      "key": "mm_werebears",
+      "name": "熊人群（MM）",
+      "plugin": "Monster Mod SE.esp",
+      "min_level": 30,
+      "forms": [
+        "0x7CF72"
+      ],
+      "editor_ids": [
+        "00EncWerebear"
+      ],
+      "id": "0x956"
+    },
+    {
+      "key": "sic_swamp_trolls",
+      "name": "沼泽巨魔群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 42,
+      "forms": [
+        "0x5A099",
+        "0xADA5D",
+        "0x2F9E",
+        "0x2F9D",
+        "0xD2D02",
+        "0xF817"
+      ],
+      "editor_ids": [
+        "_00EncTrollSwampA00",
+        "_00EncTrollSwampA01",
+        "_00EncTrollSwampA02",
+        "_00EncTrollSwampArmored",
+        "_00EncTrollSwampArmored01",
+        "_00EncTrollSwampA03"
+      ],
+      "id": "0x957"
+    },
+    {
+      "key": "sic_tundra_trolls",
+      "name": "苔原巨魔群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 48,
+      "forms": [
+        "0x5A09A",
+        "0x92C7B",
+        "0x92C7D",
+        "0x92C7C",
+        "0x92C7E",
+        "0xF818"
+      ],
+      "editor_ids": [
+        "_00EncTrollTundraA00",
+        "_00EncTrollTundraA01",
+        "_00EncTrollTundraArmored",
+        "_00EncTrollTundraA02",
+        "_00EncTrollTundraArmored01",
+        "_00EncTrollTundraA03"
+      ],
+      "id": "0x958"
+    },
+    {
+      "key": "sic_ice_trolls",
+      "name": "冰巨魔群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 46,
+      "forms": [
+        "0x5A098",
+        "0x5A084",
+        "0x5A085",
+        "0x5C841",
+        "0x5C843",
+        "0x5A086"
+      ],
+      "editor_ids": [
+        "_00EncTrollIceA00",
+        "_00EncTrollIceA01",
+        "_00EncTrollIceA02",
+        "_00EncTrollIceArmored",
+        "_00EncTrollIceArmored01",
+        "_00EncTrollIceA03"
+      ],
+      "id": "0x959"
+    },
+    {
+      "key": "sic_bears",
+      "name": "熊群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 30,
+      "forms": [
+        "0x7F432",
+        "0x7F433",
+        "0x7F436",
+        "0x7F435",
+        "0x1E4AC",
+        "0x1E4AD"
+      ],
+      "editor_ids": [
+        "_00EncBear01",
+        "_00EncBear02",
+        "_00EncBearSnow01",
+        "_00EncBearCave01",
+        "_00EncBear03",
+        "_00EncBearSnow02"
+      ],
+      "id": "0x95A"
+    },
+    {
+      "key": "sic_glass_golems",
+      "name": "玻璃傀儡群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 58,
+      "forms": [
+        "0x9CBB6",
+        "0x9CBB7",
+        "0xA7C2",
+        "0xA7C3"
+      ],
+      "editor_ids": [
+        "_00EncAtronachGlassOld01",
+        "_00EncAtronachGlassNew01",
+        "_00EncAtronachGlassOld02",
+        "_00EncAtronachGlassNew02"
+      ],
+      "id": "0x95B"
+    },
+    {
+      "key": "sic_ice_atronachs",
+      "name": "远古冰霜元素群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 58,
+      "forms": [
+        "0xA7C1"
+      ],
+      "editor_ids": [
+        "_00EncAtronachIceAncient02"
+      ],
+      "id": "0x95C"
+    },
+    {
+      "key": "sic_dwemer_centurions",
+      "name": "矮人百夫长群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 36,
+      "forms": [
+        "0xBA7E6",
+        "0xBA7E9",
+        "0xBA7E7",
+        "0xBA7EA",
+        "0xBA7E8",
+        "0xBA7EB"
+      ],
+      "editor_ids": [
+        "_00EncDwarvenCenturionA01",
+        "_00EncDwarvenCenturionB01",
+        "_00EncDwarvenCenturionA02",
+        "_00EncDwarvenCenturionB02",
+        "_00EncDwarvenCenturionA03",
+        "_00EncDwarvenCenturionB03"
+      ],
+      "id": "0x95D"
+    },
+    {
+      "key": "sic_dwemer_spheres",
+      "name": "矮人球体群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 30,
+      "forms": [
+        "0xBA7E4",
+        "0xFFE57",
+        "0xBA7E3",
+        "0xFFE58",
+        "0xBA7E5",
+        "0xFFE59"
+      ],
+      "editor_ids": [
+        "_00EncDwarvenSphereA01",
+        "_00EncDwarvenSphereB01",
+        "_00EncDwarvenSphereA02",
+        "_00EncDwarvenSphereB02",
+        "_00EncDwarvenSphereA03",
+        "_00EncDwarvenSphereB03"
+      ],
+      "id": "0x95E"
+    },
+    {
+      "key": "sic_dwemer_spiders",
+      "name": "矮人蜘蛛群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 20,
+      "forms": [
+        "0xBA7EE",
+        "0xC1F2D",
+        "0xC1F31",
+        "0xBA7EF",
+        "0xC1F2E",
+        "0xBA7F1"
+      ],
+      "editor_ids": [
+        "_00EncDwarvenSpiderA01",
+        "_00EncDwarvenSpiderB01",
+        "_00EncDwarvenSpiderC01",
+        "_00EncDwarvenSpiderA02",
+        "_00EncDwarvenSpiderB02",
+        "_00EncDwarvenSpiderA03"
+      ],
+      "id": "0x95F"
+    },
+    {
+      "key": "sic_darkstalk_spiders",
+      "name": "毒暗茎蜘蛛群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 55,
+      "forms": [
+        "0x1793D3",
+        "0x1793D4",
+        "0xF7EA",
+        "0xF7EC",
+        "0xF7EB",
+        "0xF7ED"
+      ],
+      "editor_ids": [
+        "_00EncDarkstalkSpiderA_01",
+        "_00EncDarkstalkSpiderB_01",
+        "_00EncDarkstalkSpiderA_02",
+        "_00EncDarkstalkSpiderB_02",
+        "_00EncDarkstalkSpiderA_03",
+        "_00EncDarkstalkSpiderB_03"
+      ],
+      "id": "0x960"
+    },
+    {
+      "key": "sic_werewolves",
+      "name": "狼人群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 25,
+      "forms": [
+        "0x145EC",
+        "0x145F7",
+        "0x14602",
+        "0x145ED",
+        "0x145F8",
+        "0x14603"
+      ],
+      "editor_ids": [
+        "_00EncWerewolfRed01",
+        "_00EncWerewolfBrown01",
+        "_00EncWerewolfGrey01",
+        "_00EncWerewolfRed02",
+        "_00EncWerewolfBrown02",
+        "_00EncWerewolfGrey02"
+      ],
+      "id": "0x961"
+    },
+    {
+      "key": "sic_feral_wolves",
+      "name": "野狼群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 17,
+      "forms": [
+        "0x7F43A",
+        "0x7F43B",
+        "0x94D93",
+        "0x7F438",
+        "0x7F439",
+        "0x94D8F"
+      ],
+      "editor_ids": [
+        "_00EncFeralBlackWolf01",
+        "_00EncFeralIceWolf01",
+        "_00EncFeralBlackWolf02",
+        "_00EncFeralRedWolf01",
+        "_00EncFeralSnowWolf01",
+        "_00EncFeralIceWolf02"
+      ],
+      "id": "0x962"
+    },
+    {
+      "key": "sic_spriggan_matrons",
+      "name": "树精女族长群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 40,
+      "forms": [
+        "0x17446F",
+        "0x174470",
+        "0x174471",
+        "0xF80A",
+        "0xF80C",
+        "0xF80E"
+      ],
+      "editor_ids": [
+        "_00EncSprigganMatronA01",
+        "_00EncSprigganMatronB01",
+        "_00EncSprigganMatronC01",
+        "_00EncSprigganMatronA02",
+        "_00EncSprigganMatronB02",
+        "_00EncSprigganMatronC02"
+      ],
+      "id": "0x963"
+    },
+    {
+      "key": "sic_spriggans",
+      "name": "树精群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 20,
+      "forms": [
+        "0x17446C",
+        "0x49F322",
+        "0x49F325",
+        "0x17446D",
+        "0x49F320",
+        "0x49F324"
+      ],
+      "editor_ids": [
+        "_00EncSprigganA01",
+        "_00EncSprigganB01",
+        "_00EncSprigganC01",
+        "_00EncSprigganB02",
+        "_00EncSprigganA02",
+        "_00EncSprigganC02"
+      ],
+      "id": "0x964"
+    },
+    {
+      "key": "sic_frost_giants",
+      "name": "冰霜巨人群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 50,
+      "forms": [
+        "0x54CD2",
+        "0x8BD21",
+        "0x145DC",
+        "0x145DD",
+        "0x145DE",
+        "0x925EF"
+      ],
+      "editor_ids": [
+        "_00EncFrostGiantBrute02",
+        "_00EncFrostGiantBrute01",
+        "_00EncGiantFrost01",
+        "_00EncGiantFrost02",
+        "_00EncGiantFrost03",
+        "_00EncFrostGiant01"
+      ],
+      "id": "0x965"
+    },
+    {
+      "key": "sic_hagravens",
+      "name": "乌鸦鬼婆群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 63,
+      "forms": [
+        "0x19F45",
+        "0x1E6AA",
+        "0x1E6AB",
+        "0x1E6AC"
+      ],
+      "editor_ids": [
+        "_00EncHagravenA_lvl30",
+        "_00EncHagravenA_lvl40",
+        "_00EncHagravenA_lvl50",
+        "_00EncHagravenA_lvl60"
+      ],
+      "id": "0x966"
+    },
+    {
+      "key": "sic_ancestor_ghosts",
+      "name": "祖灵骷髅群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 37,
+      "forms": [
+        "0x20C5A",
+        "0x2AAF6",
+        "0x7D271",
+        "0x7D274",
+        "0x7D272",
+        "0x8165E"
+      ],
+      "editor_ids": [
+        "_00EncSkeletonAncestorGhostA_lvl20",
+        "_00EncSkeletonAncestorGhostB_lvl20",
+        "_00EncSkeletonAncestorGhostC_lvl20",
+        "_00EncSkeletonAncestorGhostA_lvl30",
+        "_00EncSkeletonAncestorGhostB_lvl30",
+        "_00EncSkeletonAncestorGhostC_lvl30"
+      ],
+      "id": "0x967"
+    },
+    {
+      "key": "sic_frostbite_spiders",
+      "name": "冻伤蜘蛛群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 15,
+      "forms": [
+        "0x18B0D7",
+        "0x18B0D8",
+        "0x18B0D9"
+      ],
+      "editor_ids": [
+        "_00EncFrostbiteSpiderA01",
+        "_00EncFrostbiteSpiderB01",
+        "_00EncFrostbiteSpiderC01"
+      ],
+      "id": "0x968"
+    },
+    {
+      "key": "sic_chaurus",
+      "name": "查鲁斯群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 32,
+      "forms": [
+        "0x1A35BD",
+        "0x1A35BE"
+      ],
+      "editor_ids": [
+        "_00EncChaurusHunterFledgling",
+        "_00EncChaurusSwampHunter"
+      ],
+      "id": "0x969"
+    },
+    {
+      "key": "sic_winged_twilight",
+      "name": "翼魔群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 64,
+      "forms": [
+        "0x8BD20",
+        "0x1365EB",
+        "0x1365EC",
+        "0x1365ED",
+        "0x1365EE",
+        "0x1365EF"
+      ],
+      "editor_ids": [
+        "_00EncWingedTwilight01",
+        "_00EncWingedTwilight02",
+        "_00EncWingedTwilight03",
+        "_00EncWingedTwilight04",
+        "_00EncWingedTwilight05",
+        "_00EncWingedTwilight06"
+      ],
+      "id": "0x96A"
+    },
+    {
+      "key": "sic_golden_saints",
+      "name": "黄金圣徒群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 58,
+      "forms": [
+        "0x10EC0D",
+        "0x1365F0",
+        "0x1365F1",
+        "0x1365F2",
+        "0x1365F3",
+        "0x1365F4"
+      ],
+      "editor_ids": [
+        "_00EncGoldenSaint01",
+        "_00EncGoldenSaint02",
+        "_00EncGoldenSaint03",
+        "_00EncGoldenSaint04",
+        "_00EncGoldenSaint05",
+        "_00EncGoldenSaint06"
+      ],
+      "id": "0x96B"
+    },
+    {
+      "key": "sic_dark_seducers",
+      "name": "黑暗诱惑者群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 35,
+      "forms": [
+        "0x1453A4",
+        "0x147B41",
+        "0x147B42",
+        "0x147B47",
+        "0x147B43",
+        "0x147B48"
+      ],
+      "editor_ids": [
+        "_00EncDarkSeducerA01",
+        "_00EncDarkSeducerB01",
+        "_00EncDarkSeducerA02",
+        "_00EncDarkSeducerB02",
+        "_00EncDarkSeducerA03",
+        "_00EncDarkSeducerB03"
+      ],
+      "id": "0x96C"
+    },
+    {
+      "key": "sic_skeleton_beasts",
+      "name": "兽人骷髅群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 20,
+      "forms": [
+        "0x1A5D68",
+        "0x1A5D69",
+        "0x1A5D6A",
+        "0x1A5D6B",
+        "0x1A5D72",
+        "0x1A5D73"
+      ],
+      "editor_ids": [
+        "_00EncSkeletonBeastArgonian01Melee1H",
+        "_00EncSkeletonBeastArgonian01Melee1Hshield",
+        "_00EncSkeletonBeastArgonian01Melee2H",
+        "_00EncSkeletonBeastArgonian01Missile",
+        "_00EncSkeletonBeastKhajiit01Melee1H",
+        "_00EncSkeletonBeastKhajiit01Melee1Hshield"
+      ],
+      "id": "0x96D"
+    },
+    {
+      "key": "sic_skeleton_soldiers",
+      "name": "骷髅士兵群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 20,
+      "forms": [
+        "0x777DD",
+        "0x2C0FB5",
+        "0x2C5EF5",
+        "0x2C5EF6",
+        "0x79F86",
+        "0x2C0FB6"
+      ],
+      "editor_ids": [
+        "_00EncSkeletonArmoredStormcloak01Melee",
+        "_00EncSkeletonArmoredStormcloak01Missile",
+        "_00EncSkeletonArmoredImperial01Melee",
+        "_00EncSkeletonArmoredImperial01Missile",
+        "_00EncSkeletonArmoredStormcloak02Melee",
+        "_00EncSkeletonArmoredStormcloak02Missile"
+      ],
+      "id": "0x96E"
+    },
+    {
+      "key": "sic_white_skeevers",
+      "name": "白色雪鼠群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 10,
+      "forms": [
+        "0xBF75E"
+      ],
+      "editor_ids": [
+        "_00EncSkeeverWhite01"
+      ],
+      "id": "0x96F"
+    },
+    {
+      "key": "sic_brown_skeevers",
+      "name": "棕色雪鼠群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 10,
+      "forms": [
+        "0xBF76F",
+        "0xBF771",
+        "0xBF772"
+      ],
+      "editor_ids": [
+        "_00EncSkeeverBrown01",
+        "_00EncSkeeverBrown201",
+        "_00EncSkeeverBrown2CL01"
+      ],
+      "id": "0x970"
+    },
+    {
+      "key": "sic_gehenoths",
+      "name": "格赫诺斯群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 30,
+      "forms": [
+        "0xD66"
+      ],
+      "editor_ids": [
+        "_00EncGehenoth"
+      ],
+      "id": "0x971"
+    },
+    {
+      "key": "sic_dremora",
+      "name": "魔人战团群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 30,
+      "forms": [
+        "0xF380F",
+        "0xF3815",
+        "0xF381B",
+        "0xF3821",
+        "0xF3810",
+        "0xF3816"
+      ],
+      "editor_ids": [
+        "_00EncDremoraMeleeM01",
+        "_00EncDremoraMeleeF01",
+        "_00EncDremoraMissileM01",
+        "_00EncDremoraMissileF01",
+        "_00EncDremoraMeleeM02",
+        "_00EncDremoraMeleeF02"
+      ],
+      "id": "0x972"
+    },
+    {
+      "key": "sic_skeleton_spellbinders",
+      "name": "骷髅施法者群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 59,
+      "forms": [
+        "0x6E496",
+        "0x7D26C",
+        "0x7D26D",
+        "0x7D26E"
+      ],
+      "editor_ids": [
+        "_00EncSkeletonSpellbinder01_lvl20",
+        "_00EncSkeletonSpellbinder01_lvl30",
+        "_00EncSkeletonSpellbinder01_lvl40",
+        "_00EncSkeletonSpellbinder01_lvl50"
+      ],
+      "id": "0x973"
+    },
+    {
+      "key": "sic_lichs",
+      "name": "巫妖群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 70,
+      "forms": [
+        "0x2AAF5",
+        "0x4AE32",
+        "0x233F8",
+        "0xA7E3",
+        "0xA7E4"
+      ],
+      "editor_ids": [
+        "_00EncLich02_lvl30",
+        "_00EncLich03_lvl30",
+        "_00EncLich01_lvl50",
+        "_00EncLich01_lvl60",
+        "_00EncLich01_lvl70"
+      ],
+      "id": "0x974"
+    },
+    {
+      "key": "sic_draugr_priests",
+      "name": "尸鬼牧师群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 70,
+      "forms": [
+        "0x127844",
+        "0x127847",
+        "0xA7E5",
+        "0xA7E7",
+        "0xA7E6",
+        "0xA7E8"
+      ],
+      "editor_ids": [
+        "_00EncDraugrPriest01_lvl50",
+        "_00EncDraugrPriest02_lvl50",
+        "_00EncDraugrPriest01_lvl60",
+        "_00EncDraugrPriest02_lvl60",
+        "_00EncDraugrPriest01_lvl70",
+        "_00EncDraugrPriest02_lvl70"
+      ],
+      "id": "0x975"
+    },
+    {
+      "key": "sic_skeleton_priests",
+      "name": "骷髅牧师群（SIC）",
+      "plugin": "Skyrim Immersive Creatures Special Edition.esp",
+      "min_level": 60,
+      "forms": [
+        "0x12509E",
+        "0x1250A1",
+        "0x127841",
+        "0xA7E9",
+        "0xA7EA",
+        "0xA7EB"
+      ],
+      "editor_ids": [
+        "_00EncSkeletonPriest01_lvl50",
+        "_00EncSkeletonPriest02_lvl50",
+        "_00EncSkeletonPriest03_lvl50",
+        "_00EncSkeletonPriest01_lvl60",
+        "_00EncSkeletonPriest02_lvl60",
+        "_00EncSkeletonPriest03_lvl60"
+      ],
+      "id": "0x976"
+    }
+  ]
+}

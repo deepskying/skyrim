@@ -4,6 +4,7 @@ This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preservi
 
 ## Modules
 
+- `mods/wilderness-encounters` — 野外随机群落袭击、中文案例事件和双方火拼；每场 3–20 名参与者，可选接入扩展怪物。测试版本 0.2.1，默认频繁，包含 119 组可选扩展群落，目标 Skyrim SE **1.5.97**。
 - `mods/arcane-arsenal` — weapon, staff and greatsword assets with their art and material build pipeline (`art/` holds the sources, `build/` the per-version working copies its scripts read as baselines).
 - `mods/buy-displayed-items` — purchase merchant-owned displayed items in shops and inns with the normal interaction key; sneak to steal. Independent SKSE plugin for **1.5.97**; first test build, no PrismaUI required.
 - `mods/companion-manager` — follower dashboard running on the Meridian UI platform. Default panel hotkey: **Shift+F**.
