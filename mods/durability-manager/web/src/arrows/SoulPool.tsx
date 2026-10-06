@@ -33,9 +33,17 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
       {!pool.enabled && <p className="arrow-muted">灵魂池已在 MagicArrows.ini 的 [SoulPool] 中关闭。</p>}
     </section>
     <div className="soul-columns">
-      <section className="arrow-card">
-        <header><div><small>NEXT TIER</small><h2>灵魂池扩容</h2></div><span className="soul-tier">上限 {pool.capacity + 10} 点</span></header>
-        <p className="arrow-muted">每一级给出两套方案：材料种类数、每种数量与金币完全相同，只有材料本身不同，可以挑一套更好凑齐的。需求随角色存档保存，读完存档不会改变；扩容成功后才会重新随机下一级。</p>
+      <section className="arrow-card soul-upgrade-card">
+        <header><div><small>NEXT TIER</small><h2>灵魂池扩容</h2></div></header>
+        <div className="soul-upgrade-preview" role="status" aria-label="本次扩容收益">
+          <div className="soul-upgrade-gain"><span>本次容量增加</span>
+            {pool.upgradeGain > 0 ? <strong>+{pool.upgradeGain}<small>点</small></strong> : <strong className="pending">待抽取</strong>}
+          </div>
+          <div className="soul-upgrade-result"><span>扩容后上限</span>
+            <div><span>{pool.capacity}</span><i aria-hidden="true">→</i><b>{pool.capacity + pool.upgradeGain}</b><small>点</small></div>
+          </div>
+        </div>
+        <p className="arrow-muted">每次随机增加 1～100 点。1～10 点需要 1 种材料，11～20 点需要 2 种，依次增加至 10 种；每种数量独立随机 1～10。甲乙方案共用增幅、数量与金币，材料不同。需求随角色存档保存，读完存档不会改变；扩容成功后才会重新随机下一级。</p>
         <div className="soul-plans" role="list">
           {plans.map(plan => {
             const ready = planReady(plan);
@@ -59,7 +67,7 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
               </div>
               <button className="arrow-primary soul-plan-action" disabled={!ready}
                 onClick={() => action('soulUpgrade', { option: plan.id })}>
-                {plan.materials.length === 0 ? '本级别暂无可用材料' : ready ? `按${planLabel(plan.id)}扩容` : '材料或金币不足'}
+                {plan.materials.length === 0 ? '本级别暂无可用材料' : ready ? `按${planLabel(plan.id)}扩容 · +${pool.upgradeGain} 点` : '材料或金币不足'}
               </button>
             </article>;
           })}

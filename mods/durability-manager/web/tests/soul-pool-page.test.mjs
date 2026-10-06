@@ -56,3 +56,29 @@ test('upgrade requirements are inline badges with a count, one set per plan', ()
   assert.match(markup, /Complete Alchemy &amp; Cooking Overhaul\.esp/, '来源写着具体插件名');
   assert.equal(markup.includes('缺 1'), false, 'the missing hint is gone');
 });
+
+
+test('upgrade preview uses the saved random gain for both plans', () => {
+  for (const gain of [1, 10, 11, 20, 90, 91, 100]) {
+    const state = { ...arrowDemo, soulPool: { ...arrowDemo.soulPool, capacity: 173, upgradeGain: gain } };
+    const html = renderToStaticMarkup(createElement(SoulPoolPage, { state, action: () => {}, active: true }));
+    assert.ok(html.includes(`<strong>+${gain}<small>点</small></strong>`));
+    assert.ok(html.includes(`<b>${173 + gain}</b>`));
+    assert.match(html, /本次容量增加/);
+    assert.match(html, /扩容后上限/);
+    assert.ok(html.indexOf('soul-upgrade-preview') < html.indexOf('soul-plans'));
+    assert.match(html, /1～100/);
+    assert.match(html, /读完存档不会改变/);
+  }
+});
+
+
+test('ten material kinds per plan stay visible and the confirm action repeats the gain', () => {
+  const pool = { ...arrowDemo.soulPool, upgradeGain: 100, options: [0, 1].map(id => ({ id,
+    materials: Array.from({ length: 10 }, (_, n) => ({ id: id * 100 + n, name: `材料${n + 1}`, source: 'Skyrim.esm', count: n + 1, owned: 10 })) })) };
+  const html = renderToStaticMarkup(createElement(SoulPoolPage, { state: { ...arrowDemo, soulPool: pool }, action: () => {}, active: true }));
+  assert.equal((html.match(/10 种材料/g) ?? []).length, 2);
+  assert.equal((html.match(/class="soul-requirement-label"/g) ?? []).length, 20);
+  assert.match(html, /按方案甲扩容 · \+100 点/);
+  assert.match(html, /按方案乙扩容 · \+100 点/);
+});

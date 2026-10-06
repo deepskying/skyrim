@@ -60,6 +60,18 @@
 .soul-meter-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(115deg,#7fd3bd4d,#a9e6d266);border-right:1px solid #b5ecd9a0;transition:width .25s ease}
 .soul-meter b{position:relative;margin-left:15px;font-size:calc(16px * var(--workshop-font-scale,1));color:#d8f4ea}
 .soul-tier{font-size:calc(13px * var(--workshop-font-scale,1));color:#9bc7b8}
+.soul-upgrade-preview{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;margin:4px 0 16px;padding:18px 24px;border:1px solid #cdb87888;border-left:4px solid #e9cb7a;border-radius:8px;background:linear-gradient(110deg,#b89a4029,#83c5b511);box-shadow:inset 0 0 28px #cfb56e09}
+.soul-upgrade-gain,.soul-upgrade-result{display:grid;gap:8px;min-width:0}
+.soul-upgrade-gain>span{color:#f3dfb2;font-size:calc(15px * var(--workshop-font-scale,1));letter-spacing:.08em}
+.soul-upgrade-gain>strong{display:flex;align-items:baseline;gap:10px;color:#ffe39a;font-size:calc(48px * var(--workshop-font-scale,1));font-weight:700;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 0 20px #efcc6533}
+.soul-upgrade-gain>strong small{color:#ecd8a4;font-size:calc(18px * var(--workshop-font-scale,1));font-weight:400}
+.soul-upgrade-gain>strong.pending{font-size:calc(24px * var(--workshop-font-scale,1))}
+.soul-upgrade-result>span{color:#b1c8bf;font-size:calc(14px * var(--workshop-font-scale,1))}
+.soul-upgrade-result>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:12px;font-variant-numeric:tabular-nums}
+.soul-upgrade-result>div>span{color:#9bb5ad;font-size:calc(22px * var(--workshop-font-scale,1))}
+.soul-upgrade-result i{color:#d8c791;font-size:calc(22px * var(--workshop-font-scale,1));font-style:normal}
+.soul-upgrade-result b{color:#d4f6e4;font-size:calc(32px * var(--workshop-font-scale,1));font-weight:600}
+.soul-upgrade-result small{color:#adc9ba;font-size:calc(14px * var(--workshop-font-scale,1))}
 .soul-columns{display:grid;gap:18px}
 .soul-requirements{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:14px 0}
 .soul-requirement{display:inline-grid;gap:2px;justify-items:start;border:1px solid #c79a7a44;border-radius:6px;padding:8px 13px;background:#c79a7a10;color:#d8b79c;font-size:calc(16px * var(--workshop-font-scale,1))}

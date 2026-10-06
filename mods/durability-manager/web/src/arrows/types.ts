@@ -9,7 +9,7 @@ export type Quote = { token: number; runtime?: boolean; selection: Selection; to
 export type NormalQuote = { token: number; recipe: number; batches: number; total: number; name: string; ingredients: { name: string; count: number }[] };
 export type SoulPool = {
   available: boolean; enabled: boolean; points: number; capacity: number; tier: number; absorbed: number;
-  upgradeGold: number; gold: number;
+  upgradeGold: number; upgradeGain: number; gold: number;
   // Two interchangeable plans per tier: same kind count, quantity and gold, different materials.
   // Every material carries the plugin that provides it, so a rare one can be traced back.
   options: { id: number; materials: { id: number; name: string; source: string; count: number; owned: number }[] }[];
