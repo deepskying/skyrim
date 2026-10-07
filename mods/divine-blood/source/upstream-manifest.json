@@ -1,0 +1,87 @@
+[
+  {
+    "path": "meta.ini",
+    "size": 474,
+    "sha256": "006dd6b2f34a77603efe3ca3d7bdedb788e9fff666ae4155891ff764513d52c8"
+  },
+  {
+    "path": "The Blood of Divines.esp",
+    "size": 15164,
+    "sha256": "fcd83d75f07c898d41f2a4a117cd5ad2c5e56dac886da5a901a8eee667add3b7"
+  },
+  {
+    "path": "Meshes\\Props\\Crystal\\Crystal_Blue.nif",
+    "size": 9786,
+    "sha256": "297a7f2ce12d499dfaaa05b8e0234cdb3d4f36342423e575d1365fbaf6015958"
+  },
+  {
+    "path": "Meshes\\Props\\Crystal\\Crystal_Green.nif",
+    "size": 9788,
+    "sha256": "2a4e0dec84cea095354854b7e356a43505580191ba75ff71ae8b03645fce1219"
+  },
+  {
+    "path": "Meshes\\Props\\Crystal\\Crystal_Red.nif",
+    "size": 9784,
+    "sha256": "a5c7ee8216b63fff5d1c696210ee76e267a0a0821436b08f22eb2d060ce7b324"
+  },
+  {
+    "path": "Meshes\\Props\\Crystal\\Crystal_Yellow.nif",
+    "size": 9790,
+    "sha256": "69d7aa29efe53eaf8e24577a332d8a6e5fa9252e7d3effc61c100d1fdd97c146"
+  },
+  {
+    "path": "Scripts\\OP_Increase_PC_Stats_Permanently.pex",
+    "size": 4402,
+    "sha256": "de9396b4dd09b55837fd4ae5c897ac240f2cbd9fc4e253c94ce8837abaa0e8c7"
+  },
+  {
+    "path": "Scripts\\Source\\OP_Increase_PC_Stats_Permanently.psc",
+    "size": 4064,
+    "sha256": "d86d3cf4461f02e1eb3d3415fbcccb04c1e6c890c9efe13819923e67b865a3fc"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Blue_d.dds",
+    "size": 16777364,
+    "sha256": "d7237c68c7b66ac0892cf1057481059f1b13cfe60d5c353de243657bf7b4e75c"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Blue_s.dds",
+    "size": 16777364,
+    "sha256": "a0460e7a240cfd23a27b416a5c9e3e27dff017b9eef60c67ca186f1254ffc979"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Green_d.dds",
+    "size": 16777364,
+    "sha256": "ad79182bde6b609f6ba7ccf099cb583002bd261618dc8f16147e13f6a1fd4ad6"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Green_s.dds",
+    "size": 16777364,
+    "sha256": "20031fa068a34952020e5c63392981f22ddc7f1c4886c7d8f2bdae3e78826600"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_n.dds",
+    "size": 16777364,
+    "sha256": "c7527b66f8e27f9f18d2199f447b8ae0c142c1468fcbe5eeb743ae4e3434ac93"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Red_d.dds",
+    "size": 16777364,
+    "sha256": "2314a2046b38af7ba7bb86af72eb13b6cfe7708ef80bb685854d5722c2b17e89"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Red_s.dds",
+    "size": 16777364,
+    "sha256": "b8c94c098214dd30818e0dba6b64c79a3d9ff17cf024349eb035683ac2378669"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Yellow_d.dds",
+    "size": 16777364,
+    "sha256": "b3e4914750803a36ac310bc62dd257b40b06d8bda29facf38a9ee8e0f7a7eb02"
+  },
+  {
+    "path": "Textures\\Props\\Crystal\\Crystal_Yellow_s.dds",
+    "size": 16777364,
+    "sha256": "a7eecf67f01da88d82f26eb3c33e07b3b13f4490c8b4906e5ab2ba765b60382d"
+  }
+]

@@ -1,0 +1,6 @@
+build/
+source/upstream/Textures/
+source/upstream/meta.ini
+__pycache__/
+
+*.blend1

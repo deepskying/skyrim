@@ -1,6 +1,8 @@
 import type { ArrowState } from './types';
+import { divineDemo } from './divine-demo';
 export const arrowDemo: ArrowState = {
-  craftingAccess: { magic: true, normal: true },
+  craftingAccess: { magic: true, normal: true, alchemy: true },
+  divineBlood: divineDemo,
   loaded: true, resources: { gold: 850, magicka: 220 }, alchemy: 35, materialGenericPercent: 50,
   ammoQueue: { available: true, enabled: true, ids: [21, 10], limit: 64 },
   followers: { available: true, consumeMagicArrows: true },

@@ -20,6 +20,7 @@
 #include "workshop_bridge.h"
 #include "workshop_ui.h"
 #include "legacy_queue.h"
+#include "../../../divine-blood/native/src/divine_blood.h"
 namespace { std::string legacySaveName; }
 #endif
 
@@ -140,9 +141,12 @@ json State(std::string message={}) {
     auto sort=[](json& xs){std::sort(xs.begin(),xs.end(),[](const json& a,const json& b){return a["name"].get<std::string>()<b["name"].get<std::string>();});};
     sort(arrows);sort(spells);sort(materials);sort(recipes);
     const auto access = loaded ? crafting_access::Nearby(p) : crafting_access::Access{};
-    return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","1.1.0"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
+    return {{"craftingAccess",{{"magic",access.magic},{"normal",access.normal},{"alchemy",access.alchemy}}},{"page",activePage},{"mode",activeCraftMode},{"nativeEscape",true},{"ammoQueue",ammo_queue::State(p)},{"alchemy",crafting::Alchemy(p)},{"resources",{{"magicka",p&&loaded?p->AsActorValueOwner()->GetActorValue(RE::ActorValue::kMagicka):0.f},{"gold",p&&loaded?crafting::Count(p,RE::TESForm::LookupByID<RE::TESBoundObject>(0xF)):0}}},{"workshopReply",workshopReply},{"followers",{{"consumeMagicArrows",follower_ammo::consume},{"available",follower_ammo::installed}}},{"runtimeSlots",{{"ready",runtime_binding::ready},{"capacity",256},{"free",runtime_binding::Free()}}},{"normalQuote",normal_crafting::quote},{"quote",runtime_binding::quote.is_null()?crafting::quote:runtime_binding::quote},{"fireballRecipe",{{"gold",5},{"magicka",12},{"charge",10},{"damage",40}}},{"version","1.1.0"},{"arrows",arrows},{"spells",spells},{"materials",materials},{"recipes",recipes},{"message",message},
         {"orders",craft_order::State()},
         {"soulPool",soul_pool::State(p)},
+#ifdef UNIFIED_WORKSHOP
+        {"divineBlood",divine_blood::State(p&&loaded?p:nullptr,activePage=="divine")},
+#endif
         {"materialGenericPercent",crafting::GenericPercent},
         {"hotkey",{{"key",binding.key},{"shift",binding.shift},{"ctrl",binding.ctrl},{"alt",binding.alt}}},
         {"loaded",loaded},{"powerAvailable",RE::TESDataHandler::GetSingleton()&&RE::TESDataHandler::GetSingleton()->LookupForm<RE::SpellItem>(0x840,"MagicArrows.esp")!=nullptr}};
@@ -246,7 +250,7 @@ void Action(const char* raw){
     if(auto* tasks=SKSE::GetTaskInterface())tasks->AddTask([copy=std::move(copy)]{
         try{
             workshopReply=nullptr;auto q=json::parse(copy);auto type=q.value("type",std::string{});
-            if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft"||type=="orderStart")workshopReply={{"type",type},{"requestID",q.value("requestID",std::uint64_t{})},{"ok",false}};
+            if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft"||type=="orderStart"||type=="divineCraft")workshopReply={{"type",type},{"requestID",q.value("requestID",std::uint64_t{})},{"ok",false}};
             if(type=="ready"){ready=true;if(api&&view&&api->HasFocus(view))Send();return;}
             if(type=="close"){if(q.value("reason",std::string{})!="hotkey"||GetTickCount64()-openedAt>250)Close();return;}
             if(!loaded||!api||!view||!api->HasFocus(view))return;
@@ -262,7 +266,7 @@ void Action(const char* raw){
             }
             if(type=="cancelCraft"){crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();Send();return;}
             if(type=="workshopMode"){auto mode=q.value("mode",std::string{});if(mode=="magic"||mode=="normal"){activeCraftMode=mode;crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();}Send();return;}
-            if(type=="page"){auto page=q.value("page",std::string{});if(page=="equipment"||page=="craft"||page=="settings"||page=="soul")activePage=page;Send();return;}
+            if(type=="page"){auto page=q.value("page",std::string{});if(page=="equipment"||page=="craft"||page=="settings"||page=="soul"||page=="divine")activePage=page;Send();return;}
             if(type=="quote"||type=="craft"||type=="normalQuote"||type=="normalCraft"){
                 const bool normal=type=="normalQuote"||type=="normalCraft";
                 const auto access=crafting_access::Nearby(player);
@@ -271,6 +275,9 @@ void Action(const char* raw){
                     throw std::runtime_error(normal?"请靠近锻造炉、冶炼炉、磨刀石或护甲工作台后制作普通箭矢":"请靠近附魔台后制作魔法箭");
                 }
             }
+#ifdef UNIFIED_WORKSHOP
+            if(type=="divineCraft"){const int count=divine_blood::Craft(player,q);workshopReply["ok"]=true;Send("已炼制 "+std::to_string(count)+" 份神之血；本次所选材料已消耗，炼金池已清空");return;}
+#endif
             if(type=="normalQuote"){runtime_binding::Reset();crafting::Reset();normal_crafting::Quote(player,q);workshopReply["ok"]=true;Send("普通箭费用已计算，请核对后确认");
             }else if(type=="normalCraft"){normal_crafting::Commit(player,q.at("token").get<std::uint64_t>());workshopReply["ok"]=true;Send("普通箭制作完成，成品已加入背包");
             }else if(type=="orderStart"){const auto started=craft_order::Start(q);workshopReply["ok"]=true;
@@ -363,11 +370,18 @@ void Message(SKSE::MessagingInterface::Message* m){
         Close();
 #endif
         runtime_sustained::Clear("preload");runtime_binding::Suspend();}
-    if(m->type==SKSE::MessagingInterface::kNewGame||m->type==SKSE::MessagingInterface::kPostLoadGame){loaded=m->type==SKSE::MessagingInterface::kNewGame||m->data!=nullptr;++generation;CancelEquip();runtime_binding::Reset();crafting::Reset();normal_crafting::Reset();ammo_queue::Suspend();if(m->type==SKSE::MessagingInterface::kNewGame)ammo_queue::Revert(nullptr);if(loaded){runtime_sustained::AfterLoad();runtime_binding::Restore();ammo_queue::Normalize();}}
+    if(m->type==SKSE::MessagingInterface::kNewGame||m->type==SKSE::MessagingInterface::kPostLoadGame){loaded=m->type==SKSE::MessagingInterface::kNewGame||m->data!=nullptr;++generation;CancelEquip();runtime_binding::Reset();crafting::Reset();normal_crafting::Reset();ammo_queue::Suspend();if(m->type==SKSE::MessagingInterface::kNewGame){ammo_queue::Revert(nullptr);
+#ifdef UNIFIED_WORKSHOP
+    divine_blood::Reset();
+#endif
+    }if(loaded){runtime_sustained::AfterLoad();runtime_binding::Restore();ammo_queue::Normalize();}}
     power.OnMessage(m);
     if(m->type!=SKSE::MessagingInterface::kDataLoaded)return;
     runtime_sustained::afterUpdate=EquipFrame;crafting::Sync();runtime_binding::Init();runtime_impact::Install();runtime_sustained::Install();soul_capture::Install();follower_ammo::Install();normal_crafting::Init();
     LoadConfig();
+#ifdef UNIFIED_WORKSHOP
+    divine_blood::Init();
+#endif
 #ifdef UNIFIED_WORKSHOP
     api=unified_workshop::GetWorkshopUI();
 #else
@@ -391,11 +405,11 @@ void unified_workshop::AttachArrows(std::uint64_t sharedView){view=sharedView;re
 void unified_workshop::SetArrowsVisible(bool visible){
     panelVisible=visible;
     if(visible&&loaded){openedAt=GetTickCount64();try{runtime_binding::MergeInventory(RE::PlayerCharacter::GetSingleton());}catch(const std::exception& e){logger::warn("Arrow merge: {}",e.what());}ammo_queue::Normalize();Send();}
-    else{crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();}
+    else{crafting::Reset();normal_crafting::Reset();runtime_binding::Reset();divine_blood::handled.clear();++divine_blood::epoch;}
 }
 void unified_workshop::ArrowAction(const char* json){Action(json);}
-void unified_workshop::SaveArrows(SKSE::SerializationInterface* serial){ammo_queue::Save(serial);}
-void unified_workshop::RevertArrows(SKSE::SerializationInterface* serial){ammo_queue::Revert(serial);}
+void unified_workshop::SaveArrows(SKSE::SerializationInterface* serial){ammo_queue::Save(serial);divine_blood::Save(serial);}
+void unified_workshop::RevertArrows(SKSE::SerializationInterface* serial){ammo_queue::Revert(serial);divine_blood::Reset();}
 namespace {
 void RestoreQueueWords(SKSE::SerializationInterface* serial,const std::vector<std::uint32_t>& words,std::uint32_t version=1){
     if(!ammo_queue_rules::ValidRecord(words,version))return;
@@ -405,7 +419,7 @@ void RestoreQueueWords(SKSE::SerializationInterface* serial,const std::vector<st
 }
 }
 void unified_workshop::BeginLoadArrows(SKSE::SerializationInterface* serial){
-    ammo_queue::Revert(serial);
+    ammo_queue::Revert(serial);divine_blood::Reset();
     // Import the legacy UID without changing the old co-save. The next save writes
     // both modules under the retained durability UID. A current queue record wins.
     if(legacySaveName.empty())return;
@@ -420,6 +434,7 @@ void unified_workshop::BeginLoadArrows(SKSE::SerializationInterface* serial){
     }catch(const std::exception& e){logger::warn("Legacy arrow queue import failed: {}",e.what());}
 }
 bool unified_workshop::LoadArrowRecord(SKSE::SerializationInterface* serial,std::uint32_t type,std::uint32_t version,std::uint32_t length){
+    if(divine_blood::Load(serial,type,version,length))return true;
     if(craft_order::LoadRecord(serial,type,version,length))return true;
     if(soul_pool::LoadRecord(serial,type,version,length))return true;
     if(type!=ammo_queue::record)return false;

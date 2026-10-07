@@ -7,7 +7,7 @@ const nav = readFileSync(new URL('../src/WorkshopNavigation.tsx', import.meta.ur
 const css = readFileSync(new URL('../src/workshop.css', import.meta.url), 'utf8');
 
 test('the enhancement rail entry is gone', () => {
-  assert.match(nav, /export type Tab = 'workshop' \| 'arrows' \| 'soul' \| 'settings'/);
+  assert.match(nav, /export type Tab = 'workshop' \| 'arrows' \| 'soul' \| 'divine' \| 'settings'/);
   // No rail entry declares it any more - the comment above the type still explains why.
   assert.doesNotMatch(nav, /name: '装备强化'/);
   assert.doesNotMatch(nav, /id: 'enhancement'/);

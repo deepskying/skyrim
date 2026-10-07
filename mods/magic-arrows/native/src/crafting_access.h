@@ -3,7 +3,7 @@
 #include "crafting_station_rules.h"
 
 namespace crafting_access {
-struct Access { bool magic = false; bool normal = false; };
+struct Access { bool magic = false; bool normal = false; bool alchemy = false; };
 
 // Scan loaded references afresh for each quote/commit; never retain furniture pointers.
 inline Access Nearby(RE::PlayerCharacter* player) {
@@ -30,6 +30,7 @@ inline Access Nearby(RE::PlayerCharacter* player) {
              furniture->workBenchData.benchType == BenchType::kEnchantingExperiment);
         result.magic |= IsEnchantingStation(enchantingBench,
             [&](const char* keyword) { return base->HasKeywordByEditorID(keyword); });
+        result.alchemy |= (furniture && (furniture->workBenchData.benchType == BenchType::kAlchemy || furniture->workBenchData.benchType == BenchType::kAlchemyExperiment)) || base->HasKeywordByEditorID("CraftingAlchemy") || base->HasKeywordByEditorID("isAlchemy") || base->HasKeywordByEditorID("WICraftingAlchemy");
         result.normal |= base->HasKeywordByEditorID("CraftingSmithingForge") ||
             base->HasKeywordByEditorID("CraftingSmelter") ||
             base->HasKeywordByEditorID("CraftingSmithingSharpeningWheel") ||

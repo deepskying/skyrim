@@ -1,11 +1,11 @@
-"""Build one MO2 mod from the two source modules; never install or edit saves."""
+"""Build the shared workshop package; divine blood ESP/resources remain separate."""
 from pathlib import Path
 import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MODS = ROOT.parent
-OUT = ROOT / 'packaging/release/EquipmentWorkshop-2.3.34'
+OUT = ROOT / 'packaging/release/EquipmentWorkshop-2.4.1'
 
 def package():
     dll = ROOT / 'native/build/windows/x64/release/EquipmentWorkshop.dll'
@@ -43,9 +43,9 @@ def package():
     shutil.copy2(ROOT / 'native/vendor/MeridianUIAPI/LICENSE-MIT', OUT / 'Meridian-SDK-LICENSE.txt')
     shutil.copy2(ROOT / 'README.md', OUT / 'README.md')
     shutil.copy2(ROOT / 'docs/native-recycling-migration.md', OUT / 'NativeRecycling-migration.md')
-    (OUT / 'meta.ini').write_text('[General]\ngameName=Skyrim Special Edition\nversion=2.3.34\nnotes=Unified equipment and magic arrow workshop; legacy ESP identities retained.\n', encoding='utf-8')
+    (OUT / 'meta.ini').write_text('[General]\ngameName=Skyrim Special Edition\nversion=2.4.1\nnotes=Unified equipment and magic arrow workshop; legacy ESP identities retained.\n', encoding='utf-8')
     assert [p.name for p in plugins.glob('*.dll')] == ['EquipmentWorkshop.dll']
-    archive = ROOT / 'packaging/EquipmentWorkshop-2.3.34.zip'
+    archive = ROOT / 'packaging/EquipmentWorkshop-2.4.1.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
         for source in sorted(OUT.rglob('*')):
             if source.is_file(): z.write(source, source.relative_to(OUT))

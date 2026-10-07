@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 async function module(name) {
   const source = readFileSync(new URL(`../src/arrows/${name}.ts`, import.meta.url), 'utf8');
-  const js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+  let js = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+  if (name === 'demo') {
+    const fixture = ts.transpileModule(readFileSync(new URL('../src/arrows/divine-demo.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+    js = js.replace("'./divine-demo'", JSON.stringify(`data:text/javascript;base64,${Buffer.from(fixture).toString('base64')}`));
+  }
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 }
 const { planCraft, matchingMaterials, materialHighlight, moveQueue, matchesCraftReply } = await module('rules');

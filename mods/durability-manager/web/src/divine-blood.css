@@ -1,0 +1,49 @@
+.divine-page { --divine-soul:#79dce8; --divine-alchemy:#edc181; overflow-y:auto; min-height:0; padding-bottom:24px; }
+.divine-select-hint { display:flex; align-items:center; justify-content:space-between; color:#a7afb5; font-size:12px; margin:0 0 8px; }
+.divine-cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:16px; max-height:152px; overflow-y:auto; padding-right:4px; }
+.divine-card { display:flex; text-align:left; align-items:center; gap:10px; border:1px solid #ffffff20; border-radius:9px; background:#151b23b0; color:#d8dedf; padding:8px; min-width:0; }
+.divine-card.active { border-color:#cba972; background:#3c30269c; box-shadow:inset 0 0 0 1px #cba97250; }
+.divine-card img { width:48px; height:56px; object-fit:contain; flex-shrink:0; }
+.divine-card div { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.divine-card b { font-size:14px; }.divine-card span { font-size:12px; }.divine-card small,.divine-result small { color:#a7afb5; font-size:11px; }
+.divine-ritual { display:flex; flex-direction:column; align-items:center; position:relative; padding:14px 24px 18px; margin-bottom:16px; border:1px solid #b2c7d41c; border-radius:12px; background:radial-gradient(ellipse at 50% 45%,#28383c60 0%,#10192270 60%); }
+.divine-ritual-heading { text-align:center; }.divine-ritual-heading>span { font-size:9px; letter-spacing:3px; color:#91a4ad; }.divine-ritual-heading h2 { font-size:17px; color:#e8ded0; margin:5px 0 3px; }.divine-ritual-heading p { font-size:11px; color:#a7b7bd; margin:0; }
+.divine-pool-star { width:180px; height:180px; overflow:visible; margin:3px 0; flex-shrink:0; }
+.divine-star-orbit { fill:none; stroke:#b0c6ca24; stroke-width:.6; stroke-dasharray:2 8; }.divine-star-orbit.inner { stroke:#b0c6ca14; stroke-dasharray:none; }
+.divine-triangle-track,.divine-triangle-progress { fill:none; stroke-linejoin:round; stroke-linecap:butt; }
+.divine-triangle-track { stroke-width:2; opacity:.18; }
+.divine-triangle-progress { stroke-width:3.5; transition:stroke-dashoffset .35s ease; }
+.divine-triangle-progress.glow { stroke-width:6; opacity:.55; }
+.divine-triangle-track.soul,.divine-triangle-progress.soul { stroke:var(--divine-soul); }
+.divine-triangle-track.alchemy,.divine-triangle-progress.alchemy { stroke:var(--divine-alchemy); }
+.divine-star-node.soul { fill:var(--divine-soul); }.divine-star-node.alchemy { fill:var(--divine-alchemy); }
+.divine-pool-readouts { display:grid; grid-template-columns:1fr 1fr; gap:52px; text-align:center; }
+.divine-pool-readouts>div { min-width:145px; }.divine-pool-readouts .soul { color:var(--divine-soul); }.divine-pool-readouts .alchemy { color:var(--divine-alchemy); }
+.divine-pool-readouts span { font-size:12px; display:block; letter-spacing:1px; }.divine-pool-readouts i { display:inline-block; width:6px; height:6px; background:currentColor; transform:rotate(45deg); margin-right:8px; }.divine-pool-readouts strong { display:block; font-size:26px; font-weight:500; line-height:1.35; font-variant-numeric:tabular-nums; }.divine-pool-readouts small { font-size:14px; color:#a6b5bc; }.divine-pool-readouts p { margin:2px 0 0; font-size:10px; color:#9baab1; }
+.divine-pools { display:grid; grid-template-columns:1fr 1fr; gap:16px; }.divine-pools .arrow-card { min-width:0; padding:16px; background:#111b2480; }
+.divine-pools .arrow-muted { margin:8px 0; line-height:1.6; font-size:11px; }
+.divine-soul-materials { border-top-color:#79dce866; }.divine-alchemy-materials { border-top-color:#edc18166; }
+.divine-soul-materials header small,.divine-soul-materials .divine-material-symbol { color:var(--divine-soul); }.divine-alchemy-materials header small,.divine-alchemy-materials .divine-material-symbol { color:var(--divine-alchemy); }.divine-material-symbol { font-size:28px; font-weight:300; }
+.divine-materials { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; max-height:250px; overflow-y:auto; margin:12px 0; padding:2px; align-items:stretch; }
+.divine-materials>div,.divine-materials>label { display:flex; flex-wrap:wrap; align-content:flex-start; align-items:center; gap:10px; min-width:0; padding:12px; border:1px solid #ffffff18; border-radius:8px; background:linear-gradient(145deg,#1b2830b0,#101922b0); }
+.divine-materials>div:focus-within { border-color:#79dce880; background:#192e36; }
+.divine-materials>label:focus-within { border-color:#edc18180; background:#30291f; }
+.divine-materials>div>span,.divine-materials>label>span { flex:0 0 100%; min-width:0; min-height:44px; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.divine-materials small { display:block; color:#9ba5ab; padding-top:4px; font-size:11px; }
+.divine-materials input { width:100%; min-width:0; box-sizing:border-box; background:#0d151e; color:#e9e2d4; border:1px solid #ffffff30; border-radius:5px; padding:8px; font-variant-numeric:tabular-nums; }
+.divine-soul-materials .divine-materials input { flex:1 1 48px; width:48px; }
+.divine-materials .divine-deposit { flex:1 1 auto; border-color:#79dce838; color:var(--divine-soul); white-space:nowrap; padding:8px; }
+.divine-deposit small { display:inline; margin-left:4px; color:inherit; }
+.divine-page button { cursor:pointer; }.divine-page button:disabled { opacity:.45; cursor:default; }
+.divine-result { text-align:center; padding:20px 8px 0; }.divine-result h2 { margin:0; font-size:14px; font-weight:400; color:#b5c1c5; }.divine-result h2 strong { font-size:24px; color:#f2d7ad; margin:0 4px; }.divine-result .arrow-muted { margin:8px 0 4px; font-size:11px; }.divine-result>small { color:#7f919b; font-size:10px; }
+.divine-page .divine-craft-button { display:flex; align-items:center; justify-content:center; gap:35px; width:min(100%,440px); margin:14px auto 0; padding:14px 24px; border:1px solid #e8c68d85; border-radius:8px; background:linear-gradient(110deg,#54402a,#8d6b3c,#54402a); color:#fff0d5; font-size:17px; font-weight:600; letter-spacing:2px; box-shadow:0 4px 24px #dbaf6414,inset 0 1px 0 #f6e3b82b; }
+.divine-page .divine-craft-button:hover:not(:disabled) { border-color:#f6dab0; box-shadow:0 4px 28px #dbaf6435; }.divine-craft-button span { opacity:.75; font-weight:400; }
+@media(max-width:1100px){.divine-cards{grid-template-columns:repeat(3,minmax(0,1fr));}.divine-card b{font-size:12px;}.divine-pool-readouts{gap:24px;}}
+@media(prefers-reduced-motion:reduce){.divine-triangle-progress{transition:none;}}
+
+@media(max-width:800px){.divine-pools{grid-template-columns:1fr;}.divine-materials{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}}
+
+.divine-materials .divine-material-badges { display:flex; flex-wrap:wrap; gap:4px; padding-top:7px; }
+.divine-material-badges span { display:inline-flex; align-items:center; padding:2px 5px; border:1px solid #ffffff1c; border-radius:4px; background:#ffffff06; color:#b7c1c6; font-size:10px; line-height:1.5; white-space:nowrap; }
+.divine-soul-materials .divine-material-badges span:last-child { color:var(--divine-soul); border-color:#79dce835; background:#79dce80c; }
+.divine-alchemy-materials .divine-material-badges span:last-child { color:var(--divine-alchemy); border-color:#edc18135; background:#edc1810c; }

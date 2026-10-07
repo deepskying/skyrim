@@ -1,0 +1,233 @@
+[
+  {
+    "key": "health",
+    "name": "玛拉之血",
+    "form": 2048,
+    "effect": 2049,
+    "gain": "生命上限 +1",
+    "actorValues": [
+      24
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_Health_Modify"
+  },
+  {
+    "key": "magicka",
+    "name": "朱莉安诺斯之血",
+    "form": 2050,
+    "effect": 2058,
+    "gain": "魔力上限 +1",
+    "actorValues": [
+      25
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_Magicka_Modify"
+  },
+  {
+    "key": "stamina",
+    "name": "海尔辛之血",
+    "form": 2051,
+    "effect": 2057,
+    "gain": "体力上限 +1",
+    "actorValues": [
+      26
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_Stamina_Modify"
+  },
+  {
+    "key": "carry_weight",
+    "name": "泽尼萨尔之血",
+    "form": 3444,
+    "effect": 2059,
+    "gain": "负重上限 +1",
+    "actorValues": [
+      32
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_CarryWeight_Modify"
+  },
+  {
+    "key": "health_rec",
+    "name": "斯丹达尔之血",
+    "form": 3445,
+    "effect": 3446,
+    "gain": "生命恢复 +0.01",
+    "actorValues": [
+      27,
+      155
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_health_rec_Modify"
+  },
+  {
+    "key": "magicka_rec",
+    "name": "玛格努斯之血",
+    "form": 3447,
+    "effect": 3448,
+    "gain": "魔力恢复 +0.01",
+    "actorValues": [
+      28,
+      156
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_magicka_rec_Modify"
+  },
+  {
+    "key": "stamina_rec",
+    "name": "塔洛斯之血",
+    "form": 3449,
+    "effect": 3450,
+    "gain": "体力恢复 +0.01",
+    "actorValues": [
+      29,
+      157
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_stamina_rec_Modify"
+  },
+  {
+    "key": "shout_rec",
+    "name": "阿卡托什之血",
+    "form": 3451,
+    "effect": 3452,
+    "gain": "龙吼冷却倍率 −0.0001",
+    "actorValues": [
+      86,
+      28,
+      156
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_shout_rec_Modify"
+  },
+  {
+    "key": "magic_resist",
+    "name": "阿祖拉之血",
+    "form": 3453,
+    "effect": 3454,
+    "gain": "魔法抗性 +0.01",
+    "actorValues": [
+      44
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_magic_resist_Modify"
+  },
+  {
+    "key": "fire_resist",
+    "name": "梅瑞狄亚之血",
+    "form": 3456,
+    "effect": 3455,
+    "gain": "火焰抗性 +0.01",
+    "actorValues": [
+      41
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_fire_resist_Modify"
+  },
+  {
+    "key": "frost_resist",
+    "name": "诺克图娜之血",
+    "form": 3458,
+    "effect": 3457,
+    "gain": "寒霜抗性 +0.01",
+    "actorValues": [
+      43
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_frost_resist_Modify"
+  },
+  {
+    "key": "electric_resist",
+    "name": "波耶希亚之血",
+    "form": 3460,
+    "effect": 3459,
+    "gain": "闪电抗性 +0.01",
+    "actorValues": [
+      42
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_shock_resist_Modify"
+  },
+  {
+    "key": "disease_resist",
+    "name": "魄伊特之血",
+    "form": 3462,
+    "effect": 3461,
+    "gain": "疾病抗性 +0.01",
+    "actorValues": [
+      45
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_disease_resist_Modify"
+  },
+  {
+    "key": "poison_resist",
+    "name": "纳米拉之血",
+    "form": 3464,
+    "effect": 3463,
+    "gain": "毒素抗性 +0.01",
+    "actorValues": [
+      40
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_poison_resist_Modify"
+  },
+  {
+    "key": "damage_resist",
+    "name": "大衮之血",
+    "form": 3466,
+    "effect": 3465,
+    "gain": "护甲值 +0.01",
+    "actorValues": [
+      39,
+      9
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_damage_resist_Modify"
+  },
+  {
+    "key": "speed_mult",
+    "name": "凯娜瑞斯之血",
+    "form": 3468,
+    "effect": 3467,
+    "gain": "移动速度 +0.01",
+    "actorValues": [
+      30,
+      26
+    ],
+    "soulCost": 10,
+    "alchemyCost": 10,
+    "pointsPerIngredient": 1,
+    "editorID": "OP_ALCH_speed_Modify"
+  }
+]

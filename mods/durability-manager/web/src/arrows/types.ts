@@ -19,7 +19,7 @@ export type SoulPool = {
 export type ArrowState = {
   // Queued crafting orders, as reported by the native craft_order state.
   orders?: { entries: { spell: number; name: string; spellName?: string; label: string; total: number; remaining: number; progress: number; family?: string; manaPerArrow?: number }[]; paused?: boolean; reason?: string; limit?: number; pauseInCombat?: boolean; available?: boolean };
-  craftingAccess?: { magic: boolean; normal: boolean };
+  craftingAccess?: { magic: boolean; normal: boolean; alchemy?: boolean };
   loaded: boolean; page?: string; mode?: string; message?: string;
   arrows: Arrow[]; spells: Spell[]; materials: Material[]; recipes: Recipe[];
   resources?: { gold: number; magicka: number }; alchemy?: number;
@@ -28,6 +28,10 @@ export type ArrowState = {
   ammoQueue?: { available: boolean; enabled: boolean; ids: number[]; items?: Arrow[]; limit: number; finished?: boolean };
   followers?: { available: boolean; consumeMagicArrows: boolean };
   soulPool?: SoulPool;
+  divineBlood?: DivineBlood;
   quote?: Quote | null; normalQuote?: NormalQuote | null;
   workshopReply?: { type: string; requestID: number; ok: boolean; error?: string } | null;
 };
+
+export type DivineCard = { key: string; name: string; gain: string; absorbed: number; owned: number; soulCost: number; alchemyCost: number };
+export type DivineBlood = { available: boolean; epoch: number; cards: DivineCard[]; materials: { id: number; name: string; count: number; points: Record<string,number> }[] };

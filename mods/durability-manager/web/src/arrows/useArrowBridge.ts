@@ -8,7 +8,7 @@ declare global { interface Window { MagicArrows?: { receiveState: (state: ArrowS
 const empty: ArrowState = { loaded: false, arrows: [], spells: [], materials: [], recipes: [] };
 // Browser-only fixture for reviewing the out-of-range crafting messages.
 const previewState: ArrowState = import.meta.env.DEV && new URLSearchParams(window.location.search).get('stations') === 'none'
-  ? { ...arrowDemo, craftingAccess: { magic: false, normal: false } } : arrowDemo;
+  ? { ...arrowDemo, craftingAccess: { magic: false, normal: false, alchemy: false } } : arrowDemo;
 let requestSequence = 0;
 export const nextArrowRequest = () => ++requestSequence;
 export function useArrowBridge() {
@@ -59,7 +59,7 @@ export function useArrowBridge() {
         const ok = !!r?.craftable && Number.isInteger(n) && n > 0 && n <= r.maxBatches;
         return { ...next, workshopReply: { type, requestID, ok, error: ok ? '' : '配方或数量不可用' }, normalQuote: ok ? { token: requestID, recipe: r!.id, batches: n, name: r!.name, total: n * r!.yield, ingredients: r!.ingredients.map(i => ({ name: i.name, count: i.need * n })) } : null };
       }
-      if (type === 'craft' || type === 'normalCraft') return { ...next, workshopReply: { type, requestID, ok: false, error: '浏览器预览不扣资源，请在游戏内确认制作' } };
+      if (type === 'craft' || type === 'normalCraft' || type === 'divineCraft') return { ...next, workshopReply: { type, requestID, ok: false, error: '浏览器预览不扣资源，请在游戏内确认制作' } };
       return next;
     });
   }, []);

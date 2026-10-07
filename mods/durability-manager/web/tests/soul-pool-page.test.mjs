@@ -11,7 +11,7 @@ function load(name) {
   const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } }).outputText;
   const exports = {};
   const require = createRequire(import.meta.url);
-  new Function('require', 'exports', compiled)(id => id === './SoulGemIcon' ? load('arrows/SoulGemIcon.tsx') : require(id), exports);
+  new Function('require', 'exports', compiled)(id => id === './SoulGemIcon' ? load('arrows/SoulGemIcon.tsx') : id === './divine-demo' ? load('arrows/divine-demo.ts') : require(id), exports);
   return exports;
 }
 const { arrowDemo } = load('arrows/demo.ts');

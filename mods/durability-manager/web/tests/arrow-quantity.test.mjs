@@ -6,7 +6,7 @@ function compiled(name) { return ts.transpileModule(readFileSync(new URL(`../src
 const data = js => `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 const rules = data(compiled('rules'));
 const { clampQuantity, replaceStack, allocateBases, reconcileSelection, resourceSegments, fillCharge } = await import(data(compiled('quantity').replace("'./rules'", JSON.stringify(rules))));
-const { arrowDemo: state } = await import(data(compiled('demo')));
+const { arrowDemo: state } = await import(data(compiled('demo').replace("'./divine-demo'", JSON.stringify(data(compiled('divine-demo'))))));
 test('quantity accepts zero and clamps to whole units and available stock', () => {
   assert.equal(clampQuantity(0, 20), 0); assert.equal(clampQuantity(-1, 20), 0);
   assert.equal(clampQuantity(3.9, 20), 3); assert.equal(clampQuantity(30, 20), 20);
