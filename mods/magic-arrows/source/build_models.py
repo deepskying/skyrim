@@ -4,9 +4,33 @@ from paths import *
 from pyn.pynifly import NifFile
 from nif_blocks import NifBlocks
 from geometry import generate,Mesh
-from design_catalog import study
+from redesign_geometry import redesigned as study
+from energy_geometry import emission
 from game_specs import PROTOTYPES
 from particles import children,effect_shader,add_particles
+pure='--pure-geometry' in sys.argv
+flow='--luminous-v4' in sys.argv
+faithful='--faithful-samples' in sys.argv
+round03='--geometric-round03' in sys.argv
+redesign08='--five-arrow-redesign' in sys.argv
+selected='--geometric-selected' in sys.argv or round03
+precision='--precision-samples' in sys.argv or pure or flow or faithful or selected or redesign08
+if precision:
+    if redesign08:from five_arrow_redesign import generate as study,texture_path,shader_values,KEYS
+    elif round03:from geometric_round03 import generate as study,texture_path,shader_values,KEYS
+    elif selected:from geometric_selected import generate as study,texture_path,shader_values,KEYS
+    elif faithful:from faithful_samples import generate as study,texture_path,shader_values,KEYS
+    elif flow:from luminous_v4 import generate as study,texture_path,shader_values,KEYS
+    elif pure:from pure_geometry_samples import generate as study,texture_path,shader_values,KEYS
+    else:from precision_samples import generate as study,texture_path,shader_values,KEYS
+    DATA=BUILD/('geometric-selected-05/data' if selected else 'faithful-samples-01/data' if faithful else 'luminous-v4/data' if flow else 'pure-geometry-02/data' if pure else 'precision-samples-01/data');MESH=DATA/'meshes/magicarrows';TEX=DATA/'textures/magicarrows'
+    if round03:
+        DATA=BUILD/'geometric-round03/data';MESH=DATA/'meshes/magicarrows';TEX=DATA/'textures/magicarrows'
+    if redesign08:
+        from five_arrow_redesign import STAGE
+        DATA=BUILD/STAGE;MESH=DATA/'meshes/magicarrows';TEX=DATA/'textures/magicarrows'
+    MESH.mkdir(parents=True,exist_ok=True);TEX.mkdir(parents=True,exist_ok=True)
+    PROTOTYPES=[s for s in PROTOTYPES if s['key'] in KEYS]
 p=lambda fmt,*v:struct.pack('<'+fmt,*v)
 u=lambda b,o=0:struct.unpack_from('<I',b,o)[0]
 def put(b,o,fmt,*v):struct.pack_into('<'+fmt,b,o,*v)
@@ -30,6 +54,12 @@ def dds(name,kind):
     (TEX/(name+'.dds')).write_bytes(b'DDS '+header+rgba)
 
 for key in ('solid','drop','spark','star'):dds(key,key)
+if not precision:
+    from five_arrow_redesign import write_textures,STAGE
+    import shutil
+    write_textures()
+    dst=TEX/'redesign08/facets.dds';dst.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(BUILD/STAGE/'textures/magicarrows/redesign08/facets.dds',dst)
 
 def node(n,name,transform=None):
     transform=transform or p('3f9ff',0,0,0,1,0,0,0,1,0,0,0,1,1)
@@ -45,7 +75,16 @@ def attach_mesh(n,src,mesh_id,name,parent,shader,alpha):
 
 report=[]
 for spec in PROTOTYPES:
-    key=spec['key'];parts=study(key)
+    key=spec['key']
+    # Preserve the user's approved blood model byte-for-byte when available.
+    if key=='blood' and all((MESH/(key+suffix+'.nif')).exists() for suffix in ('','_flight','_impact')):
+        for flight in (False,True):
+            out=MESH/(key+('_flight' if flight else '')+'.nif');check=NifFile(str(out))
+            report.append(dict(key=key,flight=flight,path=str(out),preserved=True,
+                               shapes=len(check.shapes),vertices=sum(len(s.verts) for s in check.shapes),
+                               triangles=sum(len(s.tris) for s in check.shapes)))
+        continue
+    parts=study(key)
     # Solid arrow geometry; bloom comes from emission, not a transparent shell.
     parts.pop('aura',None)
     geometry_path=BUILD/(key+'-geometry.nif')
@@ -68,9 +107,14 @@ for spec in PROTOTYPES:
         k,b=n.blocks[bsx];n.blocks[bsx]=(k,b[:4]+p('I',(u(b,4)|1) if flight else (u(b,4)&~1)))
         shaders={}
         alpha=0xffffffff # no alpha blending on solid arrow meshes
-        for cat,opacity,power in [('body',1.0,1.35),('core',1.0,2.0)]:
-            shader=bytearray(effect_shader('textures\\magicarrows\\solid.dds',spec['core'] if cat=='core' else spec['color'],opacity,power))
-            put(shader,16,'I',0x11) # double-sided and depth writing
+        for cat in parts:
+            color,power=shader_values(key,cat) if precision else emission(spec,cat)
+            tex=texture_path(key,cat) if precision else 'textures\\magicarrows\\solid.dds'
+            if not precision and key in ('fire','holy','arcane','poison','ice'):
+                from five_arrow_redesign import texture_path as redesign_texture
+                tex=redesign_texture(key,cat)
+            shader=bytearray(effect_shader(tex,color,1.0,power))
+            put(shader,16,'I',0x11) # double-sided, opaque, depth writing
             shaders[cat]=n.append('BSEffectShaderProperty',bytes(shader))
         full_name='IronArrowFlight:0' if flight else 'Arrow:0'
         full=node(n,'MAArrowVisual' if flight else 'Arrow:0',transforms[full_name]);children(n,0,[full])
@@ -88,10 +132,11 @@ for spec in PROTOTYPES:
             stats.append(add_particles(n,full,spec,(0,53,0),True,index=1))
         out=MESH/(key+('_flight' if flight else '')+'.nif');n.save(out)
         check=NifFile(str(out))
-        assert len(check.shapes)==(2 if flight else 12)
+        assert len(check.shapes)==len(parts)*(1 if flight else 6)
         assert all(len(s.verts)>0 and len(s.tris)>0 for s in check.shapes)
         reread=NifBlocks(out);assert reread.blocks==n.blocks
         report.append(dict(key=key,flight=flight,path=str(out),shapes=len(check.shapes),vertices=sum(len(s.verts) for s in check.shapes),triangles=sum(len(s.tris) for s in check.shapes),particles=stats))
+    if precision:continue
     impact=MESH/(key+'_impact.nif')
     nf=NifFile();nf.initialize('SKYRIMSE',str(impact),root_type='BSFadeNode',root_name='MAImpact');nf.save()
     n=NifBlocks(impact)
@@ -101,5 +146,5 @@ for spec in PROTOTYPES:
     add_particles(n,0,spec,(0,0,0),index=0,burst=True)
     n.save(impact)
     assert NifBlocks(impact).blocks==n.blocks
-(BUILD/'models.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+(BUILD/('models-redesign08.json' if redesign08 else 'models-geometric-round03.json' if round03 else 'models-geometric05.json' if selected else 'models-faithful01.json' if faithful else 'models-v4.json' if flow else 'models-pure02.json' if pure else 'models-precision01.json' if precision else 'models.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report,indent=2))
