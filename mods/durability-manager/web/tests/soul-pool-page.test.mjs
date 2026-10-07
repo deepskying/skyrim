@@ -32,7 +32,7 @@ test('the withdrawal card offers candidate gems with their own inputs and one ac
 
 test('the deposit list still renders and the pool meter is bordered', () => {
   assert.match(markup, /存入灵魂石/);
-  assert.match(markup, /soul-meter-fill/);
+  assert.match(markup, /soul-meter-segments/);
 });
 
 test('an unrolled pool explains itself instead of showing a dead button', () => {
@@ -81,4 +81,19 @@ test('ten material kinds per plan stay visible and the confirm action repeats th
   assert.equal((html.match(/class="soul-requirement-label"/g) ?? []).length, 20);
   assert.match(html, /按方案甲扩容 · \+100 点/);
   assert.match(html, /按方案乙扩容 · \+100 点/);
+});
+
+
+test('panel soul segments retain exact fractions after expansion and handle empty capacity',()=>{
+  const widths=(points,capacity)=>{
+    const html=renderToStaticMarkup(createElement(SoulPoolPage,{state:{...arrowDemo,soulPool:{...arrowDemo.soulPool,points,capacity}},action:()=>{},active:true}));
+    assert.match(html,/aria-label="灵魂池容量"/);
+    return [...html.matchAll(/<span style="width:([^%]+)%"/g)].map(m=>Number(m[1]));
+  };
+  assert.deepEqual(widths(12,20),[...Array(12).fill(100),...Array(8).fill(0)]);
+  assert.deepEqual(widths(125,200),[...Array(12).fill(100),50,...Array(7).fill(0)]);
+  assert.deepEqual(widths(0,20),Array(20).fill(0));
+  assert.deepEqual(widths(20,20),Array(20).fill(100));
+  assert.deepEqual(widths(30,20),Array(20).fill(100));
+  assert.deepEqual(widths(12,0),Array(20).fill(0));
 });

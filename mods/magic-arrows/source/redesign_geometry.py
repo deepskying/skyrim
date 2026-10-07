@@ -60,6 +60,8 @@ def ribbon(mesh, samples, phase=0):
 def redesigned(key):
     if key in ('fire','holy','arcane','poison','ice'):
         from five_arrow_redesign import generate
+    elif key=='shock':
+        from shock_arrow_redesign import generate
     elif key=='blood':
         from energy_geometry import redesigned as generate
     else:

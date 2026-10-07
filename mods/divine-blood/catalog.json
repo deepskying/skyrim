@@ -4,7 +4,7 @@
     "name": "玛拉之血",
     "form": 2048,
     "effect": 2049,
-    "gain": "生命上限 +1",
+    "gain": "生命上限 +5",
     "actorValues": [
       24
     ],
@@ -18,7 +18,7 @@
     "name": "朱莉安诺斯之血",
     "form": 2050,
     "effect": 2058,
-    "gain": "魔力上限 +1",
+    "gain": "魔力上限 +5",
     "actorValues": [
       25
     ],
@@ -32,7 +32,7 @@
     "name": "海尔辛之血",
     "form": 2051,
     "effect": 2057,
-    "gain": "体力上限 +1",
+    "gain": "体力上限 +5",
     "actorValues": [
       26
     ],
@@ -46,7 +46,7 @@
     "name": "泽尼萨尔之血",
     "form": 3444,
     "effect": 2059,
-    "gain": "负重上限 +1",
+    "gain": "负重上限 +5",
     "actorValues": [
       32
     ],

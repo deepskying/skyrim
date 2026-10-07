@@ -12,17 +12,17 @@ Event OnEffectStart(Actor akTarget, Actor akCaster)
         Return
     EndIf
     If increase_attr == "health"
-        player.ModActorValue("Health", 1)
-        Debug.Notification("&#29983;&#21629;&#19978;&#38480; +1")
+        player.ModActorValue("Health", 5)
+        Debug.Notification("&#29983;&#21629;&#19978;&#38480; +5")
     ElseIf increase_attr == "magicka"
-        player.ModActorValue("Magicka", 1)
-        Debug.Notification("&#39764;&#21147;&#19978;&#38480; +1")
+        player.ModActorValue("Magicka", 5)
+        Debug.Notification("&#39764;&#21147;&#19978;&#38480; +5")
     ElseIf increase_attr == "stamina"
-        player.ModActorValue("Stamina", 1)
-        Debug.Notification("&#20307;&#21147;&#19978;&#38480; +1")
+        player.ModActorValue("Stamina", 5)
+        Debug.Notification("&#20307;&#21147;&#19978;&#38480; +5")
     ElseIf increase_attr == "carry_weight"
-        player.ModActorValue("CarryWeight", 1)
-        Debug.Notification("&#36127;&#37325;&#19978;&#38480; +1")
+        player.ModActorValue("CarryWeight", 5)
+        Debug.Notification("&#36127;&#37325;&#19978;&#38480; +5")
     ElseIf increase_attr == "health_rec"
         player.ModActorValue("HealRate", 0.01)
         Debug.Notification("&#29983;&#21629;&#24674;&#22797; +0.01")

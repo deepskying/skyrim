@@ -25,8 +25,8 @@ export function SoulPoolPage({ state, action, active }: { state: ArrowState; act
   return <section className="arrows-page soul-page" hidden={!active}>
     <section className="arrow-card soul-meter-card">
       <header><div><small>SOUL POOL</small><h2>灵魂池</h2></div><span className="soul-tier">{pool.tier} 级 · 上限 {pool.capacity}</span></header>
-      <div className="soul-meter" role="progressbar" aria-valuemin={0} aria-valuemax={pool.capacity} aria-valuenow={pool.points}>
-        <div className="soul-meter-fill" style={{ width: `${ratio * 100}%` }} />
+      <div className="soul-meter" role="progressbar" aria-label="灵魂池容量" aria-valuemin={0} aria-valuemax={pool.capacity} aria-valuenow={pool.points}>
+        <div className="soul-meter-segments" aria-hidden="true">{Array.from({ length: 20 }, (_, index) => <i key={index}><span style={{ width: `${Math.max(0, Math.min(1, ratio * 20 - index)) * 100}%` }} /></i>)}</div>
         <b>{pool.points} / {pool.capacity}</b>
       </div>
       <p className="arrow-muted">你是或随从的每一次吸魂都会汇入这里；池满后回到原版吸魂，只填充背包里的空灵魂石。累计吸收 {pool.absorbed} 点。</p>

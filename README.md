@@ -14,9 +14,10 @@ This repository keeps the Skyrim SE SKSE + PrismaUI mods together while preservi
 - `mods/main-menu-manager` — random main-menu themes, a separate loading-screen library, desktop preview/removal with synchronized LSCR records, resource recovery, and an offline helper for custom images. Targets Skyrim SE **1.5.97**; no PrismaUI required.
 - `mods/music-manager` — environment-aware MP3 background music, DCS library migration, and Prisma UI controls. Default panel hotkey: **Shift+M**. Targets Skyrim SE **1.5.97**.
 - `mods/peak-effect-loop-guard` — stops magic effects that would otherwise loop forever.
+- `mods/condition-actor-guard` — stops the 1.5.97 actor-only condition functions from dereferencing a null actor when a spell, perk or package condition is evaluated against a non-actor target. Targets Skyrim SE **1.5.97**; no PrismaUI required.
 - `mods/inventory-manager` — lightweight inventory and magic list with configurable shortcuts. Default panel hotkey: **Shift+D**.
 - `mods/durability-manager` — PrismaUI foundation for weapon and armour durability. Default panel hotkey: **Shift+F**.
-- `mods/workshop` — the unified equipment workshop (durability, arrow crafting queue, divine blood, status HUD). It uses sources from `durability-manager`, `magic-arrows` and `divine-blood`; divine blood retains a separate ESP/resource package. Hotkey: **Shift+A**.
+- `mods/workshop` — the unified equipment workshop (durability, arrow crafting queue, divine blood, status HUD). It uses sources from `durability-manager`, `magic-arrows` and `divine-blood`; the workshop package includes all three modules while retaining their ESP identities. Hotkey: **Shift+A**.
 
 Both mods can be installed together: they use separate DLLs, views, and INI files. Shared Iconfont source is under `shared/iconfont`; the external build dependencies stay in `reference/`.
 

@@ -18,7 +18,7 @@ const render=state=>renderToStaticMarkup(createElement(DivineBloodPage,{state,ac
 test('sixteen divine cards and both pools use the shared capacity',()=>{
   const html=render(arrowDemo);
   assert.equal((html.match(/aria-pressed=/g)??[]).length,16);
-  assert.match(html,/生命上限 \+1/);assert.match(html,/负重上限 \+1/);
+  assert.match(html,/生命上限 \+5/);assert.match(html,/负重上限 \+5/);
   assert.match(html,/阿卡托什之血/);assert.match(html,/灵魂池/);assert.match(html,/炼金池/);
   assert.equal((html.match(/aria-valuemax="20"/g)??[]).length,2);
   assert.match(html,/仅选择材料/);assert.match(html,/成功后炼金池清空/);

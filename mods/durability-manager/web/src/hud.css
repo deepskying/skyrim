@@ -1,4 +1,4 @@
-/* Floating game HUD: neutral glass, fine rules, and consistent sans-serif numerals. */
+/* Floating game HUD: transparent panels, white text with black shadows, and fine rules. */
 .durability-hud-stack { position: fixed; bottom: 2vh; z-index: 10; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; max-width: 98vw; max-height: 96vh; border-left: 16px solid transparent; overflow: hidden; pointer-events: none; }
 .durability-hud {
   display: flex;
@@ -6,11 +6,12 @@
   gap: 13px;
   width: min(360px, 91vw);
   padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, .23);
+  border: 1px solid transparent;
   border-radius: 2px;
-  background: rgba(0, 0, 0, .68);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, .22);
-  color: #ecebea;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  text-shadow: 0 1px 2px #000, 0 0 4px #000;
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   font-size: 16px;
   line-height: 1.45;
@@ -21,12 +22,11 @@
 .hud-title { display: block; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }
 .hud-value { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 7px; font-variant-numeric: tabular-nums; }
 .hud-value strong { font-family: inherit; font-size: 22px; font-weight: 500; }
-.hud-value small, .hud-value > span { color: #bab8b4; font-size: 14px; font-weight: 400; }
+.hud-value small, .hud-value > span { color: #fff; font-size: 14px; font-weight: 400; }
 .hud-track { height: 8px; margin-top: 8px; padding: 1px; overflow: hidden; border: 1px solid #9ee7f2; border-radius: 1px; background: rgba(0, 0, 0, .7); box-shadow: 0 0 4px rgba(110, 216, 235, .2); }
 .hud-track i { display: block; height: 100%; background: #d8d6d1; }
-.hud-detail { display: block; margin-top: 9px; color: #b9b7b3; font-size: 14px; overflow-wrap: anywhere; }
-.durability-hud.warning { border-color: rgba(211, 162, 125, .45); }
-.durability-hud.warning .hud-icon, .durability-hud.warning .hud-title { color: #dfb79a; }
+.hud-detail { display: block; margin-top: 9px; color: #fff; font-size: 14px; overflow-wrap: anywhere; }
+.durability-hud.warning .hud-icon { color: #dfb79a; }
 .durability-hud.warning .hud-track { border-color: #ffc18c; box-shadow: 0 0 4px rgba(255, 171, 102, .2); }
 .durability-hud.warning .hud-track i { background: #d1a282; }
 
@@ -34,21 +34,21 @@
 .equipped-hud-item { width: 100%; min-width: 0; padding: 9px 14px; background: transparent; box-shadow: none; border: 0; border-top: 1px solid rgba(255,255,255,.12); }
 .equipped-hud-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .equipped-hud-heading .hud-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-.equipped-hud-heading > span { color: #b9b7b3; font-size: 12px; flex-shrink: 0; }
+.equipped-hud-heading > span { color: #fff; font-size: 12px; flex-shrink: 0; }
 .equipped-hud-item .hud-value { margin-top: 3px; }
 .equipped-hud-item .hud-value strong { font-size: 17px; }
 .equipped-hud-item .hud-value small, .equipped-hud-item .hud-value > span { font-size: 13px; }
 .equipped-hud-item .hud-track { margin-top: 4px; }
 .equipped-hud-heading strong { flex-shrink: 0; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.equipped-hud-heading strong small { color: #bab8b4; font-size: 12px; }
+.equipped-hud-heading strong small { color: #fff; font-size: 12px; }
 .equipped-hud-item .hud-track { height: 4px; padding: 0; border: 0; box-shadow: none; background: rgba(255,255,255,.13); }
-.equipped-hud-remaining { display: block; padding: 5px 14px 8px; border-top: 1px solid rgba(255,255,255,.12); color: #b9b7b3; font-size: 12px; }
-.character-hud-panel { width: min(600px, calc(98vw - 16px)); border: 1px solid rgba(236,231,217,.2); border-radius: 2px; background: rgba(9,12,13,.64); color: #ecebea; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; text-shadow: 0 1px 3px #000; }
+.equipped-hud-remaining { display: block; padding: 5px 14px 8px; border-top: 1px solid rgba(255,255,255,.12); color: #fff; font-size: 12px; }
+.character-hud-panel { width: min(600px, calc(98vw - 16px)); border: 1px solid transparent; border-radius: 2px; background: transparent; color: #fff; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
 .soul-pool-hud { display: grid; gap: 6px; padding: 9px 14px 11px; border-top: 1px solid rgba(236,231,217,.14); }
 .soul-pool-hud header { display: flex; align-items: baseline; gap: 10px; }
-.soul-pool-hud header span { color: #cfd8d6; font-size: 13px; letter-spacing: 1px; }
-.soul-pool-hud header small { color: #9fb0ac; font-size: 11px; }
-.soul-pool-hud header b { margin-left: auto; color: #cfe8dd; font-size: 13px; font-variant-numeric: tabular-nums; }
+.soul-pool-hud header span { color: #fff; font-size: 13px; letter-spacing: 1px; }
+.soul-pool-hud header small { color: #fff; font-size: 11px; }
+.soul-pool-hud header b { margin-left: auto; color: #fff; font-size: 13px; font-variant-numeric: tabular-nums; }
 .soul-pool-segments { display: flex; gap: 2px; height: 8px; background: #0d1920; border-radius: 0; }
 .soul-pool-segments i { flex: 1; background: transparent; border: 0; box-shadow: none; }
 .soul-pool-segments i.on { background: #8fd3bb; }
@@ -58,22 +58,22 @@
 .character-hud-panel { --hud-mono: Consolas, "Cascadia Mono", "Microsoft YaHei", monospace; }
 .player-hud, .equipped-hud-item, .craft-order-hud, .soul-pool-hud { font-family: var(--hud-mono); }
 .level-diamond text { font-family: var(--hud-mono); font-size: 32px; font-weight: 600; letter-spacing: 1px; }
-.level-experience { font-size: 11px; letter-spacing: 1.2px; color: #b9b7b3; }
+.level-experience { font-size: 11px; letter-spacing: 1.2px; color: #fff; }
 .player-stat { font-size: 15px; font-weight: 600; letter-spacing: .6px; }
-.player-stat small { font-size: 11px; letter-spacing: 1px; font-weight: 500; color: #a9a59c; }
+.player-stat small { font-size: 11px; letter-spacing: 1px; font-weight: 500; color: #fff; }
 .player-utility-row .player-stat { font-size: 15px; }
 .player-utility-row .player-stat small { font-size: 11px; }
 .order-square text { font-family: var(--hud-mono); font-size: 24px; font-weight: 600; }
 .craft-order-hud header > span { font-size: 11px; letter-spacing: 2.4px; }
-.craft-order-hud header > small { font-size: 11px; letter-spacing: 1.2px; color: #a9a59c; }
+.craft-order-hud header > small { font-size: 11px; letter-spacing: 1.2px; color: #fff; }
 .order-name { font-size: 11px; letter-spacing: .8px; }
 .soul-pool-hud header span { font-size: 11px; letter-spacing: 2.4px; }
-.soul-pool-hud header small { font-size: 10px; letter-spacing: 1.4px; color: #a9a59c; }
+.soul-pool-hud header small { font-size: 10px; letter-spacing: 1.4px; color: #fff; }
 .soul-pool-hud header b { font-family: var(--hud-mono); font-size: 15px; font-weight: 600; letter-spacing: 1px; }
-.equipped-hud-heading > span { font-size: 11px; letter-spacing: 1.4px; color: #a9a59c; }
+.equipped-hud-heading > span { font-size: 11px; letter-spacing: 1.4px; color: #fff; }
 .equipped-hud-heading .hud-title { font-size: 13px; font-weight: 500; letter-spacing: .4px; }
 .equipped-hud-heading strong { font-family: var(--hud-mono); font-size: 15px; font-weight: 600; letter-spacing: .6px; }
-.equipped-hud-heading strong small { font-size: 11px; letter-spacing: 1px; color: #a9a59c; }
+.equipped-hud-heading strong small { font-size: 11px; letter-spacing: 1px; color: #fff; }
 .player-hud { display: flex; align-items: center; gap: 18px; padding: 14px 16px 12px 12px; font-variant-numeric: tabular-nums; }
 .player-level { flex: 0 0 84px; text-align: center; }
 .level-diamond { display: block; width: 78px; height: 78px; margin: 0 auto; overflow: visible; }
@@ -81,17 +81,17 @@
 .level-inner { fill: none; stroke: #918b7c; stroke-width: .9; }
 .level-track { fill: none; stroke: rgba(235,229,213,.23); stroke-width: 2.5; }
 .level-progress { fill: none; stroke: #e5d5ae; stroke-width: 2.5; stroke-linecap: butt; }
-.level-diamond text { fill: #f3eee3; font-size: 34px; font-weight: 400; }
-.level-experience { display: block; margin-top: 5px; color: #ccc7bc; font-size: 12px; white-space: nowrap; }
+.level-diamond text { fill: #fff; font-size: 34px; font-weight: 400; }
+.level-experience { display: block; margin-top: 5px; color: #fff; font-size: 12px; white-space: nowrap; }
 .player-readouts { flex: 1; min-width: 0; }
 .player-combat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 15px; border-bottom: 1px solid rgba(235,229,213,.15); }
 .player-stat { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 16px; line-height: 1.3; }
 .player-stat svg { flex: 0 0 19px; width: 19px; height: 21px; color: #d7d3c8; }
-.player-stat small { font-size: 12px; color: #bbb8af; }
+.player-stat small { font-size: 12px; color: #fff; }
 .player-utility-row { display: flex; justify-content: space-between; gap: 8px; padding-top: 15px; }
 .player-utility-row .player-stat { gap: 8px; font-size: 16px; }
 .player-utility-row .player-stat small { font-size: 13px; }
-.player-stat.overloaded, .player-stat.overloaded small, .player-stat.overloaded svg { color: #e7af88; }
+.player-stat.overloaded svg { color: #e7af88; }
 @media (max-width: 720px) {
   .player-hud { gap: 8px; padding: 10px 8px; }
   .player-level { flex-basis: 64px; }
@@ -108,18 +108,18 @@
 /* Queued crafting: one diamond per spell, ring = arrows still to craft, tinted by family. */
 .craft-order-hud { padding: 10px 16px 13px; border-top: 1px solid rgba(235,229,213,.15); }
 .craft-order-hud header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.craft-order-hud header > span { color: #c6c0ac; font-size: 12px; letter-spacing: 2px; }
-.craft-order-hud header > small { color: #b9b7b3; font-size: 12px; }
-.craft-order-hud.paused header > small { color: #e0b46a; }
+.craft-order-hud header > span { color: #fff; font-size: 12px; letter-spacing: 2px; }
+.craft-order-hud header > small { color: #fff; font-size: 12px; }
+.craft-order-hud.paused header > small { color: #fff; }
 .craft-order-diamonds { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; margin-top: 9px; }
 .craft-order-diamonds article { width: 72px; min-width: 0; text-align: center; }
 .order-square { display: block; width: 54px; height: 54px; margin: 0 auto; overflow: visible; }
 .order-fill { fill: rgba(0,0,0,.55); }
 .order-track { fill: none; stroke: rgba(235,229,213,.22); stroke-width: 3.5; }
 .order-progress { fill: none; stroke: var(--order-edge,#e5d5ae); stroke-width: 3.5; stroke-linecap: butt; }
-.order-square text { fill: #f3eee3; font-size: 26px; font-weight: 400; }
-.order-name { display: block; margin-top: 4px; color: #cfc9bb; font-size: 11px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.craft-order-more { align-self: center; color: #b9b7b3; font-size: 12px; }
+.order-square text { fill: #fff; font-size: 26px; font-weight: 400; }
+.order-name { display: block; margin-top: 4px; color: #fff; font-size: 11px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.craft-order-more { align-self: center; color: #fff; font-size: 12px; }
 .craft-order-diamonds article.fire { --order-edge: #ff974d; }
 .craft-order-diamonds article.ice { --order-edge: #bbe8f7; }
 .craft-order-diamonds article.shock { --order-edge: #628bfa; }

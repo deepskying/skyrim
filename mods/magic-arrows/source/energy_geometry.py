@@ -10,6 +10,9 @@ VERSION='4.1.0'
 KEYS=('fire','ice','shock','poison','holy','wind','water','earth','dark','soul','arcane')
 
 def emission(spec,category):
+    if spec['key']=='shock':
+        from shock_arrow_redesign import shader_values
+        return shader_values(spec['key'],category)
     if spec['key'] in ('fire','holy','arcane','poison','ice'):
         from five_arrow_redesign import shader_values
         return shader_values(spec['key'],category)

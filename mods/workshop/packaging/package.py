@@ -1,17 +1,18 @@
-"""Build the shared workshop package; divine blood ESP/resources remain separate."""
+"""Build the shared workshop package; including the retained divine blood ESP and all its resources."""
 from pathlib import Path
 import shutil
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MODS = ROOT.parent
-OUT = ROOT / 'packaging/release/EquipmentWorkshop-2.4.1'
+OUT = ROOT / 'packaging/release/EquipmentWorkshop-2.4.7'
 
 def package():
     dll = ROOT / 'native/build/windows/x64/release/EquipmentWorkshop.dll'
     equipment = MODS / 'durability-manager'
     arrows = MODS / 'magic-arrows'
-    for required in (dll, equipment / 'web/dist/index.html', equipment / 'packaging/DurabilityManager.esp', arrows / 'data/MagicArrows.esp'):
+    blood = MODS / 'divine-blood'
+    for required in (dll, equipment / 'web/dist/index.html', equipment / 'packaging/DurabilityManager.esp', arrows / 'data/MagicArrows.esp', blood / 'data/The Blood of Divines.esp', blood / 'data/DivineBlood_DISTR.ini', blood / 'data/SKSE/Plugins/DivineBlood.ini'):
         if not required.is_file():
             raise RuntimeError(f'Missing build output: {required}')
     # Use a fresh versioned staging tree so retired JS bundles cannot leak in.
@@ -34,6 +35,8 @@ def package():
     for name in ('meshes', 'textures', 'scripts', 'Scripts'):
         source = arrows / 'data' / name
         if source.exists(): shutil.copytree(source, OUT / name)
+    shutil.copytree(blood / 'data', OUT, dirs_exist_ok=True)
+    shutil.copy2(blood / 'README.md', OUT / 'DivineBlood-README.md')
     for name in ('EquipmentWorkshop.recycling.json', 'EquipmentWorkshop.recycling.rules.json'):
         shutil.copy2(ROOT / 'data/SKSE/Plugins' / name, plugins / name)
     assert not (OUT / 'SimpleRecycling.esp').exists()
@@ -43,9 +46,11 @@ def package():
     shutil.copy2(ROOT / 'native/vendor/MeridianUIAPI/LICENSE-MIT', OUT / 'Meridian-SDK-LICENSE.txt')
     shutil.copy2(ROOT / 'README.md', OUT / 'README.md')
     shutil.copy2(ROOT / 'docs/native-recycling-migration.md', OUT / 'NativeRecycling-migration.md')
-    (OUT / 'meta.ini').write_text('[General]\ngameName=Skyrim Special Edition\nversion=2.4.1\nnotes=Unified equipment and magic arrow workshop; legacy ESP identities retained.\n', encoding='utf-8')
+    (OUT / 'meta.ini').write_text('[General]\ngameName=Skyrim Special Edition\nversion=2.4.7\nnotes=Unified equipment, magic arrows and divine blood workshop; legacy ESP identities retained.\n', encoding='utf-8')
     assert [p.name for p in plugins.glob('*.dll')] == ['EquipmentWorkshop.dll']
-    archive = ROOT / 'packaging/EquipmentWorkshop-2.4.1.zip'
+    assert {p.name for p in OUT.glob('*.esp')} == {'DurabilityManager.esp', 'MagicArrows.esp', 'The Blood of Divines.esp'}
+    assert len(list((OUT / 'meshes/DivineBlood').glob('*.nif'))) == 16
+    archive = ROOT / 'packaging/EquipmentWorkshop-2.4.7.zip'
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
         for source in sorted(OUT.rglob('*')):
             if source.is_file(): z.write(source, source.relative_to(OUT))

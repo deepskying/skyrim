@@ -12,11 +12,13 @@ pure='--pure-geometry' in sys.argv
 flow='--luminous-v4' in sys.argv
 faithful='--faithful-samples' in sys.argv
 round03='--geometric-round03' in sys.argv
-redesign08='--five-arrow-redesign' in sys.argv
+shock09='--shock-redesign' in sys.argv
+redesign08='--five-arrow-redesign' in sys.argv or shock09
 selected='--geometric-selected' in sys.argv or round03
 precision='--precision-samples' in sys.argv or pure or flow or faithful or selected or redesign08
 if precision:
-    if redesign08:from five_arrow_redesign import generate as study,texture_path,shader_values,KEYS
+    if shock09:from shock_arrow_redesign import generate as study,texture_path,shader_values,KEYS
+    elif redesign08:from five_arrow_redesign import generate as study,texture_path,shader_values,KEYS
     elif round03:from geometric_round03 import generate as study,texture_path,shader_values,KEYS
     elif selected:from geometric_selected import generate as study,texture_path,shader_values,KEYS
     elif faithful:from faithful_samples import generate as study,texture_path,shader_values,KEYS
@@ -27,7 +29,8 @@ if precision:
     if round03:
         DATA=BUILD/'geometric-round03/data';MESH=DATA/'meshes/magicarrows';TEX=DATA/'textures/magicarrows'
     if redesign08:
-        from five_arrow_redesign import STAGE
+        if shock09:from shock_arrow_redesign import STAGE
+        else:from five_arrow_redesign import STAGE
         DATA=BUILD/STAGE;MESH=DATA/'meshes/magicarrows';TEX=DATA/'textures/magicarrows'
     MESH.mkdir(parents=True,exist_ok=True);TEX.mkdir(parents=True,exist_ok=True)
     PROTOTYPES=[s for s in PROTOTYPES if s['key'] in KEYS]
@@ -60,6 +63,10 @@ if not precision:
     write_textures()
     dst=TEX/'redesign08/facets.dds';dst.parent.mkdir(parents=True,exist_ok=True)
     shutil.copy2(BUILD/STAGE/'textures/magicarrows/redesign08/facets.dds',dst)
+    from shock_arrow_redesign import write_textures as shock_textures,STAGE as SHOCK_STAGE
+    shock_textures()
+    dst=TEX/'shock09/facets.dds';dst.parent.mkdir(parents=True,exist_ok=True)
+    shutil.copy2(BUILD/SHOCK_STAGE/'textures/magicarrows/shock09/facets.dds',dst)
 
 def node(n,name,transform=None):
     transform=transform or p('3f9ff',0,0,0,1,0,0,0,1,0,0,0,1,1)
@@ -110,6 +117,9 @@ for spec in PROTOTYPES:
         for cat in parts:
             color,power=shader_values(key,cat) if precision else emission(spec,cat)
             tex=texture_path(key,cat) if precision else 'textures\\magicarrows\\solid.dds'
+            if not precision and key=='shock':
+                from shock_arrow_redesign import texture_path as shock_texture
+                tex=shock_texture(key,cat)
             if not precision and key in ('fire','holy','arcane','poison','ice'):
                 from five_arrow_redesign import texture_path as redesign_texture
                 tex=redesign_texture(key,cat)
@@ -146,5 +156,5 @@ for spec in PROTOTYPES:
     add_particles(n,0,spec,(0,0,0),index=0,burst=True)
     n.save(impact)
     assert NifBlocks(impact).blocks==n.blocks
-(BUILD/('models-redesign08.json' if redesign08 else 'models-geometric-round03.json' if round03 else 'models-geometric05.json' if selected else 'models-faithful01.json' if faithful else 'models-v4.json' if flow else 'models-pure02.json' if pure else 'models-precision01.json' if precision else 'models.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
+(BUILD/('models-shock09.json' if shock09 else 'models-redesign08.json' if redesign08 else 'models-geometric-round03.json' if round03 else 'models-geometric05.json' if selected else 'models-faithful01.json' if faithful else 'models-v4.json' if flow else 'models-pure02.json' if pure else 'models-precision01.json' if precision else 'models.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report,indent=2))

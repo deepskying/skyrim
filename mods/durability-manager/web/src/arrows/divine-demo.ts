@@ -6,7 +6,7 @@ export const divineDemo: DivineBlood = {
     {
       "key": "health",
       "name": "玛拉之血",
-      "gain": "生命上限 +1",
+      "gain": "生命上限 +5",
       "absorbed": 0,
       "owned": 0,
       "soulCost": 10,
@@ -15,7 +15,7 @@ export const divineDemo: DivineBlood = {
     {
       "key": "magicka",
       "name": "朱莉安诺斯之血",
-      "gain": "魔力上限 +1",
+      "gain": "魔力上限 +5",
       "absorbed": 0,
       "owned": 0,
       "soulCost": 10,
@@ -24,7 +24,7 @@ export const divineDemo: DivineBlood = {
     {
       "key": "stamina",
       "name": "海尔辛之血",
-      "gain": "体力上限 +1",
+      "gain": "体力上限 +5",
       "absorbed": 0,
       "owned": 0,
       "soulCost": 10,
@@ -33,7 +33,7 @@ export const divineDemo: DivineBlood = {
     {
       "key": "carry_weight",
       "name": "泽尼萨尔之血",
-      "gain": "负重上限 +1",
+      "gain": "负重上限 +5",
       "absorbed": 0,
       "owned": 0,
       "soulCost": 10,
@@ -154,7 +154,7 @@ export const divineDemo: DivineBlood = {
       "name": "蓝山花",
       "count": 18,
       "points": {
-        "health": 1
+        "health": 5
       }
     },
     {
@@ -162,7 +162,7 @@ export const divineDemo: DivineBlood = {
       "name": "小麦",
       "count": 9,
       "points": {
-        "health": 1
+        "health": 3
       }
     },
     {
@@ -170,7 +170,7 @@ export const divineDemo: DivineBlood = {
       "name": "红山花",
       "count": 20,
       "points": {
-        "magicka": 1
+        "magicka": 4
       }
     },
     {
@@ -178,7 +178,7 @@ export const divineDemo: DivineBlood = {
       "name": "紫山花",
       "count": 20,
       "points": {
-        "stamina": 1
+        "stamina": 4
       }
     }
   ]

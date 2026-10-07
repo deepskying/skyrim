@@ -7,9 +7,11 @@ from mathutils import Vector
 from paths import ROOT,BUILD
 from geometric_selected import KEYS,REMAINING,LABELS,VERSION
 round03='--geometric-round03' in sys.argv
-redesign08='--five-arrow-redesign' in sys.argv
+shock09='--shock-redesign' in sys.argv
+redesign08='--five-arrow-redesign' in sys.argv or shock09
 if round03:from geometric_round03 import KEYS,REMAINING,LABELS,VERSION
-if redesign08:from five_arrow_redesign import KEYS,REMAINING,LABELS,VERSION,STAGE,ART as REDESIGN_ART
+if shock09:from shock_arrow_redesign import KEYS,REMAINING,LABELS,VERSION,STAGE,ART as REDESIGN_ART
+elif redesign08:from five_arrow_redesign import KEYS,REMAINING,LABELS,VERSION,STAGE,ART as REDESIGN_ART
 from nif_blocks import NifBlocks
 from pyn.pynifly import NifFile
 remaining='--remaining' in sys.argv
@@ -64,14 +66,14 @@ def render(clay=False,side=False):
     scene.render.resolution_x=3000 if full else 2200
     scene.render.resolution_y=2800 if full else 1800;scene.render.resolution_percentage=100
     if round03:scene.render.resolution_x=2800;scene.render.resolution_y=2200
-    if redesign08:scene.render.resolution_x=2600;scene.render.resolution_y=1800
+    if redesign08:scene.render.resolution_x=1600 if shock09 else 2600;scene.render.resolution_y=1800
     scene.world=bpy.data.worlds.new('Studio');scene.world.color=(.006,.009,.015)
     scene.view_settings.view_transform='Standard';scene.view_settings.look='None'
     for index,key in enumerate(KEYS):
         columns=3 if full else 2
         col=index%columns;row=index//columns
         ox=(-57 if full else -37)+col*39;oy=(34-row*25) if full else (20-row*23)
-        if redesign08:ox=-44+index*22;oy=-9
+        if redesign08:ox=0 if shock09 else -44+index*22;oy=-9
         label(LABELS.get(key,'嗜血箭 · 尺寸基准'),(ox-9 if redesign08 else ox,29 if redesign08 else oy+8,6),.95 if redesign08 else 1.35)
         path=DATA/'meshes/magicarrows'/f'{key}_flight.nif'
         if key=='blood':path=Path(json.loads((BUILD/'arrow-scale-before.json').read_text(encoding='utf-8'))['blood']['path'])
@@ -131,7 +133,7 @@ def render(clay=False,side=False):
     if redesign08:cam.location=(0,-3,150);cam.rotation_euler=(0,0,0)
     camdata.type='ORTHO';camdata.ortho_scale=132 if full else 88;scene.camera=cam
     if round03:camdata.ortho_scale=132
-    if redesign08:camdata.ortho_scale=122
+    if redesign08:camdata.ortho_scale=80 if shock09 else 122
     scene.use_nodes=True;nodes=scene.node_tree.nodes;nodes.clear();layers=nodes.new('CompositorNodeRLayers')
     out=nodes.new('CompositorNodeComposite')
     if clay:scene.node_tree.links.new(layers.outputs['Image'],out.inputs[0])

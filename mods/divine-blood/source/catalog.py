@@ -4,10 +4,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = 'The Blood of Divines.esp'
 # key, deity, local ALCH ID, MGEF ID, stat label, matching beneficial actor values
 ROWS = [
- ('health','玛拉',0x800,0x801,'生命上限 +1',[24]),
- ('magicka','朱莉安诺斯',0x802,0x80A,'魔力上限 +1',[25]),
- ('stamina','海尔辛',0x803,0x809,'体力上限 +1',[26]),
- ('carry_weight','泽尼萨尔',0xD74,0x80B,'负重上限 +1',[32]),
+ ('health','玛拉',0x800,0x801,'生命上限 +5',[24]),
+ ('magicka','朱莉安诺斯',0x802,0x80A,'魔力上限 +5',[25]),
+ ('stamina','海尔辛',0x803,0x809,'体力上限 +5',[26]),
+ ('carry_weight','泽尼萨尔',0xD74,0x80B,'负重上限 +5',[32]),
  ('health_rec','斯丹达尔',0xD75,0xD76,'生命恢复 +0.01',[27,155]),
  ('magicka_rec','玛格努斯',0xD77,0xD78,'魔力恢复 +0.01',[28,156]),
  ('stamina_rec','塔洛斯',0xD79,0xD7A,'体力恢复 +0.01',[29,157]),

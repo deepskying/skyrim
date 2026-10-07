@@ -12,13 +12,15 @@ pure='--pure-geometry' in sys.argv
 flow='--luminous-v4' in sys.argv
 faithful='--faithful-samples' in sys.argv
 round03='--geometric-round03' in sys.argv
-redesign08='--five-arrow-redesign' in sys.argv
+shock09='--shock-redesign' in sys.argv
+redesign08='--five-arrow-redesign' in sys.argv or shock09
 selected='--geometric-selected' in sys.argv or round03
 precision='--precision-samples' in sys.argv or pure or flow or faithful or selected or redesign08
 if precision:
     DATA=BUILD/('geometric-selected-05/data' if selected else 'faithful-samples-01/data' if faithful else 'luminous-v4/data' if flow else 'pure-geometry-02/data' if pure else 'precision-samples-01/data');MESH=DATA/'meshes/magicarrows'
     if redesign08:
-        from five_arrow_redesign import generate as redesigned,STAGE,KEYS
+        if shock09:from shock_arrow_redesign import generate as redesigned,STAGE,KEYS
+        else:from five_arrow_redesign import generate as redesigned,STAGE,KEYS
         DATA=BUILD/STAGE;MESH=DATA/'meshes/magicarrows'
     elif round03:
         DATA=BUILD/'geometric-round03/data';MESH=DATA/'meshes/magicarrows'
@@ -114,7 +116,7 @@ if '--models-only' not in sys.argv:
             ref(items[12][0],b'WEAP');ref(items[13][0],b'AMMO')
     checks.append('ESP-FE 1.7/44, unique IDs, complete typed references, twelve visual-only explosions, fireball explosion-enchantment chain, chest contents')
 
-assert len(list(MESH.glob('*.nif')))==(10 if redesign08 else 18 if round03 else 22 if selected else 18 if flow else 4 if precision else 36)
+assert len(list(MESH.glob('*.nif')))==(2 if shock09 else 10 if redesign08 else 18 if round03 else 22 if selected else 18 if flow else 4 if precision else 36)
 if redesign08:
     assert {p.name for p in MESH.glob('*.nif')}=={key+suffix+'.nif' for key in KEYS for suffix in ('','_flight')}
 summaries=[]
@@ -233,6 +235,6 @@ checks.append('Every arrow surface uses OWN_EMIT effect shader with power >= 1.3
 report=dict(passed=True,checks=checks,files=summaries,in_game_tested=False)
 if redesign08:
     report['design_checks']=design_checks
-    report['checks'].append('Five redesigned arrows match approved blood scale; solid categories are closed with consistent outward winding; poison gap, holy halo and arcane tail openings are preserved')
-(BUILD/('verification-redesign08.json' if redesign08 else 'verification-geometric-round03.json' if round03 else 'verification-geometric05.json' if selected else 'verification-faithful01.json' if faithful else 'verification-v4.json' if flow else 'verification-pure02.json' if pure else 'verification-precision01.json' if precision else 'verification-models.json' if '--models-only' in sys.argv else 'verification.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
+    report['checks'].append('Lightning redesign matches approved blood scale; closed solids, outward winding, notched crystal, steel clamps and triangular tail solids verified' if shock09 else 'Five redesigned arrows match approved blood scale; solid categories are closed with consistent outward winding; poison gap, holy halo and arcane tail openings are preserved')
+(BUILD/('verification-shock09.json' if shock09 else 'verification-redesign08.json' if redesign08 else 'verification-geometric-round03.json' if round03 else 'verification-geometric05.json' if selected else 'verification-faithful01.json' if faithful else 'verification-v4.json' if flow else 'verification-pure02.json' if pure else 'verification-precision01.json' if precision else 'verification-models.json' if '--models-only' in sys.argv else 'verification.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
 print(json.dumps(report,indent=2))

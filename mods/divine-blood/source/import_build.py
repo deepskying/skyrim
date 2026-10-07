@@ -21,7 +21,7 @@ def main():
             row=next((row for row in rows if row['effect']==r['form']&0xffffff),None)
             if row:r['data']=b''.join(sub(k,('永久'+row['gain']+'。').encode()+b'\0' if k==b'DNAM' else v) for k,v in subrecords(r['data']))
         elif r['sig']==b'MESG':
-            r['data']=b''.join(sub(k,v.replace(b'10',b'1') if k==b'DESC' else v) for k,v in subrecords(r['data']))
+            r['data']=b''.join(sub(k,v.replace(b'10',b'5') if k==b'DESC' else v) for k,v in subrecords(r['data']))
     for row in rows:
         r=next(r for r in recs if r['sig']==b'ALCH' and r['form']&0xffffff==row['form'])
         row['editorID']=edid(r)
@@ -37,7 +37,7 @@ def main():
     web=ROOT.parent/'durability-manager/web/src/arrows/divine-demo.ts'
     web.write_text("import type { DivineBlood } from './types';\nexport const divineDemo: DivineBlood = "+json.dumps(dict(available=True,epoch=1,
         cards=[dict(key=r['key'],name=r['name'],gain=r['gain'],absorbed=0,owned=0,soulCost=10,alchemyCost=10) for r in rows],
-        materials=[dict(id=1001,name='蓝山花',count=18,points={'health':1}),dict(id=1002,name='小麦',count=9,points={'health':1}),dict(id=1003,name='红山花',count=20,points={'magicka':1}),dict(id=1004,name='紫山花',count=20,points={'stamina':1})]),ensure_ascii=False,indent=2)+';\n',encoding='utf-8')
+        materials=[dict(id=1001,name='蓝山花',count=18,points={'health':5}),dict(id=1002,name='小麦',count=9,points={'health':3}),dict(id=1003,name='红山花',count=20,points={'magicka':4}),dict(id=1004,name='紫山花',count=20,points={'stamina':4})]),ensure_ascii=False,indent=2)+';\n',encoding='utf-8')
     native=ROOT/'native/src';native.mkdir(parents=True,exist_ok=True)
     declarations=[]
     for row in rows:
@@ -49,7 +49,7 @@ def main():
         'inline constexpr std::array<Recipe,16> recipes{{\n'+'\n'.join(declarations)+'\n}};\n}\n',encoding='utf-8')
     ini=data/'SKSE/Plugins/DivineBlood.ini';ini.parent.mkdir(parents=True,exist_ok=True)
     if not ini.exists():ini.write_text('; Costs grow by 10% for every 10 absorbed units of the same blood.\n'
-        '; Ingredient points are independent of Alchemy skill.\n'+''.join(
+        '; PointsPerIngredient scales matching effect magnitude and duration, independent of player skill.\n'+''.join(
         f'\n[{r["key"]}]\nSoulCost=10\nAlchemyCost=10\nPointsPerIngredient=1\n' for r in rows),encoding='ascii')
     # Separate file keeps the original probabilities, including Zenithar's 10%.
     (data/'DivineBlood_DISTR.ini').write_text('; Preserved legacy SPID rules; remove the old divine block before enabling this file.\n'+

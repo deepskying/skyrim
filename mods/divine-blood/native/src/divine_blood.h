@@ -14,11 +14,18 @@ inline constexpr std::uint32_t record=0x44424C44;
 inline RE::AlchemyItem* Item(std::size_t index){auto* data=RE::TESDataHandler::GetSingleton();return data?data->LookupForm<RE::AlchemyItem>(recipes[index].form,"The Blood of Divines.esp"):nullptr;}
 inline int Units(RE::IngredientItem* item,std::size_t index){
     if(!item)return 0;
+    int strongest=0;
     for(auto* e:item->effects){auto* effect=e?e->baseEffect:nullptr;
         if(!effect||effect->data.flags.any(RE::EffectSetting::EffectSettingData::Flag::kDetrimental))continue;
-        for(int av:recipes[index].actorValues)if(av>=0&&(static_cast<int>(effect->data.primaryAV)==av||static_cast<int>(effect->data.secondaryAV)==av))return prices[index].units;
-    }return 0;
+        bool matches=false;
+        for(int av:recipes[index].actorValues)if(av>=0&&(static_cast<int>(effect->data.primaryAV)==av||static_cast<int>(effect->data.secondaryAV)==av))matches=true;
+        if(!matches)continue;
+        const auto flags=effect->data.flags;
+        const auto duration=flags.any(RE::EffectSetting::EffectSettingData::Flag::kNoDuration)?0:e->effectItem.duration;
+        strongest=std::max(strongest,divine_blood_rules::IngredientPoints(e->effectItem.magnitude,duration,prices[index].units,flags.any(RE::EffectSetting::EffectSettingData::Flag::kNoMagnitude)));
+    }return strongest;
 }
+
 inline json State(RE::PlayerCharacter* player,bool inventory){
     json cards=json::array(),materials=json::array();bool installed=true;
     for(std::size_t i=0;i<recipes.size();++i){const auto& r=recipes[i];auto* item=Item(i);installed&=item!=nullptr;
@@ -55,6 +62,7 @@ inline int Craft(RE::PlayerCharacter* player,const json& q){
         const auto count=row.at("count").get<std::int64_t>();
         auto* item=RE::TESForm::LookupByID<RE::IngredientItem>(id);auto it=inventory.find(item);const int units=Units(item,index);
         if(!seen.insert(id).second||count<=0||count>INT_MAX||units<=0||it==inventory.end()||!it->second.second||it->second.second->IsQuestObject()||it->second.first<count)throw std::runtime_error("材料不足、受任务保护或不适用于当前神血");
+        if(!row.contains("pointsPerItem")||row.at("pointsPerItem")!=units)throw std::runtime_error("材料填充点数已变化，请刷新后重新确认");
         points+=count*units;if(points>soul_pool::Capacity())throw std::runtime_error("所选材料超出炼金池容量");
         selected.push_back({item,static_cast<int>(count),it->second.first});
     }

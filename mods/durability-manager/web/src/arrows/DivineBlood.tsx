@@ -56,7 +56,7 @@ export function DivineBloodPage({ state, action, active }: { state: ArrowState; 
     busy.current = true;
     const requestID = nextArrowRequest(); setPending(requestID);
     action('divineCraft', { requestID, epoch: blood.epoch, key, alchemyCost: card.alchemyCost, soulCost: card.soulCost, output,
-      materials: materials.filter(m => (selected[m.id] ?? 0) > 0).map(m => ({ id:m.id, count:selected[m.id] })) });
+      materials: materials.filter(m => (selected[m.id] ?? 0) > 0).map(m => ({ id:m.id, count:selected[m.id], pointsPerItem:m.points[key] })) });
   }
   return <section className="arrows-page divine-page" hidden={!active}>
     {!blood?.available && <p className="arrow-status">神血插件或灵魂池尚未就绪，请启用模组并重新读档。</p>}
@@ -82,7 +82,7 @@ export function DivineBloodPage({ state, action, active }: { state: ArrowState; 
         {!soul?.deposit.length && <p className="arrow-muted">背包中没有可存入的充满灵魂石。</p>}
       </section>
       <section className="arrow-card divine-alchemy-materials"><header><div><small>ALCHEMY OFFERINGS</small><h2>炼金材料</h2></div><span className="divine-material-symbol">▽</span></header>
-        <p className="arrow-muted">当前仅选择材料；切换神血或退出会清空选择，炼制成功才消耗。</p>
+        <p className="arrow-muted">点数按材料对应效果的强度换算。当前仅选择材料；切换神血或退出会清空选择，炼制成功才消耗。</p>
         {key === 'shout_rec' && <p className="arrow-muted">接受龙吼冷却、魔力恢复材料。</p>}{key === 'speed_mult' && <p className="arrow-muted">接受移动速度、体力材料。</p>}{key === 'damage_resist' && <p className="arrow-muted">接受护甲、格挡材料。</p>}
         <div className="divine-materials">{materials.map(m => <label key={m.id}><span>{m.name}<small className="divine-material-badges"><span>持有 {m.count}</span><span>每个 +{m.points[key]} 点</span></small></span><input type="number" min={0} max={Math.min(m.count,Math.floor((capacity-points+(selected[m.id] ?? 0)*m.points[key])/m.points[key]))} step={1} disabled={!!pending} value={selected[m.id] ?? 0} aria-label={`${m.name}数量`} onChange={e => {const max=Math.max(0,Math.min(m.count,Math.floor((capacity-points+(selected[m.id] ?? 0)*m.points[key])/m.points[key])));const count=Math.min(max,Math.max(0,Math.floor(Number(e.target.value)||0)));setSelected(s=>({...s,[m.id]:count}));}} /></label>)}</div>
         {!materials.length && <p className="arrow-muted">没有适用于当前神血的炼金材料。</p>}

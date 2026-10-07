@@ -15,7 +15,7 @@ def main():
         script+=f'    {"If" if i==0 else "ElseIf"} increase_attr == "{key}"\n'
         if key=='shout_rec':
             script+='        Float cooldown = player.GetActorValue("ShoutRecoveryMult")\n        Float delta = 0.0001\n        If cooldown <= 0\n            Return\n        ElseIf cooldown < delta\n            delta = cooldown\n        EndIf\n        player.ModActorValue("ShoutRecoveryMult", -delta)\n'
-        else:script+=f'        player.ModActorValue("{av}", {1 if i<4 else 0.01})\n'
+        else:script+=f'        player.ModActorValue("{av}", {5 if i<4 else 0.01})\n'
         notification=''.join(f'&#{ord(c)};' if ord(c)>127 else c for c in gain)
         script+=f'        Debug.Notification("{notification}")\n'
     script+='    Else\n        Return\n    EndIf\n    player.SendModEvent("DivineBloodAbsorbed", increase_attr, 1.0)\nEndEvent\n'

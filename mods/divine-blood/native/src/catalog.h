@@ -3,10 +3,10 @@
 namespace divine_blood {
 struct Recipe {const char* key;const char* name;const char* gain;unsigned form;std::array<int,3> actorValues;};
 inline constexpr std::array<Recipe,16> recipes{{
-    Recipe{"health", "玛拉之血", "生命上限 +1", 0x800, {24,-1,-1}},
-    Recipe{"magicka", "朱莉安诺斯之血", "魔力上限 +1", 0x802, {25,-1,-1}},
-    Recipe{"stamina", "海尔辛之血", "体力上限 +1", 0x803, {26,-1,-1}},
-    Recipe{"carry_weight", "泽尼萨尔之血", "负重上限 +1", 0xD74, {32,-1,-1}},
+    Recipe{"health", "玛拉之血", "生命上限 +5", 0x800, {24,-1,-1}},
+    Recipe{"magicka", "朱莉安诺斯之血", "魔力上限 +5", 0x802, {25,-1,-1}},
+    Recipe{"stamina", "海尔辛之血", "体力上限 +5", 0x803, {26,-1,-1}},
+    Recipe{"carry_weight", "泽尼萨尔之血", "负重上限 +5", 0xD74, {32,-1,-1}},
     Recipe{"health_rec", "斯丹达尔之血", "生命恢复 +0.01", 0xD75, {27,155,-1}},
     Recipe{"magicka_rec", "玛格努斯之血", "魔力恢复 +0.01", 0xD77, {28,156,-1}},
     Recipe{"stamina_rec", "塔洛斯之血", "体力恢复 +0.01", 0xD79, {29,157,-1}},
